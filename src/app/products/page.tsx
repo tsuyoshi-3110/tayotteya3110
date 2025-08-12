@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "サービス一覧｜おそうじ処 たよって屋",
     description:
       "おそうじ処 たよって屋のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載し、自由に編集できます。",
-    url: "https://tayotteya.com/products", // 本番URLに差し替え
+    url: "https://tayotteya.shop/products", // 本番URLに差し替え
     siteName: "おそうじ処 たよって屋",
     images: [
       {

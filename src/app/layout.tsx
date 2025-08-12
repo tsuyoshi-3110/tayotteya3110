@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
     description:
       "大阪・兵庫エリアでハウスクリーニング／家事代行／整理収納を提供。水回りやリビングの徹底清掃、定期清掃までお任せください。",
-    url: "https://tayotteya.com/",
+    url: "https://tayotteya.shop/",
     siteName: "おそうじ処 たよって屋",
     images: [
       {
@@ -90,8 +90,8 @@ export default function RootLayout({
             "@context": "https://schema.org",
             "@type": "CleaningService",
             name: "おそうじ処 たよって屋",
-            url: "https://tayotteya.com/",
-            image: "https://tayotteya.com/ogp.png",
+            url: "https://tayotteya.shop/",
+            image: "https://tayotteya.shop/ogp.png",
             description:
               "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。",
             areaServed: [

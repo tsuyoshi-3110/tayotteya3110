@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: "店舗一覧｜おそうじ処 たよって屋",
     description:
       "おそうじ処 たよって屋の各店舗情報。地域ごとのサービス対応エリア、店舗紹介、連絡先を掲載しています。",
-    url: "https://tayotteya.com/stores", // 本番URLに置き換え
+    url: "https://tayotteya.shop/stores", // 本番URLに置き換え
     siteName: "おそうじ処 たよって屋",
     images: [
       {

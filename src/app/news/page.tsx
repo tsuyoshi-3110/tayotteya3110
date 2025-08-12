@@ -10,13 +10,13 @@ export const metadata: Metadata = {
     title: "お知らせ｜おそうじ処 たよって屋",
     description:
       "最新のお知らせやキャンペーン情報、営業時間・対応エリアの変更などを随時ご案内します。",
-    url: "https://tayotteya.com/news",
+    url: "https://tayotteya.shop/news",
     siteName: "おそうじ処 たよって屋",
     images: [{ url: "/ogp.png", width: 1200, height: 630 }],
     locale: "ja_JP",
     type: "website",
   },
-  alternates: { canonical: "https://tayotteya.com/news" },
+  alternates: { canonical: "https://tayotteya.shop/news" },
 };
 
 export default function NewsPage() {

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "私たちの想い｜おそうじ処 たよって屋",
     description:
       "大阪・兵庫エリアで、心を込めたハウスクリーニング・家事代行・整理収納サービスを提供。お客様の笑顔とゆとりある暮らしを第一に考えています。",
-    url: "https://tayotteya.com/about", // 本番URLに差し替え
+    url: "https://tayotteya.shop/about", // 本番URLに差し替え
     siteName: "おそうじ処 たよって屋",
     images: [
       {

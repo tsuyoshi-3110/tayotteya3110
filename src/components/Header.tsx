@@ -61,7 +61,7 @@ const SNS: {
   },
   {
     name: "homepage",
-    href: "https://tayotteya.com/",
+    href: "https://tayotteya.shop/",
     icon: () => (
       <Image
         src="/tayotteya_circle_image.png"
@@ -89,8 +89,6 @@ export default function Header({ className = "" }: HeaderProps) {
     });
     return () => unsubscribe();
   }, []);
-
-
 
   const gradientClass = gradient
     ? `bg-gradient-to-b ${gradient}`
@@ -127,7 +125,6 @@ export default function Header({ className = "" }: HeaderProps) {
         )}
         お掃除処たよって屋
       </Link>
-
 
       <nav className="flex gap-2 ml-auto mr-2">
         {SNS.map(({ name, href, icon: Icon }) => (
