@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     siteName: "おそうじ処 たよって屋",
     images: [
       {
-        url: "/ogp.jpg",
+        url: "/ogp.png",
         width: 1200,
         height: 630,
       },
