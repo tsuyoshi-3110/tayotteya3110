@@ -24,8 +24,9 @@ import {
   ref,
   UploadTask,
 } from "firebase/storage";
-import Image from "next/image";
+
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import ProductMedia from "@/components/ProductMedia";
 
 type MenuItem = {
   id: string;
@@ -396,131 +397,48 @@ export default function MenuSectionCard({
     }
   };
 
-  function AutoPlayVideo({
-    src,
-    className,
-    threshold = 0.6, // 60%以上見えたら再生
-    loop = true,
-  }: {
-    src: string;
-    className?: string;
-    threshold?: number;
-    loop?: boolean;
-  }) {
-    const refV = useRef<HTMLVideoElement | null>(null);
 
-    useEffect(() => {
-      const el = refV.current;
-      if (!el) return;
 
-      // iOS 対策：ミュート + インライン再生必須
-      el.muted = true;
-      el.setAttribute("muted", "");
-      el.playsInline = true;
-      el.setAttribute("playsinline", "");
-      el.setAttribute("webkit-playsinline", "");
+ const mediaNode = useMemo(() => {
+  if (!section.mediaUrl || !section.mediaType) return null;
 
-      const observer = new IntersectionObserver(
-        async ([entry]) => {
-          if (!el) return;
-          if (entry.isIntersecting) {
-            try {
-              await el.play();
-            } catch {
-              // 自動再生が拒否された場合は無視（ユーザー操作で再生可能）
-            }
-          } else {
-            el.pause();
-          }
-        },
-        { threshold }
-      );
-
-      observer.observe(el);
-      return () => {
-        observer.disconnect();
-        el.pause();
-      };
-    }, [threshold]);
-
-    return (
-      <video
-        ref={refV}
-        src={src}
-        autoPlay
-        muted
-        playsInline
-        preload="metadata"
-        loop={loop}
-        controls={false}
-        className={className}
-      />
-    );
-  }
-
-  const mediaNode = useMemo(() => {
-    if (!section.mediaUrl || !section.mediaType) return null;
-    const isPortrait = section.orientation === "portrait";
-
-    if (section.mediaType === "image") {
-      return (
-        <div
-          className={`relative w-full ${
-            isPortrait ? "h-[480px]" : "h-48 md:h-60"
-          } mb-3`}
-        >
-          <Image
-            src={section.mediaUrl}
-            alt={`${section.title} セクション画像`}
-            fill
-            className={`${
-              isPortrait ? "object-contain" : "object-cover"
-            } rounded-lg`}
-            sizes="100vw"
-            unoptimized
-          />
-        </div>
-      );
-    }
-
-    return (
-      <AutoPlayVideo
-        src={section.mediaUrl}
-        className={`w-full rounded-lg mb-3 ${
-          isPortrait ? "max-h-[480px]" : ""
-        }`}
-        threshold={0.6}
-        loop={true}
-      />
-    );
-  }, [section.mediaUrl, section.mediaType, section.title, section.orientation]);
+  return (
+    <ProductMedia
+      src={section.mediaUrl}
+      type={section.mediaType} // "image" | "video"
+      className="mb-3 rounded-lg shadow-sm" // 見た目はお好みで
+      alt={`${section.title} のメディア`}
+      // autoPlay / loop / muted はデフォルト true（動画時）
+    />
+  );
+}, [section.mediaUrl, section.mediaType, section.title]);
 
   return (
     <>
       <div className="bg-white/30 backdrop-blur-sm shadow-md p-4 rounded mb-6">
+        {isLoggedIn && (
+          <div className="flex gap-2 flex-wrap mt-6 mb-6">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowEditSectionModal(true)}
+            >
+              ✎ セクション名/メディア
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleDeleteSection}
+            >
+              セクション削除
+            </Button>
+          </div>
+        )}
+
+        <h2 className="text-xl font-semibold">{section.title}</h2>
         {mediaNode}
 
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-semibold">{section.title}</h2>
-          {isLoggedIn && (
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowEditSectionModal(true)}
-              >
-                ✎ セクション名/メディア
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={handleDeleteSection}
-              >
-                セクション削除
-              </Button>
-            </div>
-          )}
-        </div>
+        <div className="flex-col justify-between items-center mb-2"></div>
 
         {items.map((item) => (
           <MenuItemCard

@@ -1,32 +1,53 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import {
   collection,
   query,
   where,
-  getDocs,
   orderBy,
   addDoc,
   updateDoc,
   doc,
+  onSnapshot,
+  writeBatch,
 } from "firebase/firestore";
 import MenuSectionCard from "@/components/MenuSectionCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import {
   getStorage,
   ref as storageRef,
   uploadBytesResumable,
   getDownloadURL,
+  type UploadTask,
 } from "firebase/storage";
 import Image from "next/image";
-import { UploadTask } from "firebase/storage";
 
+// DnD
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DraggableAttributes,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+
+/* =========================
+   型
+========================= */
 type Section = {
   id: string;
   title: string;
@@ -35,8 +56,53 @@ type Section = {
   mediaType?: "image" | "video" | null;
   mediaUrl?: string | null;
   durationSec?: number | null;
+  orientation?: "portrait" | "landscape" | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
 };
 
+type SortableChildArgs = {
+  attributes: DraggableAttributes;
+  listeners: ReturnType<typeof useSortable>["listeners"] | undefined;
+  isDragging: boolean;
+};
+
+type Props = {
+  id: string;
+  children: (args: SortableChildArgs) => React.ReactNode;
+};
+
+/* =========================
+   並び替え用アイテム（このファイル内に実装）
+========================= */
+function SortableSectionItem({ id, children }: Props) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    transition,
+    zIndex: isDragging ? 50 : "auto",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, isDragging })}
+    </div>
+  );
+}
+
+/* =========================
+   本体
+========================= */
 export default function MenuPage() {
   const [sections, setSections] = useState<Section[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -51,34 +117,53 @@ export default function MenuPage() {
   const [creating, setCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 進捗モーダル
   const [uploadPercent, setUploadPercent] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const uploadTaskRef = useRef<UploadTask | null>(null);
 
+  const [showHelp, setShowHelp] = useState(false);
+
+  // DnD センサー（クリック5px移動 or 長押しで開始）
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    })
+  );
+
+  /* 認証フラグ */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user));
     return () => unsub();
   }, []);
 
-  const fetchSections = async () => {
+  useEffect(() => {
+    if (!showHelp) return;
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setShowHelp(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showHelp]);
+
+  /* セクション購読（order 昇順） */
+  useEffect(() => {
     const q = query(
       collection(db, "menuSections"),
       where("siteKey", "==", SITE_KEY),
       orderBy("order", "asc")
     );
-    const snap = await getDocs(q);
-    const rows = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<Section, "id">),
-    }));
-    setSections(rows);
-  };
-
-  useEffect(() => {
-    fetchSections();
+    const unsub = onSnapshot(q, (snap) => {
+      const rows = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<Section, "id">),
+      }));
+      setSections(rows);
+    });
+    return () => unsub();
   }, []);
 
-  // ファイル選択
+  /* 追加モーダル：ファイル選択 */
   const pickMedia = () => fileInputRef.current?.click();
 
   const onPickFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
@@ -98,7 +183,6 @@ export default function MenuPage() {
       try {
         const { duration } = await getVideoMetaFromFile(file);
         if (duration > 31) {
-          // 31秒超は拒否
           alert(
             `動画は30秒以内にしてください。（選択：約${Math.round(
               duration
@@ -114,7 +198,6 @@ export default function MenuPage() {
       }
     }
 
-    // プレビュー表示などは従来どおり
     if (newMediaObjectUrl) URL.revokeObjectURL(newMediaObjectUrl);
     setNewMediaFile(file);
     setNewMediaObjectUrl(URL.createObjectURL(file));
@@ -123,32 +206,12 @@ export default function MenuPage() {
   const cancelUpload = () => {
     try {
       uploadTaskRef.current?.cancel();
-    } catch (e) {
-      console.warn(e);
     } finally {
       setUploadOpen(false);
     }
   };
 
-  async function getImageSize(
-    file: File
-  ): Promise<{ width: number; height: number }> {
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = document.createElement("img");
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        URL.revokeObjectURL(url);
-      };
-      img.onerror = () => {
-        reject(new Error("Failed to load image"));
-        URL.revokeObjectURL(url);
-      };
-      img.src = url;
-    });
-  }
-
-  // 追加（アップロード付き）
+  /* セクション追加（ストレージにアップロード→URL保存） */
   const handleAddSection = async () => {
     if (!newTitle.trim()) {
       alert("セクション名を入力してください");
@@ -181,7 +244,6 @@ export default function MenuPage() {
           return;
         }
 
-        // ▼ 動画は30秒制限（±1秒許容）
         let durationSec: number | null = null;
         let mediaWidth: number | null = null;
         let mediaHeight: number | null = null;
@@ -214,15 +276,15 @@ export default function MenuPage() {
         const path = `sections/${SITE_KEY}/${refDoc.id}/header.${ext}`;
         const sref = storageRef(getStorage(), path);
 
-        // ▼ 進捗モーダルON
+        // 進捗モーダルON
         setUploadPercent(0);
         setUploadOpen(true);
+
         const task = uploadBytesResumable(sref, newMediaFile, {
           contentType: newMediaFile.type,
         });
         uploadTaskRef.current = task;
 
-        // task を Promise 化して待つ（キャンセル/失敗も拾う）
         await new Promise<void>((resolve, reject) => {
           task.on(
             "state_changed",
@@ -247,7 +309,7 @@ export default function MenuPage() {
         });
       }
 
-      // 3) 後始末 & 再取得
+      // 3) 後始末（onSnapshot で自動反映される）
       setNewTitle("");
       setNewMediaFile(null);
       if (newMediaObjectUrl) {
@@ -255,10 +317,8 @@ export default function MenuPage() {
         setNewMediaObjectUrl(null);
       }
       setShowModal(false);
-      await fetchSections();
     } catch (e: any) {
       if (e?.code === "storage/canceled") {
-        // ユーザーがキャンセル
         console.info("upload canceled");
       } else {
         console.error(e);
@@ -271,50 +331,29 @@ export default function MenuPage() {
     }
   };
 
-  function UploadProgressModal({
-    open,
-    percent,
-    onCancel,
-    title = "アップロード中…",
-  }: {
-    open: boolean;
-    percent: number; // 0-100
-    onCancel: () => void;
-    title?: string;
-  }) {
-    if (!open) return null;
-    return (
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
-        <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl">
-          <h2 className="mb-3 text-lg font-semibold">{title}</h2>
-          <div className="mb-2 text-sm text-gray-600">
-            {Math.floor(percent)}%
-          </div>
-          <div className="h-2 w-full rounded bg-gray-200">
-            <div
-              className="h-2 rounded bg-blue-500 transition-[width]"
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded bg-red-500 px-3 py-1.5 text-white hover:bg-red-600"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  /* 並び替え確定（ドラッグ終了） */
+  const handleDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
 
-  const wrapperClass = `p-4 max-w-2xl mx-auto pt-20 ${
-    isLoggedIn ? "pb-20" : ""
-  }`;
+    const oldIndex = sections.findIndex((s) => s.id === String(active.id));
+    const newIndex = sections.findIndex((s) => s.id === String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
 
-  // 追加モーダル内のプレビュー
+    const newList = arrayMove(sections, oldIndex, newIndex);
+
+    // 楽観的更新（体感を速く）
+    setSections(newList);
+
+    // Firestore の order を一括更新
+    const batch = writeBatch(db);
+    newList.forEach((s, idx) => {
+      batch.update(doc(db, "menuSections", s.id), { order: idx });
+    });
+    await batch.commit();
+  };
+
+  /* 追加モーダル内のプレビュー */
   const previewNode = useMemo(() => {
     if (!newMediaFile || !newMediaObjectUrl) return null;
     if (newMediaFile.type.startsWith("image/")) {
@@ -342,6 +381,10 @@ export default function MenuPage() {
     );
   }, [newMediaFile, newMediaObjectUrl]);
 
+  const wrapperClass = `p-4 max-w-2xl mx-auto pt-20 ${
+    isLoggedIn ? "pb-20" : ""
+  }`;
+
   return (
     <div className="relative">
       <div className={wrapperClass}>
@@ -351,26 +394,68 @@ export default function MenuPage() {
           </Button>
         )}
 
-        {Array.isArray(sections) &&
-          sections.map((section) => (
-            <MenuSectionCard
-              key={section.id}
-              section={section}
-              isLoggedIn={isLoggedIn}
-              onTitleUpdate={(t) => {
-                setSections((prev) =>
-                  prev.map((s) =>
-                    s.id === section.id ? { ...s, title: t } : s
-                  )
-                );
-              }}
-              onDeleteSection={() => {
-                setSections((prev) => prev.filter((s) => s.id !== section.id));
-              }}
-            />
-          ))}
+        {/* 並び替えコンテナ */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={sections.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {sections.map((section) => (
+              <SortableSectionItem key={section.id} id={section.id}>
+                {({ attributes, listeners, isDragging }) => (
+                  <div className="relative">
+                    {isLoggedIn && (
+                      <div
+                        {...attributes}
+                        {...listeners}
+                        className="absolute left-1/2 -translate-x-1/2 -top-4 z-10 cursor-grab active:cursor-grabbing touch-none select-none"
+                        aria-label="ドラッグで並び替え"
+                        onTouchStart={(e) => e.preventDefault()} // スクロール誤爆防止（必要なら）
+                      >
+                        <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
+                          ≡
+                        </div>
+                      </div>
+                    )}
 
-        {/* ▼ 追加モーダル（画像/動画選択対応） */}
+                    <div className={isDragging ? "opacity-70" : ""}>
+                      <MenuSectionCard
+                        section={section}
+                        isLoggedIn={isLoggedIn}
+                        onTitleUpdate={(t) => {
+                          setSections((prev) =>
+                            prev.map((s) =>
+                              s.id === section.id ? { ...s, title: t } : s
+                            )
+                          );
+                        }}
+                        onDeleteSection={() => {
+                          setSections((prev) =>
+                            prev.filter((s) => s.id !== section.id)
+                          );
+                        }}
+                        // メディア変更などの即時反映
+                        onSectionPatch={(patch) => {
+                          setSections((prev) =>
+                            prev.map((s) =>
+                              s.id === section.id ? { ...s, ...patch } : s
+                            )
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </SortableSectionItem>
+            ))}
+          </SortableContext>
+        </DndContext>
+
+        {/* 追加モーダル（画像/動画選択対応・スクロール可） */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
@@ -438,6 +523,7 @@ export default function MenuPage() {
         )}
       </div>
 
+      {/* 進捗モーダル（アップロード中のみ） */}
       <UploadProgressModal
         open={uploadOpen}
         percent={uploadPercent}
@@ -446,21 +532,108 @@ export default function MenuPage() {
       />
 
       {isLoggedIn && (
-        <div className="fixed bottom-0 left-0 w-full z-50 bg-blue-50 border-t border-blue-200 text-sm text-blue-800 px-4 py-3 shadow-lg">
-          <div className="max-w-2xl mx-auto">
-            <div className="font-semibold mb-0.5">操作ヒント</div>
-            <div>
-              行は右にスワイプ 👉 <strong>編集</strong> ／ 左にスワイプ 👈{" "}
-              <strong>削除</strong> ができます。
+        <>
+          {/* ？フローティングボタン */}
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            aria-label="操作ヒントを表示"
+            className="fixed top-15 right-5 z-50 w-12 h-12 rounded-full bg-blue-600 text-white text-2xl leading-none flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95"
+          >
+            ?
+          </button>
+
+          {/* モーダル */}
+          {showHelp && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-white w-[90%] max-w-md rounded-lg shadow-xl p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-semibold">操作ヒント</h3>
+                  <button
+                    onClick={() => setShowHelp(false)}
+                    aria-label="閉じる"
+                    className="ml-3 text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 説明文 */}
+                <div className="space-y-3 text-sm text-blue-800">
+                  <div>
+                    <strong>1. 削除</strong>
+                    行を<strong>左にスライド</strong>
+                    すると削除ボタンが表示されます。 行を
+                    <strong>右にスライド</strong>
+                    すると編集ボタンが表示されます。
+                  </div>
+
+                  <div>
+                    <strong>2. 並び替え</strong>
+                    セクションや項目はドラッグ＆ドロップで順番を変更できます。
+                  </div>
+                  <div>
+                    <strong>3. メディア編集</strong>
+                    「✎
+                    セクション名/メディア」ボタンから画像や動画を追加・変更できます。
+                  </div>
+                  <div>
+                    <strong>4. 保存</strong>
+                    編集後は自動保存されます。保存が完了すると緑色の通知が表示されます。
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-/* ===== helpers ===== */
+/* =========================
+   進捗モーダル
+========================= */
+function UploadProgressModal({
+  open,
+  percent,
+  onCancel,
+  title = "アップロード中…",
+}: {
+  open: boolean;
+  percent: number; // 0-100
+  onCancel: () => void;
+  title?: string;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
+      <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl">
+        <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+        <div className="mb-2 text-sm text-gray-600">{Math.floor(percent)}%</div>
+        <div className="h-2 w-full rounded bg-gray-200">
+          <div
+            className="h-2 rounded bg-blue-500 transition-[width]"
+            style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+          />
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded bg-red-500 px-3 py-1.5 text-white hover:bg-red-600"
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   helpers
+========================= */
 function getExt(name: string) {
   const m = name.match(/\.([a-zA-Z0-9]+)$/);
   return m ? m[1].toLowerCase() : "";
@@ -490,5 +663,23 @@ export function getVideoMetaFromFile(
       URL.revokeObjectURL(url);
       reject(new Error("動画メタデータの取得に失敗しました"));
     };
+  });
+}
+
+async function getImageSize(
+  file: File
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = document.createElement("img");
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      reject(new Error("Failed to load image"));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
   });
 }

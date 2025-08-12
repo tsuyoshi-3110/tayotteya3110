@@ -110,7 +110,7 @@ export default function Header({ className = "" }: HeaderProps) {
       <Link
         href="/"
         className={clsx(
-          "text-xl font-bold flex items-center gap-2 py-2 hover:opacity-50",
+          "text-md font-bold flex items-center gap-2 py-2 hover:opacity-50",
           isLightBg ? "text-black" : "text-white"
         )}
       >
