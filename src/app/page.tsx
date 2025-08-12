@@ -41,13 +41,13 @@ export default function HomePage() {
         <TopFixedText />
 
         {/* ページタイトルとリード文 */}
-        <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6">
+        <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6 text-outline">
           おそうじ処 たよって屋
           <br />
           トップページ
         </h1>
 
-        <p className="max-w-3xl mx-auto text-center leading-relaxed">
+        <p className="max-w-3xl mx-auto text-center leading-relaxed text-outline">
           大阪府・兵庫県を中心に、ハウスクリーニング／家事代行／整理収納を提供しています。
           キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。
           ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。

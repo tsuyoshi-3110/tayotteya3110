@@ -29,10 +29,10 @@ export default function StoresPage() {
     <main className="px-4 py-16">
       {/* ページタイトル・説明文 */}
       <section className="max-w-4xl mx-auto text-center mb-12">
-        <h1 className="text-2xl lg:text-3xl font-extrabold mb-4 text-white/80">
+        <h1 className="text-2xl lg:text-3xl font-extrabold mb-4 text-white text-outline">
           おそうじ処 たよって屋 ─ 店舗一覧
         </h1>
-        <p className="leading-relaxed text-white/80">
+        <p className="leading-relaxed text-white text-outline">
           <strong>おそうじ処 たよって屋</strong> は
           <strong>大阪府・兵庫県</strong>を中心に
           ハウスクリーニング・家事代行・整理収納サービスを提供しています。
