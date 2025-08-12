@@ -45,6 +45,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 
+import { getExt, getVideoMetaFromFile, getImageSize } from "@/lib/media";
+
 /* =========================
    型
 ========================= */
@@ -582,6 +584,16 @@ export default function MenuPage() {
                     編集後は自動保存されます。保存が完了すると緑色の通知が表示されます。
                   </div>
                 </div>
+
+                {/* 閉じるボタン */}
+                <div className="mt-5 text-right">
+                  <button
+                    onClick={() => setShowHelp(false)}
+                    className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    OK
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -634,52 +646,3 @@ function UploadProgressModal({
 /* =========================
    helpers
 ========================= */
-function getExt(name: string) {
-  const m = name.match(/\.([a-zA-Z0-9]+)$/);
-  return m ? m[1].toLowerCase() : "";
-}
-
-export function getVideoMetaFromFile(
-  file: File
-): Promise<{ duration: number; width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.src = url;
-    v.onloadedmetadata = () => {
-      const meta = {
-        duration: v.duration,
-        width: v.videoWidth,
-        height: v.videoHeight,
-      };
-      URL.revokeObjectURL(url);
-      // 後始末
-      v.removeAttribute("src");
-      v.load();
-      resolve(meta);
-    };
-    v.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("動画メタデータの取得に失敗しました"));
-    };
-  });
-}
-
-async function getImageSize(
-  file: File
-): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = document.createElement("img");
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      reject(new Error("Failed to load image"));
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  });
-}
