@@ -43,8 +43,6 @@ export default function HomePage() {
         {/* ページタイトルとリード文 */}
         <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6 text-outline">
           おそうじ処 たよって屋
-          <br />
-          トップページ
         </h1>
 
         <p className="max-w-3xl mx-auto text-center leading-relaxed text-outline">
