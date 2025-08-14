@@ -65,7 +65,7 @@ const VIDEO_MIME_TYPES = [
   "video/3gpp",
   "video/3gpp2",
 ];
-const MAX_VIDEO_SEC = 30;
+const MAX_VIDEO_SEC = 60;
 
 export default function StaffClient() {
   const [list, setList] = useState<Product[]>([]);
