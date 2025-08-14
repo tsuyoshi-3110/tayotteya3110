@@ -7,6 +7,8 @@ import imageCompression from "browser-image-compression";
 import {
   collection,
   doc,
+  addDoc,
+  updateDoc,
   serverTimestamp,
   onSnapshot,
   CollectionReference,
@@ -17,7 +19,6 @@ import {
   orderBy,
   startAfter,
   getDocs,
-  setDoc,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -54,10 +55,21 @@ import ProductMedia from "./ProductMedia";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 type MediaType = "image" | "video";
-// 先頭付近の定数を修正
 const MAX_ITEMS = 20;
 const MAX_VIDEO_SEC = 60;
-const VIDEO_MIME_TYPES: string[] = ["video/mp4", "video/quicktime"]; // ← MP4/MOVに限定
+/** MIME リスト（← as const を外す）*/
+const VIDEO_MIME_TYPES: string[] = [
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/ogg",
+  "video/x-m4v",
+  "video/x-msvideo",
+  "video/x-ms-wmv",
+  "video/mpeg",
+  "video/3gpp",
+  "video/3gpp2",
+];
 const IMAGE_MIME_TYPES: string[] = [
   "image/jpeg",
   "image/png",
@@ -108,6 +120,11 @@ export default function ProductsClient() {
     () => collection(db, "siteProducts", SITE_KEY, "items"),
     []
   );
+
+  // const jaCollator = useMemo(
+  //   () => new Intl.Collator("ja-JP", { numeric: true, sensitivity: "base" }),
+  //   []
+  // );
 
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
@@ -184,45 +201,31 @@ export default function ProductsClient() {
     if (formMode === "add" && !file) return alert("メディアを選択してください");
 
     try {
-      // ドキュメントIDを固定（新規は uuid）
       const id = editing?.id ?? uuid();
-
       let mediaURL = editing?.mediaURL ?? "";
       let mediaType: MediaType = editing?.mediaType ?? "image";
+
+      if (formMode === "add" && !file)
+        return alert("メディアを選択してください");
 
       if (file) {
         const isVideo = file.type.startsWith("video/");
         mediaType = isVideo ? "video" : "image";
 
-        // 受付は画像（jpeg/png/webp/gif）か、動画（mp4/mov）のみ
-        const isValidImage = [
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-          "image/gif",
-        ].includes(file.type);
-        const isValidVideo =
-          file.type === "video/mp4" || file.type === "video/quicktime";
+        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type); // ✅広がった判定
+        const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
+
         if (!isValidImage && !isValidVideo) {
-          alert("対応形式：画像（JPEG/PNG/WEBP/GIF）／動画（MP4/MOV）");
+          alert("対応形式：画像（JPEG, PNG）／動画（MP4, MOV）");
           return;
         }
 
-        // 動画サイズ制限（100MB）
-        const MAX_VIDEO_MB = 100;
-        if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
-          alert(`動画は ${MAX_VIDEO_MB}MB 未満にしてください`);
-          return;
-        }
-
-        // 拡張子（動画は mp4/mov のみ）
         const ext = isVideo
           ? file.type === "video/quicktime"
             ? "mov"
             : "mp4"
           : "jpg";
 
-        // 画像は圧縮、動画はそのまま
         const uploadFile = isVideo
           ? file
           : await imageCompression(file, {
@@ -233,25 +236,14 @@ export default function ProductsClient() {
               initialQuality: 0.8,
             });
 
-        const storage = getStorage();
         const storageRef = ref(
-          storage,
+          getStorage(),
           `products/public/${SITE_KEY}/${id}.${ext}`
         );
 
-        // 動画には HLS 変換トリガーを付与
-        const metadata = isVideo
-          ? {
-              contentType: file.type,
-              customMetadata: {
-                transcode: "hls",
-                siteKey: SITE_KEY,
-                productId: id,
-              },
-            }
-          : { contentType: "image/jpeg" };
-
-        const task = uploadBytesResumable(storageRef, uploadFile, metadata);
+        const task = uploadBytesResumable(storageRef, uploadFile, {
+          contentType: isVideo ? file.type : "image/jpeg",
+        });
 
         setProgress(0);
         task.on("state_changed", (s) =>
@@ -260,18 +252,16 @@ export default function ProductsClient() {
         await task;
 
         const downloadURL = await getDownloadURL(storageRef);
-        if (!downloadURL) throw new Error("メディアURLの取得に失敗しました");
+        if (!downloadURL) throw new Error("画像URLの取得に失敗しました");
 
-        // 変換完了までは原本URLを保存（のちに CF が m3u8 に差し替え）
         mediaURL = `${downloadURL}?v=${uuid()}`;
         setProgress(null);
 
-        // 旧原本の拡張子が異なる場合は可能なら削除
         if (formMode === "edit" && editing) {
           const oldExt = editing.mediaType === "video" ? "mp4" : "jpg";
           if (oldExt !== ext) {
             await deleteObject(
-              ref(storage, `products/public/${SITE_KEY}/${id}.${oldExt}`)
+              ref(getStorage(), `products/public/${SITE_KEY}/${id}.${oldExt}`)
             ).catch(() => {});
           }
         }
@@ -282,10 +272,7 @@ export default function ProductsClient() {
         body: string;
         mediaURL: string;
         mediaType: "image" | "video";
-        status?: "processing" | "ready" | "error";
         originalFileName?: string;
-        createdAt?: any;
-        order?: number;
       };
 
       const payload: ProductPayload = {
@@ -293,29 +280,29 @@ export default function ProductsClient() {
         body,
         mediaURL,
         mediaType,
-        status: file && mediaType === "video" ? "processing" : "ready",
-        originalFileName: file?.name || editing?.originalFileName,
       };
 
+      const originalFileName = file?.name || editing?.originalFileName;
+      if (originalFileName) {
+        payload.originalFileName = originalFileName;
+      }
+
       if (formMode === "edit" && editing) {
-        // 既存ドキュメントをマージ更新（CF が updatedAt などを書くのでここでは不要）
-        await setDoc(doc(colRef, id), payload, { merge: true });
+        await updateDoc(doc(colRef, id), payload);
       } else {
-        // 先頭に置くため、最小 order を見て -1
-        const qMin = query(colRef, orderBy("order"), limit(1));
-        const snapMin = await getDocs(qMin);
-        const first = snapMin.docs[0];
+        // 最も小さいorderを取得して先頭にする
+        const q = query(colRef, orderBy("order"), limit(1));
+        const snap = await getDocs(q);
+        const first = snap.docs[0];
         const minOrder = first?.data()?.order ?? 0;
 
-        await setDoc(doc(colRef, id), {
+        await addDoc(colRef, {
           ...payload,
           createdAt: serverTimestamp(),
           order: minOrder - 1,
         });
       }
 
-      // HLS 生成完了後は Cloud Functions が mediaURL を m3u8 に差し替え
-      // この画面は onSnapshot で自動反映されます
       closeForm();
     } catch (e) {
       console.error(e);

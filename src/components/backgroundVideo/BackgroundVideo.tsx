@@ -22,7 +22,6 @@ import { RenderMedia } from "./RenderMedia";
 import AdminControls from "./AdminControls";
 import MediaEditModal from "./MediaEditModal";
 
-
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 const POSTER_EXT = ".jpg";
 
@@ -151,7 +150,7 @@ export default function BackgroundMedia() {
   const upload = async () => {
     if (!file) return;
 
-    const MAX_SIZE_MB = 200;
+    const MAX_SIZE_MB = 400;
     const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
     // ✅ 動画アップロード処理
