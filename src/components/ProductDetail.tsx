@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import clsx from "clsx";
@@ -14,17 +14,23 @@ import { type Product } from "@/types/Product";
 
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  deleteDoc,
+  updateDoc,
+  serverTimestamp,
+  onSnapshot,
+} from "firebase/firestore";
 import {
   getStorage,
   ref,
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
+  listAll,
 } from "firebase/storage";
 import { motion } from "framer-motion";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-
 
 type MediaType = "image" | "video";
 
@@ -44,32 +50,133 @@ export default function ProductDetail({ product }: { product: Product }) {
     return gradient && darks.some((k) => gradient === THEMES[k]);
   }, [gradient]);
 
-  /* ---------- 表示用データ ---------- */
-  /** ← これを state にして、保存後すぐ setDisplayProduct で更新 */
+  /* ---------- 表示用データ（リアルタイム購読） ---------- */
   const [displayProduct, setDisplayProduct] = useState<Product>(product);
+
+  useEffect(() => {
+    const prodRef = doc(db, "siteProducts", SITE_KEY, "items", product.id);
+    const unsub = onSnapshot(prodRef, (snap) => {
+      if (snap.exists()) {
+        setDisplayProduct((prev) => ({ ...prev, ...(snap.data() as Product) }));
+      }
+    });
+    return () => unsub();
+  }, [product.id]);
 
   /* ---------- 編集モーダル用 state ---------- */
   const [showEdit, setShowEdit] = useState(false);
   const [title, setTitle] = useState(product.title);
   const [body, setBody] = useState(product.body);
-  // const [price, setPrice] = useState<number | "">(product.price);
-  // const [taxIncluded, setTaxIncluded] = useState(product.taxIncluded);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const uploading = progress !== null;
 
-  /* ---------- ハンドラ ---------- */
+  /* ---------- HLS再生（常時ミュート自動再生） ---------- */
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<any | null>(null);
 
-  // 編集保存
+  useEffect(() => {
+    const video = videoRef.current;
+    if (
+      !video ||
+      displayProduct.mediaType !== "video" ||
+      !displayProduct.mediaURL
+    )
+      return;
+
+    const url = displayProduct.mediaURL;
+    const isM3U8 = /\.m3u8(\?|$)/i.test(url);
+
+    // 既存プレイヤーの完全停止（重複音・多重再生の防止）
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+      } catch {}
+      hlsRef.current = null;
+    }
+    try {
+      video.pause();
+    } catch {}
+    video.removeAttribute("src");
+    video.load();
+
+    // iOS/モバイル対策：プロパティ＆属性の両方を設定（常時ミュート）
+    video.muted = true;
+    video.setAttribute("muted", "");
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
+    const safePlay = () => {
+      video.play().catch(() => {
+        // 稀な失敗へのフォールバック
+        const onVisible = () => {
+          if (document.visibilityState === "visible") {
+            video.play().catch(() => {});
+            document.removeEventListener("visibilitychange", onVisible);
+          }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        setTimeout(() => video.play().catch(() => {}), 200);
+      });
+    };
+
+    let cancelled = false;
+
+    (async () => {
+      if (isM3U8) {
+        const { default: Hls } = await import("hls.js");
+        if (cancelled) return;
+
+        if (Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true, autoStartLoad: true });
+          hlsRef.current = hls;
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+          hls.on(Hls.Events.LEVEL_LOADED, () => safePlay());
+        } else {
+          // Safari はネイティブ再生
+          video.src = url;
+          video.addEventListener("loadedmetadata", () => safePlay(), {
+            once: true,
+          });
+          video.load();
+        }
+      } else {
+        // MP4/MOV 等
+        video.src = url;
+        video.addEventListener("loadedmetadata", () => safePlay(), {
+          once: true,
+        });
+        video.load();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch {}
+        hlsRef.current = null;
+      }
+      try {
+        video.pause();
+      } catch {}
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [displayProduct.mediaURL, displayProduct.mediaType]);
+
+  /* ---------- ハンドラ ---------- */
   const handleSave = async () => {
     if (!title.trim()) return alert("タイトル必須");
-    // if (price === "") return alert("価格を入力してください");
 
     try {
       let mediaURL = displayProduct.mediaURL;
       let mediaType: MediaType = displayProduct.mediaType;
 
-      /* 画像 / 動画を差し替える場合のみアップロード */
+      // 画像 / 動画を差し替える場合のみアップロード
       if (file) {
         const isVideo = file.type.startsWith("video/");
         mediaType = isVideo ? "video" : "image";
@@ -81,15 +188,16 @@ export default function ProductDetail({ product }: { product: Product }) {
         if (!isValidImage && !isValidVideo)
           return alert("対応形式：JPEG/PNG/MP4/MOV");
 
-        if (isVideo && file.size > 50 * 1024 * 1024)
-          return alert("動画は 50 MB 未満にしてください");
+        // 最大 100MB
+        if (isVideo && file.size > 100 * 1024 * 1024)
+          return alert("動画は 100MB 未満にしてください");
 
-        /* 圧縮（画像のみ） */
         const ext = isVideo
           ? file.type === "video/quicktime"
             ? "mov"
             : "mp4"
           : "jpg";
+
         const uploadFile = isVideo
           ? file
           : await imageCompression(file, {
@@ -100,14 +208,24 @@ export default function ProductDetail({ product }: { product: Product }) {
               initialQuality: 0.8,
             });
 
-        /* Storage へアップロード */
+        // Storage へアップロード（HLS 変換用メタデータ付与）
+        const storage = getStorage();
         const storageRef = ref(
-          getStorage(),
+          storage,
           `products/public/${SITE_KEY}/${product.id}.${ext}`
         );
-        const task = uploadBytesResumable(storageRef, uploadFile, {
-          contentType: isVideo ? file.type : "image/jpeg",
-        });
+        const metadata = isVideo
+          ? {
+              contentType: file.type,
+              customMetadata: {
+                transcode: "hls",
+                siteKey: SITE_KEY,
+                productId: product.id,
+              },
+            }
+          : { contentType: "image/jpeg" };
+
+        const task = uploadBytesResumable(storageRef, uploadFile, metadata);
 
         setProgress(0);
         task.on("state_changed", (s) =>
@@ -115,28 +233,23 @@ export default function ProductDetail({ product }: { product: Product }) {
         );
         await task;
 
+        // 一旦元動画URLを保存（CF 後で m3u8 に差し替え）
         mediaURL = `${await getDownloadURL(storageRef)}?v=${uuid()}`;
         setProgress(null);
       }
 
-      /* Firestore 更新 */
       await updateDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id), {
         title,
         body,
-        // price,
-        // taxIncluded,
         mediaURL,
         mediaType,
         updatedAt: serverTimestamp(),
       });
 
-      /* ★ ローカル表示も即更新 */
       setDisplayProduct((prev) => ({
         ...prev,
         title,
         body,
-        // price: typeof price === "number" ? price : 0,
-        // taxIncluded,
         mediaURL,
         mediaType,
       }));
@@ -149,16 +262,44 @@ export default function ProductDetail({ product }: { product: Product }) {
     }
   };
 
-  // 削除
+  // 削除（元動画・画像＋HLSディレクトリの掃除）
   const handleDelete = async () => {
     if (!confirm(`「${displayProduct.title}」を削除しますか？`)) return;
 
+    const storage = getStorage();
+    const basePath = `products/public/${SITE_KEY}/${product.id}`;
+    const jpgRef = ref(storage, `${basePath}.jpg`);
+    const mp4Ref = ref(storage, `${basePath}.mp4`);
+    const movRef = ref(storage, `${basePath}.mov`);
+    const hlsDirRef = ref(
+      storage,
+      `products/public/${SITE_KEY}/hls/${product.id}`
+    );
+
     await deleteDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id));
 
-    const ext = displayProduct.mediaType === "video" ? "mp4" : "jpg";
-    await deleteObject(
-      ref(getStorage(), `products/public/${SITE_KEY}/${product.id}.${ext}`)
-    ).catch(() => {});
+    await Promise.all([
+      deleteObject(jpgRef).catch(() => {}),
+      deleteObject(mp4Ref).catch(() => {}),
+      deleteObject(movRef).catch(() => {}),
+      (async () => {
+        const listing = await listAll(hlsDirRef).catch(() => null);
+        if (listing) {
+          await Promise.all(
+            listing.items.map((i) => deleteObject(i).catch(() => {}))
+          );
+          await Promise.all(
+            listing.prefixes.map(async (p) => {
+              const sub = await listAll(p).catch(() => null);
+              if (sub)
+                await Promise.all(
+                  sub.items.map((i) => deleteObject(i).catch(() => {}))
+                );
+            })
+          );
+        }
+      })(),
+    ]);
 
     router.back();
   };
@@ -212,13 +353,16 @@ export default function ProductDetail({ product }: { product: Product }) {
           </div>
         ) : (
           <video
-            src={displayProduct.mediaURL}
+            key={(displayProduct.mediaURL || "").replace(/[\?#].*$/, "")}
+            ref={videoRef}
+            autoPlay
             muted
             playsInline
-            autoPlay
             loop
+            controls={false}
             preload="auto"
             className="w-full aspect-square object-cover"
+            crossOrigin="anonymous"
           />
         )}
 
@@ -227,10 +371,6 @@ export default function ProductDetail({ product }: { product: Product }) {
           <h1 className={clsx("text-lg font-bold", isDark && "text-white")}>
             {displayProduct.title}
           </h1>
-          {/* <p className={clsx("font-semibold", isDark && "text-white")}>
-            ¥{displayProduct.price.toLocaleString()}（
-            {displayProduct.taxIncluded ? "税込" : "税抜"}）
-          </p> */}
           {displayProduct.body && (
             <p
               className={clsx(
@@ -258,37 +398,6 @@ export default function ProductDetail({ product }: { product: Product }) {
               className="w-full border px-3 py-2 rounded"
               disabled={uploading}
             />
-            {/* <input
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="価格 (円)"
-              value={price}
-              onChange={(e) =>
-                setPrice(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
-            /> */}
-
-            {/* <div className="flex gap-4">
-              <label>
-                <input
-                  type="radio"
-                  checked={taxIncluded}
-                  onChange={() => setTaxIncluded(true)}
-                />
-                税込
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  checked={!taxIncluded}
-                  onChange={() => setTaxIncluded(false)}
-                />
-                税抜
-              </label> */}
-            {/* </div> */}
 
             <textarea
               placeholder="紹介文"

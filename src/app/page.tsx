@@ -35,10 +35,13 @@ export default function HomePage() {
         <BackgroundVideo />
       </section>
 
+      <section className="relative h-screen overflow-hidden ">
+        <TopFixedText />
+      </section>
+
       {/* ② テキスト紹介セクション */}
       <section className="relative z-10 text-white px-4 py-20">
         {/* 編集可能な固定テキストコンポーネント */}
-        <TopFixedText />
 
         {/* ページタイトルとリード文 */}
         <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6 text-outline">

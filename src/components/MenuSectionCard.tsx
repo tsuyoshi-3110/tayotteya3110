@@ -235,9 +235,9 @@ export default function MenuSectionCard({
     try {
       if (isVideo) {
         const meta = await getVideoMetaFromFile(file); // duration / width / height
-        if (meta.duration > 31) {
+        if (meta.duration > 61) {
           alert(
-            `動画は30秒以内にしてください。（選択: 約${Math.round(
+            `動画は60秒以内にしてください。（選択: 約${Math.round(
               meta.duration
             )}秒）`
           );

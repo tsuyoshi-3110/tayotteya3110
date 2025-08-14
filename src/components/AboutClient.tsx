@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   doc,
   getDoc,
@@ -30,18 +30,19 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 const STORAGE_PATH = `sitePages/${SITE_KEY}/about`;
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_VIDEO = [
-  "video/mp4", // mp4
-  "video/webm", // webm
-  "video/ogg", // ogv, ogg
-  "video/quicktime", // mov
-  "video/x-m4v", // m4v
-  "video/x-msvideo", // avi
-  "video/x-ms-wmv", // wmv
-  "video/mpeg", // mpeg, mpg
-  "video/3gpp", // 3gp
-  "video/3gpp2", // 3g2
+  "video/mp4", // mp4（推奨）→ HLS 変換可
+  "video/quicktime", // mov（推奨）→ HLS 変換可
+  // 以下はアップロード可だが、Cloud Functions の変換対象外ならそのままMP4等として再生されます
+  "video/webm",
+  "video/ogg",
+  "video/x-m4v",
+  "video/x-msvideo",
+  "video/x-ms-wmv",
+  "video/mpeg",
+  "video/3gpp",
+  "video/3gpp2",
 ];
-const MAX_VIDEO_SEC = 60;
+const MAX_VIDEO_SEC = 120;
 
 /* ───────── 型 ───────── */
 type MediaType = "image" | "video" | undefined;
@@ -75,6 +76,7 @@ export default function AboutClient() {
   > | null>(null);
 
   const [contentFileName, setContentFileName] = useState<string | undefined>();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const nonEmptyKeywords = keywords.filter((k) => k.trim());
   const gradient = useThemeGradient();
@@ -82,6 +84,10 @@ export default function AboutClient() {
     () => doc(db, "sitePages", SITE_KEY, "pages", "about"),
     []
   );
+
+  // Video refs for HLS playback
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<any | null>(null);
 
   useEffect(() => {
     setMediaLoaded(false);
@@ -112,6 +118,158 @@ export default function AboutClient() {
     })();
   }, [docRef]);
 
+  /* ───────── HLS 再生制御（閲覧側）───────── */
+  useEffect(() => {
+    if (contentMediaType !== "video" || !contentMediaUrl) {
+      // 動画でない場合は後始末だけ
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch {}
+        hlsRef.current = null;
+      }
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    // 以前の再生を完全停止
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+      } catch {}
+      hlsRef.current = null;
+    }
+    try {
+      video.pause();
+    } catch {}
+    video.removeAttribute("src");
+    video.load();
+    setMediaLoaded(false);
+
+    // 自動再生できるように属性＆プロパティ両方セット（iOS対策）
+    video.muted = true;
+    video.setAttribute("muted", "");
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
+    const safePlay = () => {
+      video.play().catch(() => {
+        const onVisible = () => {
+          if (document.visibilityState === "visible") {
+            video.play().catch(() => {});
+            document.removeEventListener("visibilitychange", onVisible);
+          }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        setTimeout(() => video.play().catch(() => {}), 200);
+      });
+    };
+
+    const isHls = /\.m3u8(\?|$)/i.test(contentMediaUrl);
+    let cancelled = false;
+
+    (async () => {
+      if (isHls) {
+        // Safariはネイティブ、その他は hls.js
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = contentMediaUrl;
+          video.addEventListener(
+            "loadedmetadata",
+            () => {
+              setMediaLoaded(true);
+              safePlay();
+            },
+            { once: true }
+          );
+          video.load();
+        } else {
+          const { default: Hls } = await import("hls.js");
+          if (cancelled) return;
+
+          if (Hls.isSupported()) {
+            const hls = new Hls({
+              enableWorker: true,
+              capLevelToPlayerSize: true,
+              maxBufferLength: 10,
+              backBufferLength: 0,
+              lowLatencyMode: false,
+            });
+            hlsRef.current = hls;
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MEDIA_ATTACHED, () =>
+              hls.loadSource(contentMediaUrl)
+            );
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              setMediaLoaded(true);
+              safePlay();
+            });
+            hls.on(Hls.Events.ERROR, (_, data) => {
+              // 失敗時はフォールバック
+              if (data?.fatal) {
+                try {
+                  hls.destroy();
+                } catch {}
+                hlsRef.current = null;
+                video.src = contentMediaUrl;
+                video.addEventListener(
+                  "loadedmetadata",
+                  () => {
+                    setMediaLoaded(true);
+                    safePlay();
+                  },
+                  { once: true }
+                );
+                video.load();
+              }
+            });
+          } else {
+            // 古いブラウザ用フォールバック
+            video.src = contentMediaUrl;
+            video.addEventListener(
+              "loadedmetadata",
+              () => {
+                setMediaLoaded(true);
+                safePlay();
+              },
+              { once: true }
+            );
+            video.load();
+          }
+        }
+      } else {
+        // MP4/MOV 等の直再生
+        video.src = contentMediaUrl;
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            setMediaLoaded(true);
+            safePlay();
+          },
+          { once: true }
+        );
+        video.load();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.destroy();
+        } catch {}
+        hlsRef.current = null;
+      }
+      try {
+        video.pause();
+      } catch {}
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [contentMediaType, contentMediaUrl]);
+
   /* ───────── ファイル選択 ───────── */
   const handleSelectFile = (file: File) => {
     if (![...ALLOWED_IMG, ...ALLOWED_VIDEO].includes(file.type)) {
@@ -137,7 +295,7 @@ export default function AboutClient() {
     }
   };
 
-  /* ───────── 保存 ───────── */
+  /* ───────── 保存（アップロード & Firestore更新）───────── */
   const handleSave = useCallback(async () => {
     setSaving(true);
 
@@ -147,7 +305,7 @@ export default function AboutClient() {
         text: string;
         mediaUrl?: string;
         mediaType?: MediaType;
-        fileName?: string; // ←★ 追加
+        fileName?: string;
       } = { text: draftText };
 
       // ---------- ファイルがある場合 ----------
@@ -161,12 +319,29 @@ export default function AboutClient() {
           }
         }
 
-        // 新規アップロード（進捗・キャンセル対応）
-        const storageRef = ref(
-          getStorage(),
-          `${STORAGE_PATH}/${Date.now()}_${draftFile.name}`
+        const storage = getStorage();
+        const path = `${STORAGE_PATH}/${Date.now()}_${draftFile.name}`;
+        const sref = ref(storage, path);
+
+        // Cloud Functions 側のHLS変換をトリガー（mp4/mov のみ推奨）
+        const isMp4OrMov =
+          draftFile.type === "video/mp4" ||
+          draftFile.type === "video/quicktime";
+
+        const task = uploadBytesResumable(
+          sref,
+          draftFile,
+          isMp4OrMov
+            ? {
+                contentType: draftFile.type,
+                customMetadata: {
+                  transcode: "hls", // ← これでCFを起動（CF側が sitePages パスを許可している必要あり）
+                  siteKey: SITE_KEY,
+                  page: "about",
+                },
+              }
+            : { contentType: draftFile.type }
         );
-        const task = uploadBytesResumable(storageRef, draftFile);
 
         // UI 用 state に保持
         setUploadTask(task);
@@ -182,7 +357,7 @@ export default function AboutClient() {
               );
               setUploadProgress(pct);
             },
-            reject, // エラー発火
+            reject,
             async () => {
               const dUrl = await getDownloadURL(task.snapshot.ref);
               resolve(dUrl);
@@ -215,8 +390,8 @@ export default function AboutClient() {
       alert("保存に失敗しました");
     } finally {
       setSaving(false);
-      setUploadProgress(null); // ← バーを消す
-      setUploadTask(null); // ← タスク参照クリア
+      setUploadProgress(null);
+      setUploadTask(null);
     }
   }, [draftText, draftFile, contentMediaUrl, docRef, contentMediaType]);
 
@@ -226,26 +401,19 @@ export default function AboutClient() {
   /* ───────── JSX ───────── */
   return (
     <main className="relative max-w-3xl mx-auto px-4 py-10 ">
-      {/* ───── 背景 ───── */}
+      {/* ───── アップロード進捗 ───── */}
       {uploadProgress !== null && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-          {/* 背景を薄く暗くする場合は ↓ の div を有効化
-    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-    */}
           <div className="relative z-10 w-2/3 max-w-xs bg-white/90 rounded-xl shadow-xl p-4">
             <p className="text-center text-sm font-medium text-gray-800 mb-2">
               アップロード中… {uploadProgress}%
             </p>
-
-            {/* プログレスバー */}
             <div className="w-full h-3 bg-gray-200 rounded">
               <div
                 className="h-full bg-green-500 rounded transition-all duration-150"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
-
-            {/* キャンセルボタン */}
             {uploadTask?.snapshot.state === "running" && (
               <button
                 type="button"
@@ -258,6 +426,7 @@ export default function AboutClient() {
           </div>
         </div>
       )}
+
       <motion.div
         initial={{ opacity: 0, y: 10, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -266,7 +435,7 @@ export default function AboutClient() {
       >
         {contentMediaUrl && (
           <div className="relative w-full pt-[100%] bg-black/20 overflow-hidden">
-            {/* --------- Spinner Overlay --------- */}
+            {/* スピナー */}
             {!mediaLoaded && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                 <CardSpinner />
@@ -280,22 +449,27 @@ export default function AboutClient() {
                 fill
                 sizes="(max-width:768px) 100vw, 768px"
                 className="object-cover"
-                priority /* 任意 */
+                priority
                 onLoad={() => setMediaLoaded(true)}
               />
             ) : (
               <video
-                src={contentMediaUrl}
+                ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover"
+                // HLS時は src を useEffect 内で設定（Safari以外は hls.js）
                 muted
+                playsInline
                 autoPlay
                 loop
-                playsInline
-                onLoadedData={() => setMediaLoaded(true)}
+                controls={false}
+                preload="auto"
+                crossOrigin="anonymous"
+                // MP4直再生時は useEffect で src 設定&再生、loadedmetadata で mediaLoaded を true にします
               />
             )}
           </div>
         )}
+
         <div className="p-5">
           <motion.div
             key={contentText}
@@ -352,9 +526,8 @@ export default function AboutClient() {
                 <Textarea
                   rows={12}
                   value={draftText}
-                  onChange={(e) => setDraftText(e.target.value)} // ← これで常に state 更新
-                  className="min-h-40 bg-white/30 border-gray-200 text-black placeholder-gray-400
-               focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  onChange={(e) => setDraftText(e.target.value)}
+                  className="min-h-40 bg-white/30 border-gray-200 text-black placeholder-gray-400 focus-visible:ring-2 focus-visible:ring-indigo-500"
                   placeholder="ここに文章を入力..."
                 />
                 <div className="text-right text-xs text-gray-500">
@@ -364,23 +537,51 @@ export default function AboutClient() {
 
               {/* メディア選択 */}
               <section className="space-y-2">
-                <label className="font-medium">画像 / 動画 (60秒以内)</label>
-                {contentFileName && !previewURL && (
-                  <p className="text-xs ">
-                    現在のファイル:
-                    <span className="font-mono">{contentFileName}</span>
-                  </p>
-                )}
-                <input
-                  type="file"
-                  accept={[...ALLOWED_IMG, ...ALLOWED_VIDEO].join(",")}
-                  onChange={(e) =>
-                    e.target.files?.[0] && handleSelectFile(e.target.files[0])
-                  }
-                />
+               
+                {/* メディア選択（ボタン風） */}
+                <div className="space-y-2">
+                  <label className="font-medium">画像 / 動画 (60秒以内)</label>
+
+                  {/* 既存のファイル名表示（任意で残す） */}
+                  {contentFileName && !previewURL && (
+                    <p className="text-xs ">
+                      現在のファイル:{" "}
+                      <span className="font-mono">{contentFileName}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      {draftFile ? "別のファイルを選ぶ" : "画像/動画を選択"}
+                    </Button>
+
+                    {/* 選択中ファイル名を横に表示（任意） */}
+                    {(draftFile || previewURL) && (
+                      <span className="text-xs text-gray-600 truncate max-w-[12rem]">
+                        {draftFile?.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 本体の input は隠す */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={[...ALLOWED_IMG, ...ALLOWED_VIDEO].join(",")}
+                    onChange={(e) =>
+                      e.target.files?.[0] && handleSelectFile(e.target.files[0])
+                    }
+                    className="hidden"
+                  />
+                </div>
 
                 {/* ==== プレビュー表示 ==== */}
-                {previewURL ? (
+                {/* {previewURL ? (
                   <div className="relative aspect-video w-full bg-black/10 mt-2 rounded-lg overflow-hidden">
                     {draftFile && ALLOWED_VIDEO.includes(draftFile.type) ? (
                       <video
@@ -393,7 +594,7 @@ export default function AboutClient() {
                       <Image
                         src={previewURL}
                         alt="preview"
-                        fill /* ← width/height 代わり */
+                        fill
                         sizes="(max-width:768px) 100vw, 768px"
                         className="object-cover"
                       />
@@ -419,7 +620,7 @@ export default function AboutClient() {
                       </div>
                     )}
                   </div>
-                ) : null}
+                ) : null} */}
 
                 {/* ==== メディア削除ボタン ==== */}
                 {contentMediaUrl && (
@@ -436,7 +637,6 @@ export default function AboutClient() {
                         setContentMediaUrl(undefined);
                         setContentMediaType(undefined);
                         setContentFileName(undefined);
-                        // 選択中のファイルもリセット
                         setDraftFile(null);
                         setPreviewURL(null);
                       } catch {
@@ -482,7 +682,7 @@ export default function AboutClient() {
         )}
       </AnimatePresence>
 
-      {/* ───── AI生成モーダル (唯一) ───── */}
+      {/* ───── AI生成モーダル ───── */}
       <AnimatePresence>
         {showAIModal && (
           <motion.div
@@ -496,7 +696,6 @@ export default function AboutClient() {
               aria-hidden
               onClick={() => setShowAIModal(false)}
             />
-
             <motion.div
               role="dialog"
               aria-modal="true"
@@ -510,7 +709,6 @@ export default function AboutClient() {
               <p className="text-sm text-gray-500 text-center">
                 ・最低1個以上のキーワードを入力してください
               </p>
-
               <div className="flex flex-col gap-2">
                 {keywords.map((w, i) => (
                   <input
@@ -527,7 +725,6 @@ export default function AboutClient() {
                   />
                 ))}
               </div>
-
               <div className="min-h-6 text-xs text-gray-500">
                 {nonEmptyKeywords.length > 0 && (
                   <span>
@@ -538,7 +735,6 @@ export default function AboutClient() {
                   </span>
                 )}
               </div>
-
               <Button
                 className="bg-indigo-600 w-full disabled:opacity-50 hover:bg-indigo-700"
                 disabled={nonEmptyKeywords.length === 0 || aiLoading}
@@ -563,7 +759,6 @@ export default function AboutClient() {
               >
                 {aiLoading ? "生成中…" : "作成"}
               </Button>
-
               <Button
                 className="bg-gray-200 text-gray-900 w-full hover:bg-gray-300"
                 variant="outline"
