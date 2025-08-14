@@ -66,7 +66,6 @@ export default function AboutClient() {
   const [keywords, setKeywords] = useState(["", "", ""]);
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [mediaLoaded, setMediaLoaded] = useState(false);
 
   // 進捗 0-100、アップロードタスクを保持
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -84,10 +83,6 @@ export default function AboutClient() {
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    setMediaLoaded(false);
-  }, [contentMediaUrl, previewURL]);
 
   /* ───────── 認証監視 ───────── */
   useEffect(() => {
@@ -268,13 +263,6 @@ export default function AboutClient() {
       >
         {contentMediaUrl && (
           <div className="relative w-full pt-[100%] bg-black/20 overflow-hidden">
-            {/* --------- Spinner Overlay --------- */}
-            {!mediaLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                <CardSpinner />
-              </div>
-            )}
-
             {contentMediaType === "image" ? (
               <Image
                 src={contentMediaUrl}
@@ -283,7 +271,6 @@ export default function AboutClient() {
                 sizes="(max-width:768px) 100vw, 768px"
                 className="object-cover"
                 priority /* 任意 */
-                onLoad={() => setMediaLoaded(true)}
               />
             ) : (
               <video
@@ -293,7 +280,6 @@ export default function AboutClient() {
                 autoPlay
                 loop
                 playsInline
-                onLoadedData={() => setMediaLoaded(true)}
               />
             )}
           </div>
