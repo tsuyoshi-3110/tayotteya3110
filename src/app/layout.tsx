@@ -62,12 +62,7 @@ export default function RootLayout({
       `}
     >
       <head>
-        <link
-          rel="preload"
-          as="image"
-          href="/images/wallpaper/kamon.jpg"
-          type="image/webp"
-        />
+        <link rel="preload" as="image" href="/ogp.png" type="image/webp" />
         <meta name="theme-color" content="#ffffff" />
         {/* Google Search Console */}
       </head>
