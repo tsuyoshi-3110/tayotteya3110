@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   doc,
   getDoc,
@@ -82,6 +82,8 @@ export default function AboutClient() {
     () => doc(db, "sitePages", SITE_KEY, "pages", "about"),
     []
   );
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setMediaLoaded(false);
@@ -363,24 +365,52 @@ export default function AboutClient() {
               </div>
 
               {/* メディア選択 */}
+              {/* メディア選択 */}
               <section className="space-y-2">
-                <label className="font-medium">画像 / 動画 (60秒以内)</label>
-                {contentFileName && !previewURL && (
-                  <p className="text-xs ">
-                    現在のファイル:
-                    <span className="font-mono">{contentFileName}</span>
-                  </p>
-                )}
-                <input
-                  type="file"
-                  accept={[...ALLOWED_IMG, ...ALLOWED_VIDEO].join(",")}
-                  onChange={(e) =>
-                    e.target.files?.[0] && handleSelectFile(e.target.files[0])
-                  }
-                />
+                {/* メディア選択（ボタン風） */}
+                <div className="space-y-2">
+                  <label className="font-medium">画像 / 動画 (60秒以内)</label>
+
+                  {/* 既存のファイル名表示（任意で残す） */}
+                  {contentFileName && !previewURL && (
+                    <p className="text-xs ">
+                      現在のファイル:{" "}
+                      <span className="font-mono">{contentFileName}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={saving}
+                    >
+                      {draftFile ? "別のファイルを選ぶ" : "画像/動画を選択"}
+                    </Button>
+
+                    {/* 選択中ファイル名を横に表示（任意） */}
+                    {(draftFile || previewURL) && (
+                      <span className="text-xs text-gray-600 truncate max-w-[12rem]">
+                        {draftFile?.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 本体の input は隠す */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={[...ALLOWED_IMG, ...ALLOWED_VIDEO].join(",")}
+                    onChange={(e) =>
+                      e.target.files?.[0] && handleSelectFile(e.target.files[0])
+                    }
+                    className="hidden"
+                  />
+                </div>
 
                 {/* ==== プレビュー表示 ==== */}
-                {previewURL ? (
+                {/* {previewURL ? (
                   <div className="relative aspect-video w-full bg-black/10 mt-2 rounded-lg overflow-hidden">
                     {draftFile && ALLOWED_VIDEO.includes(draftFile.type) ? (
                       <video
@@ -393,7 +423,7 @@ export default function AboutClient() {
                       <Image
                         src={previewURL}
                         alt="preview"
-                        fill /* ← width/height 代わり */
+                        fill
                         sizes="(max-width:768px) 100vw, 768px"
                         className="object-cover"
                       />
@@ -419,7 +449,7 @@ export default function AboutClient() {
                       </div>
                     )}
                   </div>
-                ) : null}
+                ) : null} */}
 
                 {/* ==== メディア削除ボタン ==== */}
                 {contentMediaUrl && (
@@ -436,7 +466,6 @@ export default function AboutClient() {
                         setContentMediaUrl(undefined);
                         setContentMediaType(undefined);
                         setContentFileName(undefined);
-                        // 選択中のファイルもリセット
                         setDraftFile(null);
                         setPreviewURL(null);
                       } catch {
