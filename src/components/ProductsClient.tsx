@@ -380,7 +380,7 @@ export default function ProductsClient() {
           items={list.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
             {list.map((p) => {
               return (
                 <SortableItem key={p.id} product={p}>
