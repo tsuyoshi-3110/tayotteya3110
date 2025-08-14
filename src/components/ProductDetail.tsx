@@ -21,6 +21,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
+  listAll,
 } from "firebase/storage";
 import { motion } from "framer-motion";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
@@ -150,18 +151,42 @@ export default function ProductDetail({ product }: { product: Product }) {
   };
 
   // 削除
-  const handleDelete = async () => {
-    if (!confirm(`「${displayProduct.title}」を削除しますか？`)) return;
+ // 差し替え版 handleDelete
+const handleDelete = async () => {
+  if (!confirm(`「${displayProduct.title}」を削除しますか？`)) return;
 
-    await deleteDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id));
+  const storage = getStorage();
 
-    const ext = displayProduct.mediaType === "video" ? "mp4" : "jpg";
-    await deleteObject(
-      ref(getStorage(), `products/public/${SITE_KEY}/${product.id}.${ext}`)
-    ).catch(() => {});
+  // 1) Firestore ドキュメントを先に削除（UI から消える）
+  await deleteDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id)).catch(() => {});
 
-    router.back();
-  };
+  // 2) 元メディアを“実在するものだけ”削除
+  try {
+    // products/public/<SITE_KEY>/ 下を一覧して、<id>.xxx の実ファイルだけ消す
+    const folderRef = ref(storage, `products/public/${SITE_KEY}`);
+    const listing = await listAll(folderRef);
+    const mine = listing.items.filter((i) => i.name.startsWith(`${product.id}.`));
+    await Promise.all(mine.map((item) => deleteObject(item).catch(() => {})));
+  } catch {
+    /* 取得できなくても致命的ではないので握りつぶす */
+  }
+
+  // 3) HLS 配下（もしあれば）を再帰削除
+  try {
+    const walkAndDelete = async (dirRef: ReturnType<typeof ref>) => {
+      const ls = await listAll(dirRef);
+      await Promise.all(ls.items.map((i) => deleteObject(i).catch(() => {})));
+      await Promise.all(ls.prefixes.map((p) => walkAndDelete(p)));
+    };
+    const hlsDirRef = ref(storage, `products/public/${SITE_KEY}/hls/${product.id}`);
+    await walkAndDelete(hlsDirRef);
+  } catch {
+    /* HLS が無ければ何もしない */
+  }
+
+  // 4) 戻る
+  router.back();
+};
 
   /* ---------- JSX ---------- */
   return (
