@@ -192,7 +192,7 @@ export default function Header({ className = "" }: HeaderProps) {
                 onClick={() => setOpen(false)}
                 className="text-lg text-white"
               >
-                スタップ
+                スタッフ
               </Link>
               <Link
                 href="/menu"
