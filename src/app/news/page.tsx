@@ -12,7 +12,7 @@ export const metadata: Metadata = {
       "最新のお知らせやキャンペーン情報、営業時間・対応エリアの変更などを随時ご案内します。",
     url: "https://tayotteya.shop/news",
     siteName: "おそうじ処 たよって屋",
-    images: [{ url: "/ogp.png", width: 1200, height: 630 }],
+    images: [{ url: "/ogpLogo.png", width: 1200, height: 630 }],
     locale: "ja_JP",
     type: "website",
   },
