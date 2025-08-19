@@ -5,11 +5,11 @@ import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
 import TopFixedText from "@/components/TopFixedText";
 
 export const metadata: Metadata = {
-  title: "おそうじ処 たよって屋｜トップページ",
+  title: "おそうじ処 たよって屋｜家事代行",
   description:
     "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納は、おそうじ処 たよって屋へ。水回りからリビングの徹底清掃、定期清掃まで暮らしに寄り添う丁寧なサービスを提供します。",
   openGraph: {
-    title: "おそうじ処 たよって屋｜トップページ",
+    title: "おそうじ処 たよって屋｜家事代行",
     description:
       "ハウスクリーニング／家事代行／整理収納の専門サービス。大阪・兵庫エリアで、高品質な清掃と心地よい暮らしをサポートします。",
     url: "https://tayotteya.shop/",

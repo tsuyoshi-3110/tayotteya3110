@@ -26,23 +26,23 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
-  description:
-    "おそうじ処 たよって屋は、大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。キッチンや浴室などの水回り、リビング、定期清掃まで、暮らしに寄り添う丁寧なサービスを提供します。",
+  description: "...",
   openGraph: {
     title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
-    description:
-      "大阪・兵庫エリアでハウスクリーニング／家事代行／整理収納を提供。水回りやリビングの徹底清掃、定期清掃までお任せください。",
+    description: "...",
     url: "https://tayotteya.shop/",
     siteName: "おそうじ処 たよって屋",
-    images: [
-      {
-        url: "/ogp.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
+    images: [{ url: "/ogp.png", width: 1200, height: 630 }],
     locale: "ja_JP",
     type: "website",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png", sizes: "any" },
+    ],
+    apple: "/icon.png",
+    shortcut: "/favicon.ico",
   },
 };
 
