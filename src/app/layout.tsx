@@ -7,6 +7,7 @@ import Script from "next/script";
 import ThemeBackground from "@/components/ThemeBackground";
 import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({
@@ -66,7 +67,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const siteKey = "tayotteya";
+
 
   return (
     <html
@@ -112,7 +113,7 @@ export default function RootLayout({
       </head>
 
       <body className="relative min-h-screen bg-[#ffffff]">
-        <SubscriptionOverlay siteKey={siteKey} />
+        <SubscriptionOverlay siteKey={SITE_KEY} />
         <WallpaperBackground />
         <ThemeBackground />
         <Header />
