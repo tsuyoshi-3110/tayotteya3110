@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { collection, getDocs, Timestamp, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { format, subDays } from "date-fns"; // ★ subDays を追加
 import CardSpinner from "@/components/CardSpinner";
@@ -25,6 +25,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 Chart.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -48,6 +49,8 @@ const PAGE_LABELS: Record<string, string> = {
   analytics: "アクセス解析",
   staffs: "スタッフ紹介ぺージ",
   jobApp: "応募ページ",
+  menu: "メニューページ",
+  cmd_sco: "その他",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -60,12 +63,11 @@ const EVENT_LABELS: Record<string, string> = {
   home_stay_seconds_news: "お知らせ滞在",
   home_stay_seconds_email: "メールアクセス滞在",
   home_stay_seconds_map_click: "マップアクセス滞在",
+  home_stay_seconds_menu: "メニュー滞在時間",
 };
 const EXCLUDED_PAGE_IDS = ["login", "analytics", "community", "postList"];
 
 export default function AnalyticsPage() {
-  const siteKey = "tayotteya3110";
-
   const [pageData, setPageData] = useState<{ id: string; count: number }[]>([]);
   const [eventData, setEventData] = useState<
     { id: string; total: number; count: number; average: number }[]
@@ -130,7 +132,7 @@ export default function AnalyticsPage() {
   // AnalyticsPage.tsx で集計
   useEffect(() => {
     const fetchBounce = async () => {
-      const statsRef = collection(db, "analytics", siteKey, "bounceStats");
+      const statsRef = collection(db, "analytics", SITE_KEY, "bounceStats");
       const snap = await getDocs(statsRef);
       const bounceRates = snap.docs.map((d) => {
         const { count, totalViews } = d.data();
@@ -142,11 +144,11 @@ export default function AnalyticsPage() {
       setBounceRates(bounceRates);
     };
     fetchBounce();
-  }, [siteKey]);
+  }, []);
 
   useEffect(() => {
     const fetchVisitorStats = async () => {
-      const ref = collection(db, "analytics", siteKey, "visitorStats");
+      const ref = collection(db, "analytics", SITE_KEY, "visitorStats");
       const snap = await getDocs(ref);
 
       let newTotal = 0;
@@ -162,7 +164,7 @@ export default function AnalyticsPage() {
     };
 
     fetchVisitorStats();
-  }, [siteKey]);
+  }, []);
 
   /* ───────── fetchData (依存配列を追加済) ───────── */
 
@@ -170,7 +172,7 @@ export default function AnalyticsPage() {
     const fetchWeekdayAccessData = async () => {
       try {
         // ── analytics/{siteKey}/weekdayLogs/{sun|mon|tue|…} ──
-        const ref = collection(db, "analytics", siteKey, "weekdayLogs");
+        const ref = collection(db, "analytics", SITE_KEY, "weekdayLogs");
         const snap = await getDocs(ref);
 
         // Firestore の doc.id ➜ 0‒6 に変換する対応表
@@ -209,11 +211,11 @@ export default function AnalyticsPage() {
     };
 
     fetchWeekdayAccessData();
-  }, [siteKey]);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(async () => {
-      const ref = collection(db, "analytics", siteKey, "referrers");
+      const ref = collection(db, "analytics", SITE_KEY, "referrers");
       const snap = await getDocs(ref);
 
       const total = { sns: 0, search: 0, direct: 0 };
@@ -239,14 +241,14 @@ export default function AnalyticsPage() {
     }, 1000); // ← 1秒遅延を追加
 
     return () => clearTimeout(timeout);
-  }, [siteKey]);
+  }, []);
 
   useEffect(() => {
     const fetchDailyData = async () => {
       try {
         const start = new Date(startDate);
         const end = new Date(new Date(endDate).setHours(23, 59, 59, 999));
-        const ref = collection(db, "analytics", siteKey, "dailyLogs");
+        const ref = collection(db, "analytics", SITE_KEY, "dailyLogs");
         const snap = await getDocs(ref);
 
         type DailyLog = {
@@ -291,7 +293,7 @@ export default function AnalyticsPage() {
     };
 
     fetchDailyData();
-  }, [siteKey, startDate, endDate]);
+  }, [startDate, endDate]);
 
   function groupByHour(
     logs: { hour: number; accessedAt?: any }[],
@@ -330,7 +332,7 @@ export default function AnalyticsPage() {
       try {
         const start = new Date(startDate);
         const end = new Date(new Date(endDate).setHours(23, 59, 59, 999));
-        const logsRef = collection(db, "analytics", siteKey, "hourlyLogs");
+        const logsRef = collection(db, "analytics", SITE_KEY, "hourlyLogs");
         const snap = await getDocs(logsRef);
         const logs = snap.docs.map(
           (doc) => doc.data() as { hour: number; accessedAt?: Timestamp }
@@ -346,76 +348,86 @@ export default function AnalyticsPage() {
     };
 
     fetchHourlyData();
-  }, [siteKey, startDate, endDate]);
+  }, [startDate, endDate]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate
-        ? new Date(new Date(endDate).setHours(23, 59, 59, 999))
-        : null;
 
-      const pagesRef = collection(db, "analytics", siteKey, "pages");
-      const pagesSnap = await getDocs(pagesRef);
-      const pages: Record<string, number> = {};
-      pagesSnap.forEach((doc) => {
-        const data = doc.data();
-        const updatedAt: Timestamp = data.updatedAt;
-        if (
-          updatedAt &&
-          (!start || updatedAt.toDate() >= start) &&
-          (!end || updatedAt.toDate() <= end)
-        ) {
-          pages[doc.id] = (pages[doc.id] || 0) + (data.count ?? 0);
-        }
-      });
 
-      const sortedPages = Object.entries(pages)
-        .map(([id, count]) => ({ id, count }))
-        .filter((item) => !EXCLUDED_PAGE_IDS.includes(item.id))
-        .sort((a, b) => b.count - a.count);
-      setPageData(sortedPages);
+// ※ 先頭で `import { query, where } from "firebase/firestore";` を追加してください。
 
-      const eventsRef = collection(db, "analytics", siteKey, "events");
-      const eventsSnap = await getDocs(eventsRef);
-      const events: Record<string, { totalSeconds: number; count: number }> =
-        {};
-      eventsSnap.forEach((doc) => {
-        const data = doc.data();
-        const updatedAt: Timestamp = data.updatedAt;
-        if (
-          updatedAt &&
-          (!start || updatedAt.toDate() >= start) &&
-          (!end || updatedAt.toDate() <= end)
-        ) {
-          const id = doc.id;
-          const total = data.totalSeconds ?? 0;
-          const cnt = data.count ?? 1;
-          if (!events[id]) {
-            events[id] = { totalSeconds: total, count: cnt };
-          } else {
-            events[id].totalSeconds += total;
-            events[id].count += cnt;
-          }
-        }
-      });
+const fetchData = useCallback(async () => {
+  setLoading(true);
+  try {
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate
+      ? new Date(new Date(endDate).setHours(23, 59, 59, 999))
+      : null;
 
-      const sortedEvents = Object.entries(events)
-        .map(([id, val]) => ({
-          id,
-          total: val.totalSeconds,
-          count: val.count,
-          average: val.count ? Math.round(val.totalSeconds / val.count) : 0,
-        }))
-        .sort((a, b) => b.total - a.total);
-      setEventData(sortedEvents);
-    } catch (e) {
-      console.error("取得エラー:", e);
-    } finally {
-      setLoading(false);
+    // ── ページ別アクセス数：hourlyLogs を期間で絞って集計（products/* を "products" に集約）
+    const logsCol = collection(db, "analytics", SITE_KEY, "hourlyLogs");
+    let q: any = logsCol;
+    if (start && end) {
+      q = query(
+        logsCol,
+        where("accessedAt", ">=", start),
+        where("accessedAt", "<=", end)
+      );
+    } else if (start) {
+      q = query(logsCol, where("accessedAt", ">=", start));
+    } else if (end) {
+      q = query(logsCol, where("accessedAt", "<=", end));
     }
-  }, [siteKey, startDate, endDate]);
+
+    const logsSnap = await getDocs(q);
+    const pages: Record<string, number> = {};
+    logsSnap.docs.forEach((d) => {
+      const { pageId } = d.data() as { pageId?: string };
+      if (!pageId) return;
+
+      // 既存データの生パス対策：products/xxx… を "products" に潰す
+      const id = pageId.startsWith("products/") ? "products" : pageId;
+
+      if (EXCLUDED_PAGE_IDS.includes(id)) return;
+      pages[id] = (pages[id] ?? 0) + 1;
+    });
+
+    const sortedPages = Object.entries(pages)
+      .map(([id, count]) => ({ id, count }))
+      .sort((a, b) => b.count - a.count);
+    setPageData(sortedPages);
+
+    // ── 平均滞在時間：現行スキーマは累計のみ（期間フィルタ不可）
+    const eventsRef = collection(db, "analytics", SITE_KEY, "events");
+    const eventsSnap = await getDocs(eventsRef);
+    const events: Record<string, { totalSeconds: number; count: number }> = {};
+
+    eventsSnap.forEach((doc) => {
+      const data = doc.data();
+      const id = doc.id;
+      const total = data.totalSeconds ?? 0;
+      const cnt = data.count ?? 0;
+      events[id] = {
+        totalSeconds: (events[id]?.totalSeconds ?? 0) + total,
+        count: (events[id]?.count ?? 0) + cnt,
+      };
+    });
+
+    const sortedEvents = Object.entries(events)
+      .map(([id, val]) => ({
+        id,
+        total: val.totalSeconds,
+        count: val.count,
+        average: val.count ? Math.round(val.totalSeconds / val.count) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+    setEventData(sortedEvents);
+  } catch (e) {
+    console.error("取得エラー:", e);
+  } finally {
+    setLoading(false);
+  }
+}, [startDate, endDate]);
+
+
 
   const handleAnalysis = async () => {
     console.log("referrerData:", referrerData);
@@ -434,7 +446,7 @@ export default function AnalyticsPage() {
           hourlyData: hourlyRawCounts,
           dailyData,
           referrerData,
-          weekdayData,
+          weekdayData: weekdayData.data,
           visitorStats,
           bounceRates,
           geoData,

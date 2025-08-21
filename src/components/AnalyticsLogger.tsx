@@ -30,7 +30,7 @@ export default function AnalyticsLogger() {
       .then((res) => res.json())
       .then((data) => {
         const region = data.region || data.country_name || "Unknown";
-        logGeo("tayotteya3110", region);
+        logGeo(SITE_KEY, region);
       })
       .catch((e) => console.error("地域取得失敗:", e));
   }, []);

@@ -61,7 +61,7 @@ const SNS: {
   },
   {
     name: "homepage",
-    href: "https://tayotteya.shop/",
+    href: "https://tayotteya.com/",
     icon: () => (
       <Image
         src="/tayotteya_circle_image.png"
@@ -110,7 +110,7 @@ export default function Header({ className = "" }: HeaderProps) {
       <Link
         href="/"
         className={clsx(
-          "text-md font-bold flex items-center gap-2 py-2 hover:opacity-50",
+          "text-xl font-bold flex items-center gap-2 py-2 hover:opacity-50",
           isLightBg ? "text-black" : "text-white"
         )}
       >
