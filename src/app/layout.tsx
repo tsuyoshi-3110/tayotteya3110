@@ -60,11 +60,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico?v=3" },                         // ← ファイル名厳守
-      { url: "/icon.png", type: "image/png", sizes: "any" } // ← ファイル名厳守
+      { url: "/favicon.ico?v=4" }, // ← ファイル名厳守
+      { url: "/icon.png", type: "image/png", sizes: "any" }, // ← ファイル名厳守
     ],
-    apple: "/icon.png",       // ← ファイル名厳守（Apple Touch）
-    shortcut: "/favicon.ico?v=3",
+    apple: "/icon.png", // ← ファイル名厳守（Apple Touch）
+    shortcut: "/favicon.ico?v=4",
   },
   themeColor: "#ffffff",
 };
@@ -92,7 +92,11 @@ export default function RootLayout({
         {children}
 
         {/* 構造化データ（ファイル名そのまま使用） */}
-        <Script id="ld-json" type="application/ld+json" strategy="afterInteractive">
+        <Script
+          id="ld-json"
+          type="application/ld+json"
+          strategy="afterInteractive"
+        >
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CleaningService",
