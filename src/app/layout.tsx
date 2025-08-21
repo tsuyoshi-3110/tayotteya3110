@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "https://tayotteya.shop/ogpLogo.png",
+        url: "https://tayotteya.shop/ogpLogo.png", // ← ファイル名厳守
         width: 1200,
         height: 630,
         alt: "おそうじ処 たよって屋 OGP",
@@ -52,14 +52,21 @@ export const metadata: Metadata = {
     ],
     locale: "ja_JP",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
+    description: "大阪・兵庫エリア対応。水回り／リビング／定期清掃まで丁寧に。",
+    images: ["https://tayotteya.shop/ogpLogo.png"], // ← ファイル名厳守
+  },
   icons: {
     icon: [
-      { url: "/favicon.ico?v=3" },
-      { url: "/icon.png", type: "image/png", sizes: "any" }, // 置いていれば自動で使われる
+      { url: "/favicon.ico?v=3" },                         // ← ファイル名厳守
+      { url: "/icon.png", type: "image/png", sizes: "any" } // ← ファイル名厳守
     ],
-    apple: "/icon.png",
+    apple: "/icon.png",       // ← ファイル名厳守（Apple Touch）
     shortcut: "/favicon.ico?v=3",
   },
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -67,49 +74,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-
-
   return (
     <html
       lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <head>
-        {/* Favicon（キャッシュ更新用クエリ付き） */}
-        <link rel="icon" href="/favicon.ico?v=3" />
-        {/* OGP画像の事前読み込み（PNG） */}
+        {/* OGP画像の事前読み込み（ファイル名そのまま） */}
         <link rel="preload" as="image" href="/ogpLogo.png" type="image/png" />
-        <meta name="theme-color" content="#ffffff" />
-
-        {/* OGP & Twitterカード（保険として head にも明示） */}
-        <meta
-          property="og:title"
-          content="おそうじ処 たよって屋｜ハウスクリーニング・家事代行"
-        />
-        <meta
-          property="og:description"
-          content="大阪・兵庫エリアでハウスクリーニング／家事代行／整理収納を提供。水回りやリビングの徹底清掃、定期清掃までお任せください。"
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://tayotteya.shop/" />
-        <meta property="og:site_name" content="おそうじ処 たよって屋" />
-        <meta property="og:locale" content="ja_JP" />
-        <meta property="og:image" content="https://tayotteya.shop/ogpLogo.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="おそうじ処 たよって屋｜ハウスクリーニング・家事代行"
-        />
-        <meta
-          name="twitter:description"
-          content="大阪・兵庫エリア対応。水回り／リビング／定期清掃まで丁寧に。"
-        />
-        <meta name="twitter:image" content="https://tayotteya.shop/ogpLogo.png" />
-        {/* Search Console を使う場合は下に site verification を追加 */}
-        {/* <meta name="google-site-verification" content="XXXXXXXX" /> */}
       </head>
 
       <body className="relative min-h-screen bg-[#ffffff]">
@@ -119,14 +91,14 @@ export default function RootLayout({
         <Header />
         {children}
 
-        {/* 構造化データ（CleaningService） */}
+        {/* 構造化データ（ファイル名そのまま使用） */}
         <Script id="ld-json" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CleaningService",
             name: "おそうじ処 たよって屋",
             url: "https://tayotteya.shop/",
-            image: "https://tayotteya.shop/ogpLogo.png",
+            image: "https://tayotteya.shop/ogpLogo.png", // ← ファイル名厳守
             description:
               "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。",
             areaServed: [
@@ -134,7 +106,6 @@ export default function RootLayout({
               { "@type": "AdministrativeArea", name: "兵庫県" },
             ],
             serviceType: ["ハウスクリーニング", "家事代行", "整理収納"],
-            // 住所や電話を掲載する場合は以下をアンコメントして入力
             address: {
               "@type": "PostalAddress",
               addressRegion: "大阪府",
