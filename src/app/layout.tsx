@@ -1,6 +1,6 @@
 // app/layout.tsx
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
 import Script from "next/script";
@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
+// ✅ metadata から themeColor を削除
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
   description:
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "https://tayotteya.shop/ogpLogo.png", // ← ファイル名厳守
+        url: "https://tayotteya.shop/ogpLogo.png",
         width: 1200,
         height: 630,
         alt: "おそうじ処 たよって屋 OGP",
@@ -56,31 +57,34 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
     description: "大阪・兵庫エリア対応。水回り／リビング／定期清掃まで丁寧に。",
-    images: ["https://tayotteya.shop/ogpLogo.png"], // ← ファイル名厳守
+    images: ["https://tayotteya.shop/ogpLogo.png"],
   },
   icons: {
     icon: [
-      { url: "/favicon.ico?v=4" }, // ← ファイル名厳守
-      { url: "/icon.png", type: "image/png", sizes: "any" }, // ← ファイル名厳守
+      { url: "/favicon.ico?v=4" },
+      { url: "/icon.png", type: "image/png", sizes: "any" },
     ],
-    apple: "/icon.png", // ← ファイル名厳守（Apple Touch）
+    apple: "/icon.png",
     shortcut: "/favicon.ico?v=4",
   },
-  themeColor: "#ffffff",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// ✅ ここで themeColor を指定（root で一括適用）
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <head>
-        {/* OGP画像の事前読み込み（ファイル名そのまま） */}
+        {/* OGP画像の事前読み込み */}
         <link rel="preload" as="image" href="/ogpLogo.png" type="image/png" />
       </head>
 
@@ -91,18 +95,14 @@ export default function RootLayout({
         <Header />
         {children}
 
-        {/* 構造化データ（ファイル名そのまま使用） */}
-        <Script
-          id="ld-json"
-          type="application/ld+json"
-          strategy="afterInteractive"
-        >
+        {/* 構造化データ */}
+        <Script id="ld-json" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CleaningService",
             name: "おそうじ処 たよって屋",
             url: "https://tayotteya.shop/",
-            image: "https://tayotteya.shop/ogpLogo.png", // ← ファイル名厳守
+            image: "https://tayotteya.shop/ogpLogo.png",
             description:
               "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。",
             areaServed: [
