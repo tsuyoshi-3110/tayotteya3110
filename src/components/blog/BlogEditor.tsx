@@ -25,6 +25,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+import { THEMES, ThemeKey } from "@/lib/themes";
+
+// ダーク系テーマキー（白文字にしたいテーマ）
+const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
 
 type Props = { postId?: string };
 
@@ -56,7 +61,9 @@ async function moveTempMediasToPostId(
     }
 
     const oldRef = ref(storage, m.path);
-    const blob = await fetch(await getDownloadURL(oldRef)).then((r) => r.blob());
+    const blob = await fetch(await getDownloadURL(oldRef)).then((r) =>
+      r.blob()
+    );
 
     const newPath = m.path.replace("/posts/temp/", `/posts/${postId}/`);
     const newRef = ref(storage, newPath);
@@ -97,6 +104,18 @@ export default function BlogEditor({ postId }: Props) {
   const [proofOpen, setProofOpen] = useState(false);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofText, setProofText] = useState(""); // 校正結果（編集可）
+
+  // ▼ 現在のテーマ背景を取得
+  const gradient = useThemeGradient();
+  const isDark =
+    gradient &&
+    DARK_KEYS.includes(
+      Object.keys(THEMES).find(
+        (k) => THEMES[k as ThemeKey] === gradient
+      ) as ThemeKey
+    );
+
+  const textColorClass = isDark ? "text-white" : "text-black";
 
   // キーワード配列 & 生成可否
   const keywords = [kw1.trim(), kw2.trim(), kw3.trim()]
@@ -259,7 +278,7 @@ export default function BlogEditor({ postId }: Props) {
   const isBodyEmpty = body.trim().length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${textColorClass}`}>
       {/* タイトル */}
       <div className="grid gap-2">
         <label className="text-sm font-medium">タイトル</label>
@@ -267,6 +286,7 @@ export default function BlogEditor({ postId }: Props) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="タイトル"
+          className={textColorClass}
         />
       </div>
 
@@ -278,13 +298,14 @@ export default function BlogEditor({ postId }: Props) {
           onChange={(e) => setBody(e.target.value)}
           rows={12}
           placeholder="AIで自動生成するか、自由に入力してください。"
+          className={textColorClass}
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             onClick={() => setGenOpen(true)}
             variant="secondary"
-            disabled={isTitleEmpty} // タイトル未入力なら無効
+            disabled={isTitleEmpty}
           >
             AIで本文生成
           </Button>
@@ -303,10 +324,14 @@ export default function BlogEditor({ postId }: Props) {
         </div>
       </div>
 
-      {/* メディア（画像/動画）— 1枚限定アップローダ（表示しない運用） */}
+      {/* メディア */}
       <div className="grid gap-2">
         <label className="text-sm font-medium">メディア（画像/動画）</label>
-        <MediaUploader postIdForPath={postId} value={media} onChange={setMedia} />
+        <MediaUploader
+          postIdForPath={postId}
+          value={media}
+          onChange={setMedia}
+        />
       </div>
 
       {/* 操作ボタン群 */}
@@ -321,7 +346,7 @@ export default function BlogEditor({ postId }: Props) {
         )}
       </div>
 
-      {/* ====== 生成モーダル（キーワード入力・背景クリックで閉じる/リセット） ====== */}
+      {/* ====== 生成モーダル ====== */}
       {genOpen && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
@@ -329,41 +354,24 @@ export default function BlogEditor({ postId }: Props) {
             if (e.target === e.currentTarget) closeGenModal(true);
           }}
         >
-          <div className="w-[92%] max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            {/* ヘッダー */}
+          <div className="w-[92%] max-w-lg rounded-2xl bg-white p-6 shadow-xl text-black">
             <div className="mb-4">
               <div className="text-base font-semibold">AIで本文生成</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                タイトルはエディタで入力してください。キーワードは 1〜3 個入力できます（1つ以上で生成可）。
+                タイトルはエディタで入力してください。キーワードは 1〜3
+                個入力できます（1つ以上で生成可）。
               </div>
             </div>
 
-            {/* キーワード（最大3／縦並び） */}
             <div className="grid gap-2 mb-5">
               <label className="text-xs font-medium">キーワード（最大3）</label>
               <div className="flex flex-col gap-2">
-                <Input
-                  value={kw1}
-                  onChange={(e) => setKw1(e.target.value)}
-                  placeholder="例：期間限定"
-                />
-                <Input
-                  value={kw2}
-                  onChange={(e) => setKw2(e.target.value)}
-                  placeholder="例：新作"
-                />
-                <Input
-                  value={kw3}
-                  onChange={(e) => setKw3(e.target.value)}
-                  placeholder="例：抹茶"
-                />
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-1">
-                1つ以上入力すると生成できます
+                <Input value={kw1} onChange={(e) => setKw1(e.target.value)} />
+                <Input value={kw2} onChange={(e) => setKw2(e.target.value)} />
+                <Input value={kw3} onChange={(e) => setKw3(e.target.value)} />
               </div>
             </div>
 
-            {/* アクション行 */}
             <div className="flex items-center justify-end gap-2">
               <Button
                 variant="secondary"
@@ -385,7 +393,7 @@ export default function BlogEditor({ postId }: Props) {
         </div>
       )}
 
-      {/* ====== 校正モーダル（結果を確認して置き換え） ====== */}
+      {/* ====== 校正モーダル ====== */}
       {proofOpen && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
@@ -393,16 +401,14 @@ export default function BlogEditor({ postId }: Props) {
             if (e.target === e.currentTarget) cancelProof();
           }}
         >
-          <div className="w-[92%] max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            {/* ヘッダー */}
+          <div className="w-[92%] max-w-2xl rounded-2xl bg-white p-6 shadow-xl text-black">
             <div className="mb-4">
               <div className="text-base font-semibold">AIで校正</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                下の内容を確認して「置き換える」を押すと本文に反映されます。必要ならここで手直しも可能です。
+                下の内容を確認して「置き換える」を押すと本文に反映されます。
               </div>
             </div>
 
-            {/* 校正結果（編集可） */}
             <div className="grid gap-2 mb-5">
               <label className="text-xs font-medium">校正結果</label>
               <Textarea
@@ -410,15 +416,19 @@ export default function BlogEditor({ postId }: Props) {
                 onChange={(e) => setProofText(e.target.value)}
                 rows={14}
                 placeholder="校正結果がここに表示されます"
+                className="text-black"
               />
             </div>
 
-            {/* アクション行 */}
             <div className="flex items-center justify-end gap-2">
               <Button variant="secondary" type="button" onClick={cancelProof}>
                 キャンセル
               </Button>
-              <Button type="button" onClick={applyProof} disabled={!proofText.trim()}>
+              <Button
+                type="button"
+                onClick={applyProof}
+                disabled={!proofText.trim()}
+              >
                 置き換える
               </Button>
             </div>
