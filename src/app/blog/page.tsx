@@ -15,12 +15,15 @@ import {
 } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { BlogPost } from "@/types/blog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import BlogCard from "@/components/blog/BlogCard";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+
 import { deleteObject, ref as storageRef } from "firebase/storage";
+import clsx from "clsx";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+import { THEMES, ThemeKey } from "@/lib/themes";
 
 const PAGE_SIZE = 20;
 
@@ -32,6 +35,13 @@ export default function BlogListPage() {
   const [noMore, setNoMore] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // ===== テーマの判定 =====
+  const gradient = useThemeGradient();
+  const isDark = useMemo(() => {
+    const darkKeys: ThemeKey[] = ["brandG", "brandH", "brandI"];
+    return gradient && darkKeys.some((k) => gradient === THEMES[k]);
+  }, [gradient]);
 
   const fetchPage = useCallback(
     async (firstLoad = false) => {
@@ -66,11 +76,8 @@ export default function BlogListPage() {
         }));
 
         setPosts((prev) => (firstLoad ? items : [...prev, ...items]));
-
-        // 次ページ用のカーソルを最後のドキュメントに更新
         setCursor(snap.docs[snap.docs.length - 1] ?? null);
 
-        // もし取得数が PAGE_SIZE 未満ならもう終わり
         if (snap.size < PAGE_SIZE) setNoMore(true);
       } finally {
         setLoading(false);
@@ -79,7 +86,6 @@ export default function BlogListPage() {
     [cursor, loading, noMore]
   );
 
-  // 初回ロード
   useEffect(() => {
     setPosts([]);
     setCursor(null);
@@ -88,11 +94,9 @@ export default function BlogListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [SITE_KEY]);
 
-  // 無限スクロール（画面下の番兵が見えたら次のページを取得）
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-
     const io = new IntersectionObserver(
       (entries) => {
         const e = entries[0];
@@ -100,51 +104,57 @@ export default function BlogListPage() {
           fetchPage(false);
         }
       },
-      { rootMargin: "200px 0px" } // 余裕を持って事前ロード
+      { rootMargin: "200px 0px" }
     );
-
     io.observe(el);
     return () => io.disconnect();
   }, [fetchPage]);
 
-  // 削除
   const handleDelete = async (post: BlogPost) => {
     if (!SITE_KEY || !post?.id) return;
     if (!confirm("この記事を削除しますか？（メディアも削除されます）")) return;
 
     setDeletingId(post.id);
     try {
-      // Storage の実ファイル削除
       const medias = Array.isArray(post.media) ? post.media : [];
       for (const m of medias) {
         if (m?.path) {
           try {
             await deleteObject(storageRef(storage, m.path));
-          } catch {
-            // 存在しない等は無視
-          }
+          } catch {}
         }
       }
-      // Firestore ドキュメント削除
       await deleteDoc(doc(db, "siteBlogs", SITE_KEY, "posts", post.id));
-      // ローカル一覧から即時除去
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
     } finally {
       setDeletingId(null);
     }
   };
 
+  // app/blog/page.tsx (抜粋)
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white text-outline">ブログ</h1>
-        <Button asChild>
-          <Link href="/blog/new">新規作成</Link>
-        </Button>
+        <h1
+          className={clsx(
+            "text-xl font-bold",
+            isDark ? "text-white" : "text-black"
+          )}
+        >
+          ブログ
+        </h1>
       </div>
 
       {posts.length === 0 && !loading ? (
-        <p className="text-sm text-muted-foreground">まだ投稿がありません。</p>
+        <p
+          className={clsx(
+            "text-sm",
+            isDark ? "text-white/70" : "text-muted-foreground"
+          )}
+        >
+          まだ投稿がありません。
+        </p>
       ) : (
         <>
           <div className="grid gap-6 sm:grid-cols-1 justify-items-center">
@@ -154,20 +164,31 @@ export default function BlogListPage() {
                 post={p}
                 onDelete={handleDelete}
                 deleting={deletingId === p.id}
-                className="w-[90%]" // ← 表示領域を約90%に
+                className="w-[90%]"
               />
             ))}
           </div>
 
-          {/* ローディング／終端メッセージ */}
-          <div className="flex justify-center py-4 text-sm text-muted-foreground">
-            {loading ? "読み込み中…" : noMore ? "すべて読み込みました" : ""}
+          <div
+            className={clsx(
+              "flex justify-center py-4 text-sm",
+              isDark ? "text-white/70" : "text-muted-foreground"
+            )}
+          >
+            {loading && "読み込み中…"}
           </div>
 
-          {/* 無限スクロール用の番兵 */}
           <div ref={sentinelRef} className="h-6" />
         </>
       )}
+
+      {/* 右下固定の + ボタン */}
+      <Link
+        href="/blog/new"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95"
+      >
+        <span className="text-3xl leading-none">＋</span>
+      </Link>
     </div>
   );
 }

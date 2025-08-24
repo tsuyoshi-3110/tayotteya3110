@@ -19,6 +19,8 @@ type Props = {
   className?: string;
 };
 
+const DARK_KEYS: ThemeKey[] = ["brandG", "brandH", "brandI"];
+
 export default function BlogCard({
   post,
   onDelete,
@@ -28,32 +30,28 @@ export default function BlogCard({
   const first =
     Array.isArray(post.media) && post.media.length > 0 ? post.media[0] : null;
 
-  // Firestoreの設定からグラデーションを取得
+  // グラデーション（テーマ）取得
   const gradient = useThemeGradient();
-
   const gradientClass = typeof gradient === "string" ? gradient : "";
 
-  const isGradient = Boolean(gradientClass);
-
-  // ---- ダーク系キー判定 ----
-  const darkKeys: ThemeKey[] = ["brandH", "brandG", "brandI"];
+  // ダーク系テーマ判定
   const isDark =
-    gradient &&
-    darkKeys.includes(
-      Object.keys(THEMES).find(
-        (k) => THEMES[k as ThemeKey] === gradientClass
-      ) as ThemeKey
-    );
+    !!gradient &&
+    DARK_KEYS.some((k) => THEMES[k] === gradientClass);
 
   return (
     <article
       className={clsx(
-        "rounded-2xl border shadow-sm hover:shadow transition overflow-hidden",
-        isGradient ? `bg-gradient-to-br ${gradientClass}` : "bg-white",
+        "overflow-hidden rounded-2xl shadow transition",
+        // 背景
+        gradientClass ? `bg-gradient-to-br ${gradientClass}` : "bg-white",
+        // 枠線は背景に応じて
+        isDark ? "border border-white/10 hover:shadow-md"
+               : "border border-black/10 hover:shadow-md",
         className
       )}
     >
-      {/* プレビュー（角丸は上辺だけ） */}
+      {/* プレビュー（上辺だけ角丸） */}
       {first?.url && first?.type && (
         <ProductMedia
           src={first.url}
@@ -62,27 +60,27 @@ export default function BlogCard({
         />
       )}
 
-      <div className="p-4 space-y-3">
-        <h3
-          className={clsx(
-            "font-semibold text-base leading-snug",
-            isDark ? "text-white" : "text-black"
-          )}
-        >
+      {/* 本文ブロック */}
+      <div className={clsx("p-4 space-y-3", isDark ? "text-white" : "text-black")}>
+        {/* タイトル */}
+        <h3 className={clsx("font-semibold text-base leading-snug",
+                            isDark ? "text-white" : "text-black")}>
           {post.title}
         </h3>
 
+        {/* 本文（全文表示） */}
         {post.body && (
           <p
             className={clsx(
-              "text-sm", // サイズ
-              isDark ? "text-white/80" : "text-gray-700" // ✅ 背景に応じて切替
+              "text-sm whitespace-pre-wrap leading-relaxed",
+              isDark ? "text-white/85" : "text-gray-700"
             )}
           >
             {post.body}
           </p>
         )}
 
+        {/* 日付 */}
         <div
           className={clsx(
             "text-xs",
@@ -90,19 +88,24 @@ export default function BlogCard({
           )}
         >
           {post.createdAt?.toDate
-            ? format(post.createdAt.toDate(), "yyyy/MM/dd HH:mm", {
-                locale: ja,
-              })
+            ? format(post.createdAt.toDate(), "yyyy/MM/dd HH:mm", { locale: ja })
             : ""}
         </div>
 
+        {/* 操作行 */}
         <div className="pt-2 flex items-center gap-2">
-          <Button asChild size="sm" variant={isDark ? "secondary" : "default"}>
+          {/* ダーク背景では secondary のほうがコントラスト良い */}
+          <Button
+            asChild
+            size="sm"
+            variant={isDark ? "secondary" : "default"}
+          >
             <Link href={`/blog/${post.id}/edit`}>
               <Pencil className="mr-1.5 h-4 w-4" />
               編集
             </Link>
           </Button>
+
           <Button
             size="sm"
             variant="destructive"

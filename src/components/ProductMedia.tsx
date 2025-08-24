@@ -63,7 +63,9 @@ export default function ProductMedia({
             "absolute inset-0 w-full h-full object-cover",
             loaded ? "visible" : "invisible"
           )}
+          onLoadedMetadata={() => setLoaded(true)} // ← 追加：メタデータ読めた時点で閉じる
           onLoadedData={() => setLoaded(true)}
+          onError={() => setLoaded(true)} // ← 追加：失敗でも閉じる（必要ならプレースホルダに差し替えも可）
           playsInline
           muted={muted}
           autoPlay={visible && autoPlay}
@@ -102,7 +104,9 @@ export default function ProductMedia({
         )}
         sizes="(min-width:1024px) 320px, (min-width:640px) 45vw, 90vw"
         onLoadingComplete={() => setLoaded(true)}
+        onError={() => setLoaded(true)} // ← 追加：失敗でもスピナーを閉じる
         priority={false}
+        unoptimized
       />
     </div>
   );

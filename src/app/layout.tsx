@@ -8,6 +8,14 @@ import ThemeBackground from "@/components/ThemeBackground";
 import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import {
+  kosugiMaru,
+  notoSansJP,
+  shipporiMincho,
+  reggaeOne,
+  yomogi,
+  hachiMaruPop,
+} from "@/lib/font";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({
@@ -81,7 +89,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="ja"
-      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      className={`
+        ${geistSans.variable} ${geistMono.variable}
+        ${kosugiMaru.variable} ${notoSansJP.variable}
+        ${yomogi.variable} ${hachiMaruPop.variable} ${reggaeOne.variable} ${shipporiMincho.variable}
+        antialiased
+      `}
     >
       <head>
         {/* OGP画像の事前読み込み */}

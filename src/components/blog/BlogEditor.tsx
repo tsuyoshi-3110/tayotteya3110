@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
+import clsx from "clsx";
 
 // ダーク系テーマキー（白文字にしたいテーマ）
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
@@ -316,7 +317,12 @@ export default function BlogEditor({ postId }: Props) {
           >
             {proofLoading ? "校正中…" : "AIで校正"}
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span
+            className={clsx(
+              "text-xs",
+              isDark ? "text-white/70" : "text-muted-foreground"
+            )}
+          >
             {isTitleEmpty
               ? "（タイトルを入力すると本文生成が使えます）"
               : "キーワードを指定して自然な口語文を生成できます"}
@@ -435,6 +441,7 @@ export default function BlogEditor({ postId }: Props) {
           </div>
         </div>
       )}
+
     </div>
   );
 }
