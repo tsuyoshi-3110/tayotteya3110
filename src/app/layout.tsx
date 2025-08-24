@@ -86,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* OGP画像の事前読み込み */}
         <link rel="preload" as="image" href="/ogpLogo.png" type="image/png" />
+        <meta name="google-site-verification" content="uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs" />
       </head>
 
       <body className="relative min-h-screen bg-[#ffffff]">
