@@ -34,9 +34,10 @@ import {
 import { AlertCircle, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import CardSpinner from "./CardSpinner";
-import { useThemeGradient } from "@/lib/useThemeGradient";
 import MediaWithSpinner from "./MediaWithSpinner";
 import Image from "next/image";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+import { THEMES, ThemeKey } from "@/lib/themes";
 
 /* ---------- 型 ---------- */
 interface NewsItem {
@@ -70,10 +71,19 @@ const STORAGE_PATH = "siteNews/tayotteya3110/items";
 const FIRST_LOAD = 20; // 初回
 const PAGE_SIZE = 20; // 追加ロード
 
+const DARK_KEYS: ThemeKey[] = ["brandG", "brandH", "brandI"];
+
 /* =========================================================
       ここからコンポーネント本体
 ========================================================= */
 export default function NewsClient() {
+
+   const gradient = useThemeGradient();
+   const isDark = useMemo(
+  () => !!gradient && DARK_KEYS.some((k) => THEMES[k] === gradient),
+  [gradient]
+);
+
   /* ---------- state ---------- */
   const [items, setItems] = useState<NewsItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -333,7 +343,9 @@ export default function NewsClient() {
   /* =====================================================
       レンダリング
   ===================================================== */
-  const gradient = useThemeGradient();
+
+
+
   if (!gradient) return <CardSpinner />;
 
   return (
@@ -367,7 +379,7 @@ export default function NewsClient() {
       {/* ===== 一覧 ===== */}
       <ul className="space-y-4 p-4">
         {items.length === 0 ? (
-          <li className="text-center text-white/80 text-lg py-12">
+          <li className={`p-6 rounded-lg shadow border ${isDark ? "bg-gray-800 text-white border-gray-700" : "bg-white text-gray-900 border-gray-200"}`}>
             現在、お知らせはまだありません。
           </li>
         ) : (

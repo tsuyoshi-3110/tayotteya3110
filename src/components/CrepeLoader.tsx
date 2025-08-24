@@ -16,7 +16,7 @@ export default function CrepeLoader() {
           alt="Crepe Base"
           layout="fill"
           objectFit="contain"
-          unoptimized 
+          unoptimized
         />
 
         {/* 回転するトンボ */}

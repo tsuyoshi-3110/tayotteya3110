@@ -58,7 +58,7 @@ export default function Header({ className = "" }: { className?: string }) {
       <Link
         href="/"
         className={clsx(
-          "text-lg font-bold flex items-center gap-2 py-2 hover:opacity-50",
+          "text-md font-bold flex items-center gap-2 py-2 hover:opacity-50",
           isDark ? "text-white" : "text-black"
         )}
       >
@@ -128,7 +128,7 @@ export default function Header({ className = "" }: { className?: string }) {
             width={32}
             height={32}
             className="object-contain"
-            unoptimized 
+            unoptimized
           />
         </a>
       </nav>
