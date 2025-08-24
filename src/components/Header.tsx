@@ -80,25 +80,52 @@ export default function Header({ className = "" }: { className?: string }) {
           href="https://www.instagram.com/yuki.tayotte2017?igsh=MWY2b2RxMDM5M3dmdw%3D%3D&utm_source=qr"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/instagram-logo.png" alt="Instagram" width={32} height={32} className="object-contain" />
+          <Image
+            src="/instagram-logo.png"
+            alt="Instagram"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
         </a>
         <a
           href="https://lin.ee/YcKAJja"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/line-logo.png" alt="LINE" width={32} height={32} className="object-contain" />
+          <Image
+            src="/line-logo.png"
+            alt="LINE"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
         </a>
         <a
           href="https://tayotteya.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/tayotteya_circle_image.png" alt="Home" width={32} height={32} className="object-contain" />
+          <Image
+            src="/tayotteya_circle_image.png"
+            alt="Home"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
         </a>
       </nav>
 
@@ -128,7 +155,12 @@ export default function Header({ className = "" }: { className?: string }) {
             )}
           >
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className={clsx("text-center text-xl", isDark ? "text-white" : "text-black")}>
+              <SheetTitle
+                className={clsx(
+                  "text-center text-xl",
+                  isDark ? "text-white" : "text-black"
+                )}
+              >
                 メニュー
               </SheetTitle>
             </SheetHeader>
@@ -136,20 +168,24 @@ export default function Header({ className = "" }: { className?: string }) {
             <div className="flex-1 flex flex-col justify-center items-center space-y-4 text-center">
               {[
                 { href: "/products", label: "施工実績" },
-                { href: "/staffs", label: "スタッフ" },
+                { href: "/staffs", label: "対応エリア" },
                 { href: "/menu", label: "料金" },
                 { href: "/stores", label: "アクセス" },
                 { href: "/about", label: "当店の思い" },
                 { href: "/blog", label: "ブログ" },
-                { href: "/news", label: "お知らせ" },
-                { href: "mailto:tsreform.yukisaito@gmail.com", label: "ご連絡はこちら" },
+                // { href: "/news", label: "お知らせ" },
+                // { href: "mailto:tsreform.yukisaito@gmail.com", label: "ご連絡はこちら" },
+                { href: "/apply", label: "ご予約はこちら" },
                 { href: "/jobApp", label: "協力業者募集！" },
               ].map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={clsx("text-lg", isDark ? "text-white" : "text-black")}
+                  className={clsx(
+                    "text-lg",
+                    isDark ? "text-white" : "text-black"
+                  )}
                 >
                   {label}
                 </Link>
@@ -159,19 +195,47 @@ export default function Header({ className = "" }: { className?: string }) {
             <div className="p-4 space-y-4">
               {isLoggedIn && (
                 <>
-                  <Link href="/postList" onClick={() => setOpen(false)} className={clsx("block text-center text-lg", isDark ? "text-white" : "text-black")}>
+                  <Link
+                    href="/postList"
+                    onClick={() => setOpen(false)}
+                    className={clsx(
+                      "block text-center text-lg",
+                      isDark ? "text-white" : "text-black"
+                    )}
+                  >
                     タイムライン
                   </Link>
-                  <Link href="/community" onClick={() => setOpen(false)} className={clsx("block text-center text-lg", isDark ? "text-white" : "text-black")}>
+                  <Link
+                    href="/community"
+                    onClick={() => setOpen(false)}
+                    className={clsx(
+                      "block text-center text-lg",
+                      isDark ? "text-white" : "text-black"
+                    )}
+                  >
                     コミュニティ
                   </Link>
-                  <Link href="/analytics" onClick={() => setOpen(false)} className={clsx("block text-center text-lg", isDark ? "text-white" : "text-black")}>
+                  <Link
+                    href="/analytics"
+                    onClick={() => setOpen(false)}
+                    className={clsx(
+                      "block text-center text-lg",
+                      isDark ? "text-white" : "text-black"
+                    )}
+                  >
                     分析
                   </Link>
                 </>
               )}
 
-              <Link href="/login" onClick={() => setOpen(false)} className={clsx("block text-center text-lg", isDark ? "text-white" : "text-black")}>
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className={clsx(
+                  "block text-center text-lg",
+                  isDark ? "text-white" : "text-black"
+                )}
+              >
                 Administrator Login
               </Link>
             </div>
