@@ -104,6 +104,7 @@ export default function MediaWithSpinner({
           setLoaded(true);
         }}
         priority={false}
+        unoptimized 
       />
     </div>
   );

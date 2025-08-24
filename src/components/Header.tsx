@@ -69,6 +69,7 @@ export default function Header({ className = "" }: { className?: string }) {
             width={48}
             height={48}
             className="w-12 h-12 object-contain transition-opacity duration-200"
+            unoptimized
           />
         )}
         お掃除処たよって屋
@@ -91,6 +92,7 @@ export default function Header({ className = "" }: { className?: string }) {
             width={32}
             height={32}
             className="object-contain"
+            unoptimized
           />
         </a>
         <a
@@ -108,6 +110,7 @@ export default function Header({ className = "" }: { className?: string }) {
             width={32}
             height={32}
             className="object-contain"
+            unoptimized
           />
         </a>
         <a
@@ -125,6 +128,7 @@ export default function Header({ className = "" }: { className?: string }) {
             width={32}
             height={32}
             className="object-contain"
+            unoptimized 
           />
         </a>
       </nav>

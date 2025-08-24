@@ -74,6 +74,7 @@ export default function HeaderLogoPicker({
           sizes="100vw"
           className="object-cover"
           priority
+          unoptimized 
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-white text-sm font-semibold">

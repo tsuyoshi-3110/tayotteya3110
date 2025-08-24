@@ -270,7 +270,8 @@ export default function AboutClient() {
                 fill
                 sizes="(max-width:768px) 100vw, 768px"
                 className="object-cover"
-                priority /* 任意 */
+                priority
+                unoptimized
               />
             ) : (
               <video

@@ -109,6 +109,7 @@ export default function InboxPage() {
                     width={48}
                     height={48}
                     className="rounded-full object-cover"
+                    unoptimized 
                   />
 
                   {/* 相手名・最終メッセージ・未読バッジ */}

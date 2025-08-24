@@ -117,6 +117,7 @@ export default function CommunityPage() {
               width={60}
               height={60}
               className="rounded-full object-cover"
+              unoptimized
             />
 
             <div className="flex-1">

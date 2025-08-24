@@ -107,13 +107,7 @@ export default function MessagePage() {
         await batch.commit(); // コミットは 1 回だけ
         /* 自分側メタの未読フラグを解除 */
         await setDoc(
-          doc(
-            db,
-            "siteMessageMeta",
-            SITE_KEY,
-            "conversations",
-            partnerSiteKey
-          ),
+          doc(db, "siteMessageMeta", SITE_KEY, "conversations", partnerSiteKey),
           { hasUnread: false },
           { merge: true }
         );
@@ -250,6 +244,7 @@ export default function MessagePage() {
                   width={32}
                   height={32}
                   className="mr-2 h-8 w-8 shrink-0 rounded-full"
+                  unoptimized
                 />
               )}
 
@@ -280,6 +275,7 @@ export default function MessagePage() {
                   width={32}
                   height={32}
                   className="ml-2 h-8 w-8 shrink-0 rounded-full"
+                  unoptimized
                 />
               )}
             </div>

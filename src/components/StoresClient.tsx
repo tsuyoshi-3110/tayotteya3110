@@ -672,6 +672,7 @@ function StoreCard({
             alt={s.name}
             fill
             className="object-cover rounded-t-lg"
+            unoptimized 
           />
         </div>
       )}

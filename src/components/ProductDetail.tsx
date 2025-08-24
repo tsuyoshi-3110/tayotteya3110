@@ -233,6 +233,7 @@ const handleDelete = async () => {
               fill
               className="object-cover"
               sizes="100vw"
+              unoptimized 
             />
           </div>
         ) : (
