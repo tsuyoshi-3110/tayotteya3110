@@ -222,7 +222,7 @@ export default function AboutClient() {
 
   /* ───────── JSX ───────── */
   return (
-    <main className="relative max-w-3xl mx-auto px-4 py-10 ">
+    <main className="relative max-w-3xl mx-auto px-4 py-4 ">
       {/* ───── 背景 ───── */}
       {uploadProgress !== null && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">

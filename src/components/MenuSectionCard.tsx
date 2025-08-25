@@ -339,7 +339,7 @@ export default function MenuSectionCard({
     if (!open) return null;
     return (
       <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
-        <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl">
+        <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl ">
           <h2 className="mb-3 text-lg font-semibold">{title}</h2>
           <div className="mb-2 text-sm text-gray-600">
             {Math.floor(percent)}%
@@ -435,7 +435,7 @@ export default function MenuSectionCard({
           </div>
         )}
 
-        <h2 className="text-xl font-semibold">{section.title}</h2>
+        <h2 className="text-xl font-semibold mb-4">{section.title}</h2>
         {mediaNode}
 
         <div className="flex-col justify-between items-center mb-2"></div>

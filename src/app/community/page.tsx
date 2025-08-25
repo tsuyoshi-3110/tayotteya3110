@@ -82,101 +82,94 @@ export default function CommunityPage() {
     []
   );
 
-  return (
-    <main className="mx-auto max-w-3xl p-4 pt-20">
-      {/* 🔍 検索ボックス */}
-      <input
-        type="text"
-        placeholder="店舗名で検索…"
-        value={query}
-        onChange={handleChange}
-        className={clsx(
-          "mb-4 w-full rounded border px-3 py-2 text-sm focus:outline-none",
-          isDark ? "text-white placeholder-gray-300 border-gray-600" : ""
-        )}
-      />
+ return (
+  <main className="mx-auto max-w-3xl p-4 pt-20">
+    {/* 🔍 検索ボックス */}
+    <input
+      type="text"
+      placeholder="店舗名で検索…"
+      value={query}
+      onChange={handleChange}
+      className={clsx(
+        "mb-4 w-full bg-white/50 rounded border px-3 py-2 text-sm focus:outline-none",
+        isDark
+          ? "text-white placeholder-gray-300 border-gray-600"
+          : "text-black"
+      )}
+    />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {filteredOwners.map((o) => (
-          <div
-            key={o.id}
-            className={clsx(
-              "relative flex gap-4 rounded-lg border p-4 shadow transition hover:shadow-md",
-              "h-48" // カード高さ固定
-            )}
-          >
-            {/* ★ アイコン固定サイズ（丸型 64px） */}
-            <div className="relative h-16 w-16 shrink-0">
-              <Image
-                src={o.iconUrl}
-                alt={o.ownerName}
-                fill
-                className=" object-contain"
-                unoptimized
-                sizes="64px"
-              />
-            </div>
-
-            {/* 右カラム（テキスト）。右下ボタンぶんの余白を確保 */}
-            <div className="min-w-0 flex-1 pr-28 pb-12">
-              <p
-                className={clsx(
-                  "font-bold truncate",
-                  isDark ? "text-white" : "text-black"
-                )}
-                title={o.siteName}
-              >
-                {o.siteName}
-              </p>
-              <p
-                className={clsx(
-                  "text-sm line-clamp-2",
-                  isDark ? "text-gray-200" : "text-gray-600"
-                )}
-                title={o.ownerAddress}
-              >
-                {o.ownerAddress}
-              </p>
-              <p
-                className={clsx(
-                  "text-sm truncate",
-                  isDark ? "text-gray-300" : "text-gray-500"
-                )}
-                title={o.ownerName}
-              >
-                by&nbsp;{o.ownerName}
-              </p>
-            </div>
-
-            {/* 右下固定ボタン */}
-            <Link
-              href={`/community/message/${o.id}`}
-              onClick={() => setPartnerSiteKey(o.id)}
-              className={clsx(
-                "absolute bottom-4 right-4",
-                "inline-flex h-9 w-28 items-center justify-center rounded text-sm font-medium",
-                "whitespace-nowrap shrink-0",
-                "text-white",
-                isDark
-                  ? "bg-blue-500 hover:bg-blue-400"
-                  : "bg-blue-600 hover:bg-blue-700"
-              )}
-            >
-              メッセージ
-            </Link>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {filteredOwners.map((o) => (
+        <div
+          key={o.id}
+          className={clsx(
+            // アイコン | テキスト
+            "relative grid grid-cols-[auto_1fr] items-start gap-4",
+            "bg-white/50 rounded-lg border p-4 shadow transition hover:shadow-md",
+            "h-48"
+          )}
+        >
+          {/* 左: アイコン */}
+          <div className="relative h-16 w-16 shrink-0">
+            <Image
+              src={o.iconUrl}
+              alt={o.ownerName}
+              fill
+              className="object-contain"
+              unoptimized
+              sizes="64px"
+            />
           </div>
-        ))}
-      </div>
 
-      {/* 受信箱ボタン（ページ固定） */}
-      <Link
-        href="/community/message/inbox"
-        aria-label="受信箱"
-        className="fixed bottom-4 left-10 z-40 flex h-12 w-12 items-center justify-center rounded-full
-                   bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 focus:outline-none"
-      >
-        <Inbox className="h-6 w-6" />
-      </Link>
-    </main>
-  );
+          {/* 中: テキスト（右下ボタンと被らないように下余白を確保） */}
+          <div className="min-w-0 flex flex-col justify-start pb-12">
+            <p
+              className={clsx(
+                "font-bold truncate",
+                isDark ? "text-white" : "text-black"
+              )}
+              title={o.siteName}
+            >
+              {o.siteName}
+            </p>
+            <p
+              className={clsx(
+                "text-sm truncate",
+                isDark ? "text-gray-300" : "text-black"
+              )}
+              title={o.ownerName}
+            >
+              by&nbsp;{o.ownerName}
+            </p>
+          </div>
+
+          {/* 右下固定ボタン（カードの右下に絶対配置） */}
+          <Link
+            href={`/community/message/${o.id}`}
+            onClick={() => setPartnerSiteKey(o.id)}
+            className={clsx(
+              "absolute bottom-4 right-4 inline-flex h-9 items-center justify-center rounded px-3 text-sm font-medium",
+              "text-white",
+              isDark ? "bg-blue-500 hover:bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+            )}
+            aria-label={`${o.siteName} へメッセージ`}
+          >
+            メッセージ
+          </Link>
+        </div>
+      ))}
+    </div>
+
+    {/* 受信箱ボタン（ページ固定） */}
+    <Link
+      href="/community/message/inbox"
+      aria-label="受信箱"
+      className="fixed bottom-4 left-10 z-40 flex h-12 w-12 items-center justify-center rounded-full
+                 bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 focus:outline-none"
+    >
+      <Inbox className="h-6 w-6" />
+    </Link>
+  </main>
+);
+
 }

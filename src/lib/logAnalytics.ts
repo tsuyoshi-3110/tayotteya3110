@@ -12,7 +12,13 @@ import { db } from "./firebase";
 import { format } from "date-fns";
 
 /* ───────── 除外ページ ───────── */
-const EXCLUDE_PAGES = ["login", "analytics", "community", "postList", "cmd_sco"];
+const EXCLUDE_PAGES = [
+  "login",
+  "analytics",
+  "community",
+  "postList",
+  "cmd_sco",
+];
 
 /* ───────── 公開関数 ───────── */
 
@@ -25,6 +31,14 @@ export const logPageView = async (path: string, siteKey: string) => {
 
   const pageRef = doc(db, "analytics", siteKey, "pages", pageId);
   const bounceRef = doc(db, "analytics", siteKey, "bounceStats", pageId);
+  const dateId = format(new Date(), "yyyy-MM-dd");
+  const bounceDailyRef = doc(
+    db,
+    "analytics",
+    siteKey,
+    "bounceDaily",
+    `${dateId}_${pageId}`
+  );
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(pageRef);
@@ -34,19 +48,50 @@ export const logPageView = async (path: string, siteKey: string) => {
         updatedAt: serverTimestamp(),
       });
     } else {
-      tx.set(pageRef, {
-        count: 1,
-        updatedAt: serverTimestamp(),
-      });
+      tx.set(pageRef, { count: 1, updatedAt: serverTimestamp() });
     }
-
-    // 直帰率の分母（ページビュー総数）
-    tx.set(bounceRef, { totalViews: increment(1) }, { merge: true });
+    tx.set(bounceRef, { totalViews: increment(1) }, { merge: true }); // 累計
+    tx.set(
+      bounceDailyRef,
+      { date: dateId, pageId, totalViews: increment(1) },
+      { merge: true }
+    ); // ★ 日別
   });
 };
 
+/** 直帰発生時の記録：直帰数(count)のみ +1
+ *  分母(totalViews)は logPageView で加算済み
+ */
+export async function logBounce(siteKey: string, pageId: string) {
+  const cleanId = normalizePageId(pageId || "home");
+  if (EXCLUDE_PAGES.includes(cleanId)) return;
+
+  const dateId = format(new Date(), "yyyy-MM-dd");
+  const ref = doc(db, "analytics", siteKey, "bounceStats", cleanId);
+  const dailyRef = doc(
+    db,
+    "analytics",
+    siteKey,
+    "bounceDaily",
+    `${dateId}_${cleanId}`
+  );
+
+  await runTransaction(db, async (tx) => {
+    tx.set(ref, { count: increment(1) }, { merge: true }); // 累計
+    tx.set(
+      dailyRef,
+      { date: dateId, pageId: cleanId, count: increment(1) },
+      { merge: true }
+    ); // ★ 日別
+  });
+}
+
 /** イベント（クリック等）記録：除外なし */
-export const logEvent = async (eventName: string, siteKey: string, label?: string) => {
+export const logEvent = async (
+  eventName: string,
+  siteKey: string,
+  label?: string
+) => {
   const docRef = doc(db, "analytics", siteKey, "events", eventName);
   await runTransaction(db, async (transaction) => {
     const snap = await transaction.get(docRef);
@@ -67,21 +112,52 @@ export const logEvent = async (eventName: string, siteKey: string, label?: strin
 };
 
 /** 滞在時間（秒）記録：除外対象は記録しない */
-export const logStayTime = async (siteKey: string, seconds: number, pageId?: string) => {
+/** 滞在時間（秒）記録：除外対象は記録しない（＋日別バケットにも加算） */
+export const logStayTime = async (
+  siteKey: string,
+  seconds: number,
+  pageId?: string
+) => {
   const cleanId = normalizePageId(pageId || "home");
   if (EXCLUDE_PAGES.includes(cleanId)) return;
 
+  // 既存の累計イベントID（従来の可視化互換）
   const eventDoc = `home_stay_seconds_${cleanId}`;
-  const docRef = doc(db, "analytics", siteKey, "events", eventDoc);
+  const totalRef = doc(db, "analytics", siteKey, "events", eventDoc);
+
+  // ★ 追加: 日別キー（文字列ソートで範囲検索しやすい）
+  const dateId = format(new Date(), "yyyy-MM-dd");
+  const dailyDocId = `${dateId}_${eventDoc}`;
+  const dailyRef = doc(db, "analytics", siteKey, "eventsDaily", dailyDocId);
 
   await runTransaction(db, async (tx) => {
-    const snap = await tx.get(docRef);
-    const prev = snap.exists() ? snap.data() : { totalSeconds: 0, count: 0 };
+    // 累計（従来どおり）
+    const totalSnap = await tx.get(totalRef);
+    const prev = totalSnap.exists()
+      ? totalSnap.data()
+      : { totalSeconds: 0, count: 0 };
     tx.set(
-      docRef,
+      totalRef,
       {
         totalSeconds: (prev.totalSeconds ?? 0) + seconds,
         count: (prev.count ?? 0) + 1,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // ★ 日別バケット（期間フィルタ用）
+    const dailySnap = await tx.get(dailyRef);
+    const prevDaily = dailySnap.exists()
+      ? dailySnap.data()
+      : { totalSeconds: 0, count: 0 };
+    tx.set(
+      dailyRef,
+      {
+        date: dateId, // ← 文字列で日付（範囲 where 用）
+        eventId: eventDoc, // ← 例: home_stay_seconds_home
+        totalSeconds: (prevDaily.totalSeconds ?? 0) + seconds,
+        count: (prevDaily.count ?? 0) + 1,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -113,12 +189,15 @@ export async function logDailyAccess(siteKey: string) {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(dailyRef);
       if (snap.exists()) {
-        tx.update(dailyRef, {
-          count: (snap.data().count || 0) + 1,
-          updatedAt: serverTimestamp(),
-        });
+        // 既存でも date を常に保持（将来のクエリ用）
+        tx.set(
+          dailyRef,
+          { date: todayId, count: increment(1), updatedAt: serverTimestamp() },
+          { merge: true }
+        );
       } else {
         tx.set(dailyRef, {
+          date: todayId,
           count: 1,
           updatedAt: serverTimestamp(),
           accessedAt: serverTimestamp(),
@@ -133,15 +212,27 @@ export async function logDailyAccess(siteKey: string) {
 /** リファラー（SNS/検索/直接流入など） */
 export const logReferrer = async (siteKey: string) => {
   try {
-    let referrer = document.referrer;
-    if (!referrer) {
-      referrer = "direct";
-    } else {
-      const url = new URL(referrer);
-      referrer = url.hostname.replace(/^www\./, "");
-    }
-    const docRef = doc(db, "analytics", siteKey, "referrers", referrer);
-    await setDoc(docRef, { count: increment(1) }, { merge: true });
+    const referrer = document.referrer
+      ? new URL(document.referrer).hostname.replace(/^www\./, "")
+      : "direct";
+
+    const baseRef = doc(db, "analytics", siteKey, "referrers", referrer);
+    await setDoc(baseRef, { count: increment(1) }, { merge: true });
+
+    // ★ 追加: 日別
+    const dateId = format(new Date(), "yyyy-MM-dd");
+    const dailyRef = doc(
+      db,
+      "analytics",
+      siteKey,
+      "referrersDaily",
+      `${dateId}_${referrer}`
+    );
+    await setDoc(
+      dailyRef,
+      { date: dateId, host: referrer, count: increment(1) },
+      { merge: true }
+    );
   } catch (e) {
     console.error("リファラー記録エラー:", e);
   }
@@ -174,53 +265,73 @@ export async function logWeekdayAccess(siteKey: string) {
   }
 }
 
-/** 新規/リピーター判定（簡易） */
+/** 新規/リピーター判定（簡易・ローカルID採用）
+ *  - ブラウザの localStorage に保存した visitorId を使用
+ *  - 初訪: visitorStats/{visitorId} を新規作成し、集計 visitorStatsAgg/counts.new を +1
+ *  - 再訪: 同 visitorId ドキュメントを更新し、visitorStatsAgg/counts.returning を +1
+ */
 export async function logVisitorType(siteKey: string) {
   try {
-    const id = generateUUID();
-    const ref = doc(db, "analytics", siteKey, "visitorStats", id);
+    const visitorId = getOrCreateVisitorId(siteKey);
+    const personRef = doc(db, "analytics", siteKey, "visitorStats", visitorId);
+    const aggRef = doc(db, "analytics", siteKey, "visitorStatsAgg", "counts");
+    const dateId = format(new Date(), "yyyy-MM-dd");
+    const dailyRef = doc(db, "analytics", siteKey, "visitorStatsDaily", dateId);
+
     await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      const isNew = !snap.exists();
-      tx.set(
-        ref,
-        {
-          new: isNew ? 1 : 0,
-          returning: isNew ? 0 : 1,
+      const snap = await tx.get(personRef);
+      if (snap.exists()) {
+        tx.update(personRef, {
           lastVisit: serverTimestamp(),
-        },
-        { merge: true }
-      );
+          visitCount: increment(1),
+        });
+        tx.set(aggRef, { returning: increment(1) }, { merge: true });
+        // ★ 再訪を日別に
+        tx.set(
+          dailyRef,
+          { date: dateId, returning: increment(1) },
+          { merge: true }
+        );
+      } else {
+        tx.set(personRef, {
+          firstVisit: serverTimestamp(),
+          lastVisit: serverTimestamp(),
+          visitCount: 1,
+        });
+        tx.set(aggRef, { new: increment(1) }, { merge: true });
+        // ★ 新規を日別に
+        tx.set(dailyRef, { date: dateId, new: increment(1) }, { merge: true });
+      }
     });
   } catch (e) {
     console.error("visitorType 記録エラー:", e);
   }
 }
 
-/** 直帰発生時の記録：直帰数(count)のみ +1
- *  分母(totalViews)は logPageView で加算済み
- */
-export async function logBounce(siteKey: string, pageId: string) {
-  const cleanId = normalizePageId(pageId || "home");
-  if (EXCLUDE_PAGES.includes(cleanId)) return;
-
-  const ref = doc(db, "analytics", siteKey, "bounceStats", cleanId);
-  await runTransaction(db, async (tx) => {
-    tx.set(ref, { count: increment(1) }, { merge: true });
-  });
-}
-
 /** 地域別アクセス */
 export async function logGeo(siteKey: string, region: string) {
   try {
-    const ref = doc(db, "analytics", siteKey, "geoStats", region);
+    const baseRef = doc(db, "analytics", siteKey, "geoStats", region);
+    const dateId = format(new Date(), "yyyy-MM-dd");
+    const dailyRef = doc(
+      db,
+      "analytics",
+      siteKey,
+      "geoDaily",
+      `${dateId}_${region}`
+    );
+
     await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      if (snap.exists()) {
-        tx.update(ref, { count: increment(1) });
-      } else {
-        tx.set(ref, { count: 1 });
-      }
+      const snap = await tx.get(baseRef);
+      if (snap.exists()) tx.update(baseRef, { count: increment(1) });
+      else tx.set(baseRef, { count: 1 });
+
+      // ★ 日別
+      tx.set(
+        dailyRef,
+        { date: dateId, region, count: increment(1) },
+        { merge: true }
+      );
     });
   } catch (e) {
     console.error("地域別アクセスログ失敗:", e);
@@ -245,10 +356,34 @@ function safeDecode(str: string) {
   }
 }
 
+/** visitorId（ブラウザごと・サイトごと）を localStorage に保存し再利用 */
+function getOrCreateVisitorId(siteKey: string): string {
+  const storageKey = `visitorId:${siteKey}`;
+  try {
+    const existing = localStorage.getItem(storageKey);
+    if (existing) return existing;
+    const id = generateUUID();
+    localStorage.setItem(storageKey, id);
+    return id;
+  } catch {
+    // localStorage が使えない環境では都度UUID（＝毎回新規扱い）
+    return generateUUID();
+  }
+}
+
 /** UUID（ブラウザ互換を考慮） */
 function generateUUID(): string {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  if (typeof crypto.getRandomValues === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.getRandomValues === "function"
+  ) {
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant

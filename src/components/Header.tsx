@@ -172,9 +172,9 @@ export default function Header({ className = "" }: { className?: string }) {
             <div className="flex-1 flex flex-col justify-center items-center space-y-4 text-center">
               {[
                 { href: "/products", label: "施工実績" },
-                { href: "/staffs", label: "対応エリア" },
+                { href: "/staffs", label: "スタッフ" },
                 { href: "/menu", label: "料金" },
-                { href: "/stores", label: "アクセス" },
+                { href: "/stores", label: "対応エリア" },
                 { href: "/about", label: "当店の思い" },
                 { href: "/blog", label: "ブログ" },
                 // { href: "/news", label: "お知らせ" },
