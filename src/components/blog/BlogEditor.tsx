@@ -1,7 +1,7 @@
 // components/blog/BlogEditor.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addDoc,
   collection,
@@ -26,11 +26,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
-import clsx from "clsx";
+
 import BlockEditor from "./BlockEditor";
 import { v4 as uuid } from "uuid";
 
-// ダーク系テーマキー（白文字にしたいテーマ）
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
 
 type Props = { postId?: string };
@@ -98,8 +97,7 @@ export default function BlogEditor({ postId }: Props) {
 
   // --- AI 校正モーダル用 state ---
   const [proofOpen, setProofOpen] = useState(false);
-  const [proofLoading, setProofLoading] = useState(false);
-  const [proofText, setProofText] = useState(""); // 校正結果（編集可）
+  const [proofText, setProofText] = useState("");
 
   // ▼ 現在のテーマ背景を取得
   const gradient = useThemeGradient();
@@ -113,24 +111,14 @@ export default function BlogEditor({ postId }: Props) {
 
   const textColorClass = isDark ? "text-white" : "text-black";
 
-  // 現在のテキスト本文（テキストブロックを連結）
-  const joinedText = useMemo(
-    () =>
-      blocks
-        .filter((b) => b.type === "p")
-        .map((b: any) => b.text || "")
-        .join("\n\n")
-        .trim(),
-    [blocks]
-  );
 
-  // キーワード配列 & 生成可否
+
+  // ★ タイトルは使わない → 生成可否は「キーワード 1 つ以上」
   const keywords = [kw1.trim(), kw2.trim(), kw3.trim()]
     .filter(Boolean)
     .slice(0, 3);
-  const canGenerate = title.trim().length > 0 && keywords.length > 0;
+  const canGenerate = keywords.length > 0;
 
-  // キーワードリセット & モーダルクローズユーティリティ
   const resetKeywords = () => {
     setKw1("");
     setKw2("");
@@ -157,9 +145,7 @@ export default function BlogEditor({ postId }: Props) {
           const bodyText = String(d.body || "");
           if (bodyText) tmp.push({ id: uuid(), type: "p", text: bodyText });
           const medias = Array.isArray(d.media) ? (d.media as BlogMedia[]) : [];
-          for (const m of medias) {
-            tmp.push({ id: uuid(), ...(m as any) });
-          }
+          for (const m of medias) tmp.push({ id: uuid(), ...(m as any) });
           if (tmp.length === 0) tmp.push({ id: uuid(), type: "p", text: "" });
           setBlocks(tmp);
         }
@@ -167,7 +153,7 @@ export default function BlogEditor({ postId }: Props) {
     })();
   }, [postId]);
 
-  // 本文生成（モーダルから呼ぶ）: 常に1つのテキストブロックだけ作成
+  // 本文生成：★ タイトルは送らず、キーワードのみで生成。1つの本文ブロックとして挿入/置換。
   const generateBody = async () => {
     if (!canGenerate) return;
     setGenLoading(true);
@@ -175,7 +161,7 @@ export default function BlogEditor({ postId }: Props) {
       const res = await fetch("/api/blog/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), keywords }),
+        body: JSON.stringify({ keywords }), // ← title を送らない
       });
       const data = await res.json();
       if (!res.ok) {
@@ -190,7 +176,6 @@ export default function BlogEditor({ postId }: Props) {
       }
 
       if (genInsertMode === "replace") {
-        // 最初のテキストブロックを1つの本文で置き換え（無ければ末尾に作成）
         const idx = blocks.findIndex((b) => b.type === "p");
         const next = blocks.slice();
         if (idx >= 0) {
@@ -200,7 +185,6 @@ export default function BlogEditor({ postId }: Props) {
         }
         setBlocks(next);
       } else {
-        // 末尾に1つだけ追加
         setBlocks([...(blocks || []), { id: uuid(), type: "p", text } as any]);
       }
 
@@ -212,35 +196,7 @@ export default function BlogEditor({ postId }: Props) {
     }
   };
 
-  // 本文の AI 校正を取得（テキストブロックを結合して送る）
-  const fetchProofread = async () => {
-    const source = joinedText;
-    if (!source) {
-      alert("本文が空です。校正するテキストを入力してください。");
-      return;
-    }
-    setProofLoading(true);
-    try {
-      const res = await fetch("/api/blog/proofread", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: source }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data?.error ?? "校正に失敗しました。");
-        return;
-      }
-      setProofText(String(data.body || ""));
-      setProofOpen(true);
-    } catch (e: any) {
-      alert(e?.message ?? "校正に失敗しました。");
-    } finally {
-      setProofLoading(false);
-    }
-  };
-
-  // 校正モーダル：置き換え確定（最初のテキストブロックに流し込む。無ければ追加）
+  // 校正モーダル：置き換え
   const applyProof = () => {
     const idx = blocks.findIndex((b) => b.type === "p");
     if (idx >= 0) {
@@ -248,13 +204,15 @@ export default function BlogEditor({ postId }: Props) {
       next[idx] = { ...(next[idx] as any), text: proofText };
       setBlocks(next);
     } else {
-      setBlocks([...(blocks || []), { id: uuid(), type: "p", text: proofText }]);
+      setBlocks([
+        ...(blocks || []),
+        { id: uuid(), type: "p", text: proofText },
+      ]);
     }
     setProofText("");
     setProofOpen(false);
   };
 
-  // 校正モーダル：キャンセル
   const cancelProof = () => {
     setProofText("");
     setProofOpen(false);
@@ -269,7 +227,6 @@ export default function BlogEditor({ postId }: Props) {
     setLoading(true);
     try {
       if (postId) {
-        // 既存更新：blocks の temp を移動してから保存
         const moved = await moveTempBlocksToPostId(postId, blocks);
         const plain = moved
           .filter((b) => b.type === "p")
@@ -279,12 +236,11 @@ export default function BlogEditor({ postId }: Props) {
         const refDoc = doc(db, "siteBlogs", SITE_KEY, "posts", postId);
         await updateDoc(refDoc, {
           title: title ?? "",
-          body: plain, // 索引用のプレーンテキスト（任意）
+          body: plain,
           blocks: pruneUndefined(moved),
           updatedAt: serverTimestamp(),
         });
       } else {
-        // 先に空ドキュメント → temp を移動 → 保存
         const created = await addDoc(
           collection(db, "siteBlogs", SITE_KEY, "posts"),
           {
@@ -340,12 +296,9 @@ export default function BlogEditor({ postId }: Props) {
     }
   };
 
-  const isTitleEmpty = title.trim().length === 0;
-  const isBodyEmpty = joinedText.length === 0;
-
   return (
     <div className={`space-y-6 ${textColorClass}`}>
-      {/* タイトル */}
+      {/* タイトル（保存時には必須のまま） */}
       <div className="grid gap-2">
         <label className="text-sm font-medium">タイトル</label>
         <Input
@@ -364,33 +317,6 @@ export default function BlogEditor({ postId }: Props) {
           onChange={setBlocks}
           postIdForPath={postId ?? null}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            onClick={() => setGenOpen(true)}
-            variant="secondary"
-            disabled={isTitleEmpty}
-          >
-            AIで本文生成
-          </Button>
-          <Button
-            type="button"
-            onClick={fetchProofread}
-            disabled={isBodyEmpty || proofLoading}
-          >
-            {proofLoading ? "校正中…" : "AIで校正"}
-          </Button>
-          <span
-            className={clsx(
-              "text-xs",
-              isDark ? "text-white/70" : "text-muted-foreground"
-            )}
-          >
-            {isTitleEmpty
-              ? "（タイトルを入力すると本文生成が使えます）"
-              : "テキストブロックに生成/校正結果を反映します"}
-          </span>
-        </div>
       </div>
 
       {/* 操作ボタン群 */}
@@ -405,7 +331,7 @@ export default function BlogEditor({ postId }: Props) {
         )}
       </div>
 
-      {/* ====== 生成モーダル ====== */}
+      {/* ====== 生成モーダル（タイトル未使用） ====== */}
       {genOpen && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
@@ -417,7 +343,8 @@ export default function BlogEditor({ postId }: Props) {
             <div className="mb-4">
               <div className="text-base font-semibold">AIで本文生成</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                タイトルはエディタで入力してください。キーワードは 1〜3 個入力できます（1つ以上で生成可）。生成結果は「1つの本文」として挿入されます。
+                タイトルは使用しません。キーワードは 1〜3
+                個入力してください（1つ以上で生成可）。結果は「1つの本文」として挿入されます。
               </div>
             </div>
 

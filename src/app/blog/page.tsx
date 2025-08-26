@@ -83,7 +83,7 @@ export default function BlogListPage() {
         setLoading(false);
       }
     },
-    [SITE_KEY, cursor, loading, noMore]
+    [cursor, loading, noMore]
   );
 
   useEffect(() => {

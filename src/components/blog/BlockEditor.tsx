@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { v4 as uuid } from "uuid";
 import { BlogBlock } from "@/types/blog";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,9 @@ import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifi
 import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
-  /** ブロック配列（親が state を保持） */
   value: BlogBlock[];
-  /** ブロック配列の変更通知 */
-  onChange: (next: BlogBlock[]) => void;
-  /** 直接 posts/{postId}/ に置きたいとき postId を指定。新規は null/undefined で temp に置く */
-  postIdForPath?: string | null;
+  onChange: Dispatch<SetStateAction<BlogBlock[]>>;
+  postIdForPath?: string | null; // 新規は null/undefined で temp
 };
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
@@ -75,10 +73,7 @@ function SortableBlockCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <div
@@ -90,9 +85,8 @@ function SortableBlockCard({
         isDragging && "shadow-xl ring-2 ring-blue-400/40"
       )}
     >
-      {/* 操作列（左にドラッグ用ハンドル） */}
+      {/* 操作列 */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        {/* Drag handle：ここを掴むとドラッグ開始 */}
         <button
           className={clsx(
             "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
@@ -107,24 +101,10 @@ function SortableBlockCard({
           並び替え
         </button>
 
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={onMoveUp}
-          disabled={disableUp}
-          aria-label="上へ"
-        >
+        <Button type="button" size="sm" variant="secondary" onClick={onMoveUp} disabled={disableUp}>
           ↑
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={onMoveDown}
-          disabled={disableDown}
-          aria-label="下へ"
-        >
+        <Button type="button" size="sm" variant="secondary" onClick={onMoveDown} disabled={disableDown}>
           ↓
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={onAddTextBelow}>
@@ -138,7 +118,6 @@ function SortableBlockCard({
         </Button>
       </div>
 
-      {/* ブロック本体 */}
       {children}
     </div>
   );
@@ -169,44 +148,79 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     useSensor(KeyboardSensor)
   );
 
+  // ==== テキストエリア参照（校正時に選択範囲を使う） ====
+  const textRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const setTextRef = (id: string) => (el: HTMLTextAreaElement | null) => {
+    textRefs.current[id] = el;
+  };
+
+  // ==== 校正モーダル（テキストブロック用） ====
+  const [proof, setProof] = useState<{
+    blockId: string;
+    start: number;
+    end: number;
+    source: string;
+    result: string;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+
+  // ==== 生成モーダル（テキストブロック用：このカードに上書き） ====
+  const [gen, setGen] = useState<{
+    blockId: string;
+    kw1: string;
+    kw2: string;
+    kw3: string;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+
   // ==== ユーティリティ ====
   const insertAt = useCallback(
     (idx: number, block: BlogBlock) => {
-      const next = value.slice();
-      next.splice(idx, 0, block);
-      onChange(next);
+      onChange((prev) => {
+        const next = prev.slice();
+        next.splice(idx, 0, block);
+        return next;
+      });
     },
-    [value, onChange]
+    [onChange]
   );
 
   const updateAt = useCallback(
     (idx: number, patch: Partial<BlogBlock>) => {
-      const next = value.slice();
-      next[idx] = { ...next[idx], ...patch } as BlogBlock;
-      onChange(next);
+      onChange((prev) => {
+        const next = prev.slice();
+        next[idx] = { ...next[idx], ...patch } as BlogBlock;
+        return next;
+      });
     },
-    [value, onChange]
+    [onChange]
   );
 
   const removeAt = useCallback(
     (idx: number) => {
-      const next = value.slice();
-      next.splice(idx, 1);
-      onChange(next);
+      onChange((prev) => {
+        const next = prev.slice();
+        next.splice(idx, 1);
+        return next;
+      });
     },
-    [value, onChange]
+    [onChange]
   );
 
   const move = useCallback(
     (idx: number, dir: -1 | 1) => {
       const to = idx + dir;
       if (to < 0 || to >= value.length) return;
-      const next = value.slice();
-      const [b] = next.splice(idx, 1);
-      next.splice(to, 0, b);
-      onChange(next);
+      onChange((prev) => {
+        const next = prev.slice();
+        const [b] = next.splice(idx, 1);
+        next.splice(to, 0, b);
+        return next;
+      });
     },
-    [value, onChange]
+    [value.length, onChange]
   );
 
   // ==== DnD: 並び替え確定 ====
@@ -218,7 +232,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     const newIndex = value.findIndex((b) => b.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    onChange(arrayMove(value, oldIndex, newIndex));
+    onChange((prev) => arrayMove(prev, oldIndex, newIndex));
   };
 
   // ==== メディア追加 ====
@@ -295,12 +309,14 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
       const block: BlogBlock =
         isVideo
-          ? { id: uuid(), type: "video", url, path }
-          : { id: uuid(), type: "image", url, path, alt: "" };
+          ? { id: uuid(), type: "video", url, path, title: "" }
+          : { id: uuid(), type: "image", url, path, title: "" };
 
-      const next = value.slice();
-      next.splice(insertIndex, 0, block);
-      onChange(next);
+      onChange((prev) => {
+        const next = prev.slice();
+        next.splice(insertIndex, 0, block);
+        return next;
+      });
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err?.message ?? "アップロードに失敗しました。");
@@ -325,20 +341,122 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     }, 200);
   };
 
-  // ==== テキスト追加 ====
-  const addTextBelow = (idx: number) => {
-    const block: BlogBlock = { id: uuid(), type: "p", text: "" } as any;
-    insertAt(Math.max(0, idx + 1), block);
+  // ==== 本文カードごとの AI 校正 ====
+  const startProofForBlock = async (blockId: string) => {
+    const idx = value.findIndex((b) => b.id === blockId);
+    if (idx === -1 || value[idx]?.type !== "p") return;
+
+    const el = textRefs.current[blockId];
+    const src = String((value[idx] as any).text || "");
+    const hasSel = el && el.selectionStart !== el.selectionEnd;
+    const start = hasSel ? (el!.selectionStart ?? 0) : 0;
+    const end = hasSel ? (el!.selectionEnd ?? 0) : src.length;
+    const source = src.slice(start, end).trim();
+
+    if (!source) {
+      alert("校正するテキストがありません。テキストを入力するか、範囲選択してください。");
+      return;
+    }
+
+    setProof({
+      blockId,
+      start,
+      end,
+      source,
+      result: "",
+      loading: true,
+      error: null,
+    });
+
+    try {
+      const res = await fetch("/api/blog/proofread", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: source }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setProof((p) => (p ? { ...p, loading: false, error: data?.error ?? "校正に失敗しました。" } : p));
+        return;
+      }
+      setProof((p) => (p ? { ...p, loading: false, result: String(data.body || "") } : p));
+    } catch (e: any) {
+      setProof((p) => (p ? { ...p, loading: false, error: e?.message ?? "校正に失敗しました。" } : p));
+    }
   };
 
-  const addTextTail = () => {
-    onChange([...(value || []), { id: uuid(), type: "p", text: "" } as any]);
+  const applyProofToBlock = () => {
+    if (!proof) return;
+    const { blockId, start, end, result } = proof;
+
+    const idxNow = value.findIndex((b) => b.id === blockId);
+    if (idxNow === -1 || value[idxNow]?.type !== "p") {
+      setProof(null);
+      return;
+    }
+
+    const src = String((value[idxNow] as any).text || "");
+    const before = src.slice(0, start);
+    const after = src.slice(end);
+    const replaced = before + result + after;
+
+    updateAt(idxNow, { ...(value[idxNow] as any), text: replaced });
+    setProof(null);
   };
 
-  const addMediaTail = () => {
-    (fileInputRef.current as any).__insertIndex = value.length;
-    fileInputRef.current?.click();
+  const cancelProof = () => setProof(null);
+
+  // ==== 本文カードごとの AI 生成（このカードに上書き） ====
+  const openGenerateForBlock = (blockId: string) => {
+    setGen({
+      blockId,
+      kw1: "",
+      kw2: "",
+      kw3: "",
+      loading: false,
+      error: null,
+    });
   };
+
+  const doGenerateForBlock = async () => {
+    if (!gen) return;
+    const { blockId, kw1, kw2, kw3 } = gen;
+    const ks = [kw1.trim(), kw2.trim(), kw3.trim()].filter(Boolean).slice(0, 3);
+    if (ks.length === 0) {
+      setGen({ ...gen, error: "キーワードを1つ以上入力してください。" });
+      return;
+    }
+    setGen({ ...gen, loading: true, error: null });
+
+    try {
+      const res = await fetch("/api/blog/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: ks }), // タイトルは送らない
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGen({ ...gen, loading: false, error: data?.error ?? "本文の生成に失敗しました。" });
+        return;
+      }
+      const text = String(data.body || "").trim();
+      if (!text) {
+        setGen({ ...gen, loading: false, error: "生成結果が空でした。" });
+        return;
+      }
+
+      const idx = value.findIndex((b) => b.id === blockId);
+      if (idx >= 0 && value[idx].type === "p") {
+        updateAt(idx, { ...(value[idx] as any), text });
+      }
+
+      setGen(null);
+    } catch (e: any) {
+      setGen({ ...gen, loading: false, error: e?.message ?? "本文の生成に失敗しました。" });
+    }
+  };
+
+  const cancelGenerate = () => setGen(null);
 
   // ==== レンダリング ====
   return (
@@ -350,7 +468,6 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         onDragEnd={onDragEnd}
       >
         <SortableContext items={value.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-          {/* ブロック列 */}
           <div className="space-y-4">
             {value.length === 0 && (
               <div className={clsx("rounded-2xl border p-4 text-sm", cardClass, subTextClass)}>
@@ -365,7 +482,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 isDark={isDark}
                 onMoveUp={() => move(i, -1)}
                 onMoveDown={() => move(i, +1)}
-                onAddTextBelow={() => addTextBelow(i)}
+                onAddTextBelow={() => insertAt(i + 1, { id: uuid(), type: "p", text: "" } as any)}
                 onAddMediaBelow={() => handleAddMediaBelow(i)}
                 onDelete={() => removeAt(i)}
                 disableUp={i === 0}
@@ -373,20 +490,41 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               >
                 {/* ブロック本体 */}
                 {b.type === "p" ? (
-                  <textarea
-                    value={(b as any).text || ""}
-                    onChange={(e) =>
-                      updateAt(i, { ...(b as any), text: e.target.value })
-                    }
-                    className={clsx(
-                      "w-full resize-y rounded-md border p-2 outline-none",
-                      isDark
-                        ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
-                        : "bg-white border-black/10 text-black placeholder:text-black/40"
-                    )}
-                    placeholder="本文（段落）"
-                    rows={6}
-                  />
+                  <div className="space-y-2">
+                    {/* テキストカードのAI */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button type="button" size="sm" onClick={() => openGenerateForBlock(b.id)}>
+                        AIで本文作成
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => startProofForBlock(b.id)}
+                      >
+                        AIで校正
+                      </Button>
+                      <span className={clsx("text-xs", subTextClass)}>
+                        生成はキーワードのみ／校正は選択部分があればその範囲
+                      </span>
+                    </div>
+
+                    <textarea
+                      ref={setTextRef(b.id)}
+                      value={(b as any).text || ""}
+                      onChange={(e) => {
+                        updateAt(i, { ...(b as any), text: e.target.value });
+                      }}
+                      className={clsx(
+                        "w-full resize-y rounded-md border p-2 outline-none",
+                        isDark
+                          ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
+                          : "bg-white border-black/10 text-black placeholder:text-black/40"
+                      )}
+                      placeholder="本文（段落）"
+                      rows={6}
+                    />
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="overflow-hidden rounded-lg border border-black/10">
@@ -394,7 +532,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={(b as any).url}
-                          alt={("alt" in (b as any) && (b as any).alt) || ""}
+                          alt=""
                           className="max-h-[420px] w-full bg-black/5 object-contain"
                         />
                       ) : (
@@ -407,21 +545,26 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                       )}
                     </div>
 
-                    {b.type === "image" && (
-                      <input
-                        className={clsx(
-                          "w-full rounded-md border p-2 text-sm",
-                          isDark
-                            ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
-                            : "bg-white border-black/10 text-black placeholder:text-black/40"
-                        )}
-                        placeholder="代替テキスト（任意）"
-                        value={("alt" in (b as any) && (b as any).alt) || ""}
-                        onChange={(e) =>
-                          updateAt(i, { ...(b as any), alt: e.target.value })
-                        }
-                      />
-                    )}
+                    {/* 画像/動画 共通：タイトル（1つだけ） */}
+                    <input
+                      className={clsx(
+                        "w-full rounded-md border p-2 text-sm",
+                        isDark
+                          ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
+                          : "bg-white border-black/10 text-black placeholder:text-black/40"
+                      )}
+                      placeholder="タイトル（任意）"
+                      value={
+                        // 後方互換：もし旧データに caption/alt があれば初期表示に利用
+                        ((b as any).title ??
+                          (b as any).caption ??
+                          (b as any).alt ??
+                          "") as string
+                      }
+                      onChange={(e) =>
+                        updateAt(i, { ...(b as any), title: e.target.value })
+                      }
+                    />
 
                     {(b as any).path && (
                       <div className={clsx("text-xs break-all", subTextClass)}>
@@ -438,10 +581,20 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
       {/* 末尾に追加 */}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" onClick={addTextTail}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onChange((prev) => [...prev, { id: uuid(), type: "p", text: "" } as any])}
+        >
           テキストを追加
         </Button>
-        <Button type="button" onClick={addMediaTail}>
+        <Button
+          type="button"
+          onClick={() => {
+            (fileInputRef.current as any).__insertIndex = value.length;
+            fileInputRef.current?.click();
+          }}
+        >
           画像/動画を追加
         </Button>
         <span className={clsx("text-xs", subTextClass)}>※ 動画は60秒以内</span>
@@ -469,9 +622,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               {uploadPct !== null ? "アップロード中" : "お知らせ"}
             </div>
             {uploadingName && (
-              <div className={clsx("mb-3 text-sm", subTextClass)}>
-                {uploadingName}
-              </div>
+              <div className={clsx("mb-3 text-sm", subTextClass)}>{uploadingName}</div>
             )}
 
             {uploadPct !== null && (
@@ -482,12 +633,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                     style={{ width: `${uploadPct}%` }}
                   />
                 </div>
-                <div
-                  className={clsx(
-                    "mb-2 text-right text-xs tabular-nums",
-                    subTextClass
-                  )}
-                >
+                <div className={clsx("mb-2 text-right text-xs tabular-nums", subTextClass)}>
                   {uploadPct}%
                 </div>
               </>
@@ -506,14 +652,133 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 </Button>
               )}
               {errorMsg && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setErrorMsg(null)}
-                >
+                <Button type="button" variant="secondary" onClick={() => setErrorMsg(null)}>
                   閉じる
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 校正プレビューモーダル（テキストカード） */}
+      {proof && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !proof.loading) cancelProof();
+          }}
+        >
+          <div
+            className={clsx(
+              "w-[92%] max-w-2xl rounded-2xl p-6 shadow-xl",
+              isDark ? "bg-gray-900 text-white" : "bg-white text-black"
+            )}
+          >
+            <div className="mb-3 text-base font-semibold">AIで校正（本文カード）</div>
+            <div className={clsx("mb-2 text-xs", subTextClass)}>
+              対象範囲：{proof.start} 〜 {proof.end} 文字（選択がなければブロック全体）
+            </div>
+
+            {proof.loading ? (
+              <div className="py-8 text-center text-sm">校正中…</div>
+            ) : proof.error ? (
+              <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-700">
+                {proof.error}
+              </div>
+            ) : (
+              <textarea
+                value={proof.result}
+                onChange={(e) => setProof({ ...proof, result: e.target.value })}
+                rows={14}
+                className={clsx(
+                  "w-full resize-y rounded-md border p-2",
+                  isDark
+                    ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
+                    : "bg-white border-black/10 text-black placeholder:text-black/40"
+                )}
+              />
+            )}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={cancelProof} disabled={proof.loading}>
+                キャンセル
+              </Button>
+              <Button type="button" onClick={applyProofToBlock} disabled={proof.loading || !proof.result.trim()}>
+                置き換える
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 生成モーダル（テキストカード：このカードに上書き） */}
+      {gen && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !gen.loading) cancelGenerate();
+          }}
+        >
+          <div
+            className={clsx(
+              "w-[92%] max-w-lg rounded-2xl p-6 shadow-xl",
+              isDark ? "bg-gray-900 text-white" : "bg-white text-black"
+            )}
+          >
+            <div className="mb-4">
+              <div className="text-base font-semibold">AIで本文作成（本文カード）</div>
+              <div className={clsx("mt-1 text-xs", subTextClass)}>
+                タイトルは使用しません。キーワードを 1〜3 個入力してください。生成結果は<strong>このカードに上書き</strong>されます。
+              </div>
+            </div>
+
+            <div className="grid gap-2 mb-3">
+              <label className="text-xs font-medium">キーワード（最大3）</label>
+              <input
+                className={clsx(
+                  "w-full rounded-md border p-2 text-sm",
+                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                )}
+                value={gen.kw1}
+                onChange={(e) => setGen({ ...gen, kw1: e.target.value })}
+                placeholder="例：散歩"
+              />
+              <input
+                className={clsx(
+                  "w-full rounded-md border p-2 text-sm",
+                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                )}
+                value={gen.kw2}
+                onChange={(e) => setGen({ ...gen, kw2: e.target.value })}
+                placeholder="例：柴犬"
+              />
+              <input
+                className={clsx(
+                  "w-full rounded-md border p-2 text-sm",
+                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                )}
+                value={gen.kw3}
+                onChange={(e) => setGen({ ...gen, kw3: e.target.value })}
+                placeholder="例：夕焼け"
+              />
+            </div>
+
+            {gen.error && (
+              <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-700">{gen.error}</div>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={cancelGenerate} disabled={gen.loading}>
+                キャンセル
+              </Button>
+              <Button
+                type="button"
+                onClick={doGenerateForBlock}
+                disabled={gen.loading || ![gen.kw1, gen.kw2, gen.kw3].some((s) => s.trim())}
+              >
+                {gen.loading ? "生成中…" : "生成する"}
+              </Button>
             </div>
           </div>
         </div>
