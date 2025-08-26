@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { collection, getDocs, Timestamp, query, where } from "firebase/firestore";
+import { collection, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { format, subDays } from "date-fns"; // ★ subDays を追加
 import CardSpinner from "@/components/CardSpinner";
 import { Bar } from "react-chartjs-2";
 import {
@@ -13,7 +12,6 @@ import {
   BarElement,
   Tooltip,
 } from "chart.js";
-
 import DailyAccessChart from "@/components/DailyAccessChart";
 import ReferrerChart from "@/components/ReferrerChart";
 import {
@@ -28,13 +26,6 @@ import { Button } from "@/components/ui/button";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 Chart.register(CategoryScale, LinearScale, BarElement, Tooltip);
-
-/* ───────── 期間計算用ヘルパー ───────── */
-const calcStart = (daysAgo: number) =>
-  format(subDays(new Date(), daysAgo), "yyyy-MM-dd");
-
-const TODAY = format(new Date(), "yyyy-MM-dd"); // 例: 2025-08-06
-const DEFAULT_START = calcStart(30); // デフォルト = 過去 30 日
 
 /* ───────── ラベル定義 ───────── */
 const PAGE_LABELS: Record<string, string> = {
@@ -65,18 +56,16 @@ const EVENT_LABELS: Record<string, string> = {
   home_stay_seconds_map_click: "マップアクセス滞在",
   home_stay_seconds_menu: "メニュー滞在時間",
 };
+
 const EXCLUDED_PAGE_IDS = ["login", "analytics", "community", "postList"];
 
+type PageRow = { id: string; count: number };
+type EventRow = { id: string; total: number; count: number; average: number };
+
 export default function AnalyticsPage() {
-  const [pageData, setPageData] = useState<{ id: string; count: number }[]>([]);
-  const [eventData, setEventData] = useState<
-    { id: string; total: number; count: number; average: number }[]
-  >([]);
-  const [loading, setLoading] = useState(false);
-  const [startDate, setStartDate] = useState(DEFAULT_START);
-  const [endDate, setEndDate] = useState(TODAY);
-  const [advice, setAdvice] = useState("");
-  const [analyzing, setAnalyzing] = useState(false);
+  /* ───────── 表示データ（すべて累計） ───────── */
+  const [pageData, setPageData] = useState<PageRow[]>([]);
+  const [eventData, setEventData] = useState<EventRow[]>([]);
   const [hourlyData, setHourlyData] = useState<any | null>(null);
   const [hourlyLoading, setHourlyLoading] = useState(false);
   const [hourlyRawCounts, setHourlyRawCounts] = useState<number[]>([]);
@@ -87,7 +76,6 @@ export default function AnalyticsPage() {
     direct: 0,
   });
   const [weekdayData, setWeekdayData] = useState<any | null>(null);
-  const [open, setOpen] = useState(false);
   const [visitorStats, setVisitorStats] = useState<{
     new: number;
     returning: number;
@@ -99,217 +87,58 @@ export default function AnalyticsPage() {
     []
   );
 
-  const presets = [
-    { label: "過去 1 週間", days: 7 },
-    { label: "過去 1 か月", days: 30 },
-    { label: "過去 3 か月", days: 90 },
-  ];
+  /* ───────── UI状態 ───────── */
+  const [loading, setLoading] = useState(false);
+  const [advice, setAdvice] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const handlePreset = (days: number) => {
-    setStartDate(calcStart(days));
-    setEndDate(TODAY); // 常に今日まで
-    setAdvice("");
-  };
+  /* ───────── 累計：ページ別アクセス（pages） ───────── */
+  const fetchPages = useCallback(async () => {
+    const col = collection(db, "analytics", SITE_KEY, "pages");
+    const snap = await getDocs(col);
 
-  useEffect(() => {
-    const fetchGeo = async () => {
-      const ref = collection(db, "analytics", "tayotteya3110", "geoStats");
-      const snap = await getDocs(ref);
-      const arr = snap.docs.map((d) => ({
-        region: d.id,
-        count: d.data().count as number,
-      }));
-      setGeoData(arr);
-    };
-    fetchGeo();
+    const rows: PageRow[] = snap.docs
+      .map((d) => {
+        const id = d.id;
+        const count = (d.data() as any).count ?? 0;
+        return { id, count };
+      })
+      .filter((r) => !EXCLUDED_PAGE_IDS.includes(r.id))
+      .sort((a, b) => b.count - a.count);
+
+    setPageData(rows);
   }, []);
 
-  // 期間が変わるたび自動で AI 提案をリセットしておきたい場合
-  useEffect(() => {
-    setAdvice("");
-  }, [startDate, endDate]);
+  /* ───────── 累計：イベント滞在時間（events） ───────── */
+  const fetchEvents = useCallback(async () => {
+    const col = collection(db, "analytics", SITE_KEY, "events");
+    const snap = await getDocs(col);
 
-  // AnalyticsPage.tsx で集計
-  useEffect(() => {
-    const fetchBounce = async () => {
-      const statsRef = collection(db, "analytics", SITE_KEY, "bounceStats");
-      const snap = await getDocs(statsRef);
-      const bounceRates = snap.docs.map((d) => {
-        const { count, totalViews } = d.data();
-        return {
-          page: d.id,
-          rate: totalViews > 0 ? (count / totalViews) * 100 : 0,
-        };
-      });
-      setBounceRates(bounceRates);
-    };
-    fetchBounce();
+    const rows: EventRow[] = snap.docs
+      .map((d) => {
+        const id = d.id;
+        const data = d.data() as { totalSeconds?: number; count?: number };
+        const total = data.totalSeconds ?? 0;
+        const count = data.count ?? 0;
+        const average = count ? Math.round(total / count) : 0;
+        return { id, total, count, average };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    setEventData(rows);
   }, []);
 
-  useEffect(() => {
-    const fetchVisitorStats = async () => {
-      const ref = collection(db, "analytics", SITE_KEY, "visitorStats");
-      const snap = await getDocs(ref);
-
-      let newTotal = 0;
-      let returningTotal = 0;
-
-      snap.docs.forEach((d) => {
-        const data = d.data() as { new?: number; returning?: number };
-        newTotal += data.new ?? 0;
-        returningTotal += data.returning ?? 0;
-      });
-
-      setVisitorStats({ new: newTotal, returning: returningTotal });
-    };
-
-    fetchVisitorStats();
-  }, []);
-
-  /* ───────── fetchData (依存配列を追加済) ───────── */
-
-  useEffect(() => {
-    const fetchWeekdayAccessData = async () => {
-      try {
-        // ── analytics/{siteKey}/weekdayLogs/{sun|mon|tue|…} ──
-        const ref = collection(db, "analytics", SITE_KEY, "weekdayLogs");
-        const snap = await getDocs(ref);
-
-        // Firestore の doc.id ➜ 0‒6 に変換する対応表
-        const weekdayIndex: Record<string, number> = {
-          sun: 0,
-          mon: 1,
-          tue: 2,
-          wed: 3,
-          thu: 4,
-          fri: 5,
-          sat: 6,
-        };
-
-        const countsByWeekday = Array(7).fill(0); // 0:日〜6:土
-
-        snap.docs.forEach((doc) => {
-          const idx = weekdayIndex[doc.id]; // ← doc.id を見る
-          if (idx !== undefined) {
-            countsByWeekday[idx] += doc.data().count ?? 0;
-          }
-        });
-
-        setWeekdayData({
-          labels: ["日", "月", "火", "水", "木", "金", "土"],
-          datasets: [
-            {
-              label: "曜日別アクセス数",
-              data: countsByWeekday,
-              backgroundColor: "rgba(139, 92, 246, 0.6)", // violet
-            },
-          ],
-        });
-      } catch (err) {
-        console.error("曜日別アクセスデータ取得エラー:", err);
-      }
-    };
-
-    fetchWeekdayAccessData();
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(async () => {
-      const ref = collection(db, "analytics", SITE_KEY, "referrers");
-      const snap = await getDocs(ref);
-
-      const total = { sns: 0, search: 0, direct: 0 };
-
-      snap.docs.forEach((doc) => {
-        const host = doc.id;
-        const cnt = doc.data().count ?? 0;
-
-        if (host === "direct") {
-          total.direct += cnt;
-        } else if (
-          /google\./.test(host) ||
-          /bing\.com/.test(host) ||
-          /yahoo\./.test(host)
-        ) {
-          total.search += cnt;
-        } else {
-          total.sns += cnt;
-        }
-      });
-
-      setReferrerData(total);
-    }, 1000); // ← 1秒遅延を追加
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
-    const fetchDailyData = async () => {
-      try {
-        const start = new Date(startDate);
-        const end = new Date(new Date(endDate).setHours(23, 59, 59, 999));
-        const ref = collection(db, "analytics", SITE_KEY, "dailyLogs");
-        const snap = await getDocs(ref);
-
-        type DailyLog = {
-          updatedAt?: Timestamp;
-          count?: number;
-        };
-
-        const raw = snap.docs
-          .map((doc) => {
-            const data = doc.data() as DailyLog;
-            return {
-              id: doc.id,
-              count: data.count ?? 0,
-              updatedAt: data.updatedAt?.toDate?.(),
-            };
-          })
-          .filter((doc) => {
-            return (
-              doc.updatedAt && doc.updatedAt >= start && doc.updatedAt <= end
-            );
-          });
-
-        const sorted = raw.sort((a, b) => (a.id < b.id ? -1 : 1));
-        const labels = sorted.map((d) => d.id);
-        const counts = sorted.map((d) => d.count);
-
-        setDailyData({
-          labels,
-          datasets: [
-            {
-              label: "日別アクセス数",
-              data: counts,
-              fill: false,
-              borderColor: "rgba(75,192,192,1)",
-              tension: 0.3,
-            },
-          ],
-        });
-      } catch (err) {
-        console.error("日別データ取得エラー:", err);
-      }
-    };
-
-    fetchDailyData();
-  }, [startDate, endDate]);
-
-  function groupByHour(
-    logs: { hour: number; accessedAt?: any }[],
-    start: Date,
-    end: Date
+  /* ───────── 累計：時間帯別（hourlyLogs 全件） ───────── */
+  function groupByHourAll(
+    logs: { hour: number; accessedAt?: any }[]
   ): number[] {
     const hourlyCounts = Array(24).fill(0);
-
     for (const log of logs) {
-      const ts = log.accessedAt?.toDate?.();
-      if (!ts) continue;
-      if (ts >= start && ts <= end && typeof log.hour === "number") {
+      if (typeof log.hour === "number" && log.hour >= 0 && log.hour <= 23) {
         hourlyCounts[log.hour]++;
       }
     }
-
     return hourlyCounts;
   }
 
@@ -320,141 +149,231 @@ export default function AnalyticsPage() {
         {
           label: "アクセス数",
           data: counts,
-          backgroundColor: "rgba(255, 159, 64, 0.6)", // orange
+          backgroundColor: "rgba(255, 159, 64, 0.6)",
         },
       ],
     };
   }
 
-  useEffect(() => {
-    const fetchHourlyData = async () => {
-      setHourlyLoading(true);
-      try {
-        const start = new Date(startDate);
-        const end = new Date(new Date(endDate).setHours(23, 59, 59, 999));
-        const logsRef = collection(db, "analytics", SITE_KEY, "hourlyLogs");
-        const snap = await getDocs(logsRef);
-        const logs = snap.docs.map(
-          (doc) => doc.data() as { hour: number; accessedAt?: Timestamp }
-        );
-        const hourlyCounts = groupByHour(logs, start, end);
-        setHourlyRawCounts(hourlyCounts); // ← これをAIへ渡す
-        setHourlyData(getHourlyChartData(hourlyCounts)); // ← これはChart用
-      } catch (err) {
-        console.error("時間帯データ取得エラー:", err);
-      } finally {
-        setHourlyLoading(false);
+  const fetchHourly = useCallback(async () => {
+    setHourlyLoading(true);
+    try {
+      const logsRef = collection(db, "analytics", SITE_KEY, "hourlyLogs");
+      const snap = await getDocs(logsRef);
+      const logs = snap.docs.map(
+        (doc) => doc.data() as { hour: number; accessedAt?: Timestamp }
+      );
+      const counts = groupByHourAll(logs);
+      setHourlyRawCounts(counts);
+      setHourlyData(getHourlyChartData(counts));
+    } finally {
+      setHourlyLoading(false);
+    }
+  }, []);
+
+  /* ───────── 累計：日別アクセス（dailyLogs 全件） ───────── */
+  const fetchDaily = useCallback(async () => {
+    const col = collection(db, "analytics", SITE_KEY, "dailyLogs");
+    const snap = await getDocs(col);
+
+    const byDay: Record<string, number> = {};
+    snap.docs.forEach((d) => {
+      const day = d.id; // "yyyy-MM-dd" 形式
+      const count = (d.data() as any).count ?? 0;
+      byDay[day] = (byDay[day] ?? 0) + count;
+    });
+
+    const days = Object.keys(byDay).sort(); // yyyy-MM-dd
+    const counts = days.map((k) => byDay[k]);
+
+    setDailyData({
+      labels: days.length ? days : ["データなし"],
+      datasets: [
+        {
+          label: "日別アクセス数（累計）",
+          data: counts.length ? counts : [0],
+          fill: false,
+          borderColor: "rgba(75,192,192,1)",
+          tension: 0.3,
+        },
+      ],
+    });
+  }, []);
+
+  /* ───────── 累計：リファラー（referrers） ───────── */
+  const fetchReferrers = useCallback(async () => {
+    const col = collection(db, "analytics", SITE_KEY, "referrers");
+    const snap = await getDocs(col);
+
+    const total = { sns: 0, search: 0, direct: 0 };
+    snap.docs.forEach((d) => {
+      const host = d.id;
+      const cnt = (d.data() as any).count ?? 0;
+
+      if (host === "direct") total.direct += cnt;
+      else if (
+        /google\./.test(host) ||
+        /bing\.com/.test(host) ||
+        /yahoo\./.test(host)
+      ) {
+        total.search += cnt;
+      } else {
+        total.sns += cnt;
       }
+    });
+
+    setReferrerData(total);
+  }, []);
+
+  /* ───────── 累計：曜日別（weekdayLogs） ───────── */
+  const fetchWeekday = useCallback(async () => {
+    const ref = collection(db, "analytics", SITE_KEY, "weekdayLogs");
+    const snap = await getDocs(ref);
+
+    const weekdayIndex: Record<string, number> = {
+      sun: 0,
+      mon: 1,
+      tue: 2,
+      wed: 3,
+      thu: 4,
+      fri: 5,
+      sat: 6,
     };
 
-    fetchHourlyData();
-  }, [startDate, endDate]);
-
-
-
-// ※ 先頭で `import { query, where } from "firebase/firestore";` を追加してください。
-
-const fetchData = useCallback(async () => {
-  setLoading(true);
-  try {
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate
-      ? new Date(new Date(endDate).setHours(23, 59, 59, 999))
-      : null;
-
-    // ── ページ別アクセス数：hourlyLogs を期間で絞って集計（products/* を "products" に集約）
-    const logsCol = collection(db, "analytics", SITE_KEY, "hourlyLogs");
-    let q: any = logsCol;
-    if (start && end) {
-      q = query(
-        logsCol,
-        where("accessedAt", ">=", start),
-        where("accessedAt", "<=", end)
-      );
-    } else if (start) {
-      q = query(logsCol, where("accessedAt", ">=", start));
-    } else if (end) {
-      q = query(logsCol, where("accessedAt", "<=", end));
-    }
-
-    const logsSnap = await getDocs(q);
-    const pages: Record<string, number> = {};
-    logsSnap.docs.forEach((d) => {
-      const { pageId } = d.data() as { pageId?: string };
-      if (!pageId) return;
-
-      // 既存データの生パス対策：products/xxx… を "products" に潰す
-      const id = pageId.startsWith("products/") ? "products" : pageId;
-
-      if (EXCLUDED_PAGE_IDS.includes(id)) return;
-      pages[id] = (pages[id] ?? 0) + 1;
+    const countsByWeekday = Array(7).fill(0);
+    snap.docs.forEach((doc) => {
+      const idx = weekdayIndex[doc.id];
+      if (idx !== undefined) {
+        countsByWeekday[idx] += (doc.data() as any).count ?? 0;
+      }
     });
 
-    const sortedPages = Object.entries(pages)
-      .map(([id, count]) => ({ id, count }))
+    setWeekdayData({
+      labels: ["日", "月", "火", "水", "木", "金", "土"],
+      datasets: [
+        {
+          label: "曜日別アクセス数（累計）",
+          data: countsByWeekday,
+          backgroundColor: "rgba(139, 92, 246, 0.6)",
+        },
+      ],
+    });
+  }, []);
+
+  /* ───────── 累計：新規 vs. リピーター（visitorStats） ───────── */
+  const fetchVisitors = useCallback(async () => {
+    const col = collection(db, "analytics", SITE_KEY, "visitorStats");
+    const snap = await getDocs(col);
+
+    let n = 0;
+    let r = 0;
+    snap.docs.forEach((d) => {
+      const data = d.data() as { new?: number; returning?: number };
+      n += data.new ?? 0;
+      r += data.returning ?? 0;
+    });
+    setVisitorStats({ new: n, returning: r });
+  }, []);
+
+  /* ───────── 累計：直帰率（bounceStats） ───────── */
+  const fetchBounceRates = useCallback(async () => {
+    const statsRef = collection(db, "analytics", SITE_KEY, "bounceStats");
+    const snap = await getDocs(statsRef);
+
+    const rates: { page: string; rate: number }[] = snap.docs.map((d) => {
+      const { count = 0, totalViews = 0 } = d.data() as any;
+      const rate = totalViews > 0 ? (count / totalViews) * 100 : 0;
+      return { page: d.id, rate: Number(rate.toFixed(1)) };
+    });
+
+    // 高い順にソート
+    rates.sort((a, b) => b.rate - a.rate);
+    setBounceRates(rates);
+  }, []);
+
+  /* ───────── 累計：地域別（geoStats） ───────── */
+  const fetchGeo = useCallback(async () => {
+    const ref = collection(db, "analytics", SITE_KEY, "geoStats");
+    const snap = await getDocs(ref);
+    const arr = snap.docs
+      .map((d) => ({ region: d.id, count: (d.data() as any).count as number }))
       .sort((a, b) => b.count - a.count);
-    setPageData(sortedPages);
+    setGeoData(arr);
+  }, []);
 
-    // ── 平均滞在時間：現行スキーマは累計のみ（期間フィルタ不可）
-    const eventsRef = collection(db, "analytics", SITE_KEY, "events");
-    const eventsSnap = await getDocs(eventsRef);
-    const events: Record<string, { totalSeconds: number; count: number }> = {};
+  /* ───────── 一括呼び出し（安定：Promise.allSettled） ───────── */
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const tasks = [
+        fetchPages(),
+        fetchEvents(),
+        fetchHourly(),
+        fetchDaily(),
+        fetchReferrers(),
+        fetchWeekday(),
+        fetchVisitors(),
+        fetchBounceRates(),
+        fetchGeo(),
+      ];
+      const results = await Promise.allSettled(tasks);
+      results.forEach((r, i) => {
+        if (r.status === "rejected") {
+          const names = [
+            "fetchPages",
+            "fetchEvents",
+            "fetchHourly",
+            "fetchDaily",
+            "fetchReferrers",
+            "fetchWeekday",
+            "fetchVisitors",
+            "fetchBounceRates",
+            "fetchGeo",
+          ];
+          console.error(`${names[i]} failed:`, r.reason);
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    fetchPages,
+    fetchEvents,
+    fetchHourly,
+    fetchDaily,
+    fetchReferrers,
+    fetchWeekday,
+    fetchVisitors,
+    fetchBounceRates,
+    fetchGeo,
+  ]);
 
-    eventsSnap.forEach((doc) => {
-      const data = doc.data();
-      const id = doc.id;
-      const total = data.totalSeconds ?? 0;
-      const cnt = data.count ?? 0;
-      events[id] = {
-        totalSeconds: (events[id]?.totalSeconds ?? 0) + total,
-        count: (events[id]?.count ?? 0) + cnt,
-      };
-    });
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
-    const sortedEvents = Object.entries(events)
-      .map(([id, val]) => ({
-        id,
-        total: val.totalSeconds,
-        count: val.count,
-        average: val.count ? Math.round(val.totalSeconds / val.count) : 0,
-      }))
-      .sort((a, b) => b.total - a.total);
-    setEventData(sortedEvents);
-  } catch (e) {
-    console.error("取得エラー:", e);
-  } finally {
-    setLoading(false);
-  }
-}, [startDate, endDate]);
-
-
-
+  /* ───────── AI 改善提案（累計データをそのまま送る） ───────── */
   const handleAnalysis = async () => {
-    console.log("referrerData:", referrerData);
-
     setAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-insights", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          period: startDate && endDate ? `${startDate}〜${endDate}` : "全期間",
+          period: "全期間（累計）",
           pageData,
           eventData,
           hourlyData: hourlyRawCounts,
           dailyData,
           referrerData,
-          weekdayData: weekdayData.data,
+          weekdayData,
           visitorStats,
           bounceRates,
           geoData,
         }),
       });
-
       const data = await res.json();
-      setAdvice(data.advice);
+      setAdvice(data.advice ?? "");
     } catch (err) {
       console.error("分析エラー:", err);
       setAdvice("AIによる提案の取得に失敗しました。");
@@ -463,34 +382,12 @@ const fetchData = useCallback(async () => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
+  /* ───────── JSX ───────── */
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
-      <h2 className="text-xl font-bold text-white">アクセス解析</h2>
+      <h2 className="text-xl font-bold text-white">アクセス解析（累計）</h2>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {presets.map((p) => {
-          // 現在の startDate / endDate と一致するか判定
-          const isActive = startDate === calcStart(p.days) && endDate === TODAY;
-
-          return (
-            <Button
-              key={p.days}
-              onClick={() => handlePreset(p.days)}
-              // ── 選択中は濃い色、未選択は淡い色 ──
-              variant={isActive ? "default" : "secondary"}
-              className={`text-xs ${isActive ? "pointer-events-none" : ""}`}
-            >
-              {p.label}
-            </Button>
-          );
-        })}
-        {/* カスタム日付入力を残す場合はここに追加 */}
-      </div>
-
+      {/* AI 提案 */}
       <div className="flex gap-3">
         {!advice && (
           <button
@@ -507,48 +404,46 @@ const fetchData = useCallback(async () => {
         {advice && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="">AIの改善提案を見る</Button>
+              <Button>AIの改善提案を見る</Button>
             </DialogTrigger>
-
             <DialogContent className="max-w-md sm:max-w-xl">
               <DialogHeader>
                 <DialogTitle>AIによる改善提案</DialogTitle>
                 <DialogDescription>
-                  この期間のアクセスデータをもとに、ホームページの改善案を表示しています。
+                  累計データをもとに、ホームページの改善案を表示しています。
                 </DialogDescription>
               </DialogHeader>
-
               <div className="mt-2 text-sm whitespace-pre-wrap leading-relaxed">
                 {advice}
               </div>
             </DialogContent>
           </Dialog>
         )}
-        {/* <button
-          onClick={handleCSVExport}
-          className="bg-gray-700 text-white px-3 py-1 rounded text-sm"
-        >
-          CSV 出力
-        </button> */}
       </div>
 
+      {/* 本体 */}
       {loading ? (
         <CardSpinner />
       ) : (
         <>
+          {/* ページ別アクセス（累計） */}
           <div className="bg-white/50 rounded p-4 shadow mt-6">
-            <h3 className="font-semibold text-lg mb-4">ページ別アクセス数</h3>
-
+            <h3 className="font-semibold text-lg mb-4">
+              ページ別アクセス数（累計）
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* グラフ */}
               <div className="w-full h-64">
                 <Bar
                   data={{
-                    labels: pageData.map((d) => PAGE_LABELS[d.id] || d.id),
+                    labels: pageData.length
+                      ? pageData.map((d) => PAGE_LABELS[d.id] || d.id)
+                      : ["データなし"],
                     datasets: [
                       {
                         label: "アクセス数",
-                        data: pageData.map((d) => d.count),
+                        data: pageData.length
+                          ? pageData.map((d) => d.count)
+                          : [0],
                         backgroundColor: "rgba(59, 130, 246, 0.6)",
                       },
                     ],
@@ -566,7 +461,6 @@ const fetchData = useCallback(async () => {
                 />
               </div>
 
-              {/* テーブル */}
               <div className="overflow-auto">
                 <table className="w-full bg-gray-100/50 border text-sm table-fixed">
                   <thead>
@@ -576,34 +470,47 @@ const fetchData = useCallback(async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageData.map((row) => (
-                      <tr key={row.id}>
-                        <td className="p-2 border">
-                          {PAGE_LABELS[row.id] || row.id}
+                    {pageData.length ? (
+                      pageData.map((row) => (
+                        <tr key={row.id}>
+                          <td className="p-2 border">
+                            {PAGE_LABELS[row.id] || row.id}
+                          </td>
+                          <td className="p-2 border text-right">{row.count}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="p-2 border" colSpan={2}>
+                          データがありません
                         </td>
-                        <td className="p-2 border text-right">{row.count}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
 
+          {/* 平均滞在時間（累計） */}
           <div className="bg-white/50 rounded p-4 shadow mt-6">
-            <h3 className="font-semibold text-lg mb-4">ページ別平均滞在時間</h3>
-
+            <h3 className="font-semibold text-lg mb-4">
+              ページ別平均滞在時間（累計）
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 棒グラフ */}
               <div className="w-full h-64">
                 <Bar
                   data={{
-                    labels: eventData.map((d) => EVENT_LABELS[d.id] || d.id),
+                    labels: eventData.length
+                      ? eventData.map((d) => EVENT_LABELS[d.id] || d.id)
+                      : ["データなし"],
                     datasets: [
                       {
                         label: "平均滞在秒数",
-                        data: eventData.map((d) => d.average),
-                        backgroundColor: "rgba(16, 185, 129, 0.6)", // teal系
+                        data: eventData.length
+                          ? eventData.map((d) => d.average)
+                          : [0],
+                        backgroundColor: "rgba(16, 185, 129, 0.6)",
                       },
                     ],
                   }}
@@ -620,7 +527,6 @@ const fetchData = useCallback(async () => {
                 />
               </div>
 
-              {/* テーブル */}
               <div className="overflow-auto">
                 <table className="w-full bg-gray-100/50 border text-sm table-fixed">
                   <thead>
@@ -632,27 +538,40 @@ const fetchData = useCallback(async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {eventData.map((row) => (
-                      <tr key={row.id}>
-                        <td className="p-2 border">
-                          {EVENT_LABELS[row.id] || row.id}
+                    {eventData.length ? (
+                      eventData.map((row) => (
+                        <tr key={row.id}>
+                          <td className="p-2 border">
+                            {EVENT_LABELS[row.id] || row.id}
+                          </td>
+                          <td className="p-2 border text-right">{row.total}</td>
+                          <td className="p-2 border text-right">{row.count}</td>
+                          <td className="p-2 border text-right">
+                            {row.average}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="p-2 border" colSpan={4}>
+                          データがありません
                         </td>
-                        <td className="p-2 border text-right">{row.total}</td>
-                        <td className="p-2 border text-right">{row.count}</td>
-                        <td className="p-2 border text-right">{row.average}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
 
+          {/* 時間帯別（累計） */}
           {hourlyLoading ? (
             <CardSpinner />
           ) : hourlyData ? (
             <div className="bg-white/50 rounded p-4 shadow mt-6">
-              <h3 className="font-semibold text-sm mb-2">時間帯別アクセス数</h3>
+              <h3 className="font-semibold text-sm mb-2">
+                時間帯別アクセス数（累計）
+              </h3>
               <Bar
                 data={hourlyData}
                 options={{
@@ -669,9 +588,12 @@ const fetchData = useCallback(async () => {
             </div>
           ) : null}
 
+          {/* 曜日別（累計） */}
           {weekdayData && (
             <div className="bg-white/50 rounded p-4 shadow mt-6">
-              <h3 className="font-semibold text-sm mb-2">曜日別アクセス数</h3>
+              <h3 className="font-semibold text-sm mb-2">
+                曜日別アクセス数（累計）
+              </h3>
               <Bar
                 data={weekdayData}
                 options={{
@@ -688,108 +610,114 @@ const fetchData = useCallback(async () => {
             </div>
           )}
 
+          {/* 日別推移（全期間の累計推移＝全件表示） */}
           {dailyData && (
             <div className="mt-8 bg-white/50">
               <DailyAccessChart data={dailyData} />
             </div>
           )}
 
+          {/* リファラー（累計） */}
           {referrerData && (
             <div className="p-6">
               <ReferrerChart data={referrerData} />
             </div>
           )}
-        </>
-      )}
 
-      {visitorStats && (
-        <div className="bg-white/50 rounded p-4 shadow mt-6">
-          <h3 className="font-semibold text-sm mb-2">新規 vs. リピーター</h3>
-          <Bar
-            data={{
-              labels: ["新規", "リピーター"],
-              datasets: [
-                {
-                  label: "訪問者数",
-                  data: [visitorStats.new, visitorStats.returning],
-                  backgroundColor: [
-                    "rgba(96, 165, 250, 0.6)",
-                    "rgba(34, 197, 94, 0.6)",
+          {/* 新規 vs. リピーター（累計） */}
+          {/* {visitorStats && (
+            <div className="bg-white/50 rounded p-4 shadow mt-6">
+              <h3 className="font-semibold text-sm mb-2">
+                新規 vs. リピーター（累計）
+              </h3>
+              <Bar
+                data={{
+                  labels: ["新規", "リピーター"],
+                  datasets: [
+                    {
+                      label: "訪問者数",
+                      data: [visitorStats.new, visitorStats.returning],
+                      backgroundColor: [
+                        "rgba(96, 165, 250, 0.6)",
+                        "rgba(34, 197, 94, 0.6)",
+                      ],
+                    },
                   ],
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              plugins: { tooltip: { enabled: true } },
-              scales: { y: { beginAtZero: true } },
-            }}
-          />
-        </div>
-      )}
+                }}
+                options={{
+                  responsive: true,
+                  plugins: { tooltip: { enabled: true } },
+                  scales: { y: { beginAtZero: true } },
+                }}
+              />
+            </div>
+          )} */}
 
-      {/* 直帰率グラフ */}
-      {bounceRates.length > 0 && (
-        <div className="bg-white/50 rounded p-4 shadow mt-6">
-          <h3 className="font-semibold text-sm mb-2">直帰率（%）</h3>
-          <Bar
-            data={{
-              labels: bounceRates.map((d) => PAGE_LABELS[d.page] || d.page),
-              datasets: [
-                {
-                  label: "直帰率 (%)",
-                  data: bounceRates.map((d) => Number(d.rate.toFixed(1))),
-                  backgroundColor: "rgba(239, 68, 68, 0.6)", // red系
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  max: 100,
-                  title: { display: true, text: "直帰率 (%)" },
-                },
-              },
-              plugins: {
-                tooltip: {
-                  callbacks: {
-                    label: (ctx) => `${ctx.parsed.y}%`,
+          {/* 直帰率（累計） */}
+          {/* {bounceRates.length > 0 && (
+            <div className="bg-white/50 rounded p-4 shadow mt-6">
+              <h3 className="font-semibold text-sm mb-2">直帰率（% / 累計）</h3>
+              <Bar
+                data={{
+                  labels: bounceRates.map((d) => PAGE_LABELS[d.page] || d.page),
+                  datasets: [
+                    {
+                      label: "直帰率 (%)",
+                      data: bounceRates.map((d) => d.rate),
+                      backgroundColor: "rgba(239, 68, 68, 0.6)",
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      max: 100,
+                      title: { display: true, text: "直帰率 (%)" },
+                    },
                   },
-                },
-              },
-            }}
-          />
-        </div>
-      )}
+                  plugins: {
+                    tooltip: {
+                      callbacks: { label: (ctx) => `${ctx.parsed.y}%` },
+                    },
+                  },
+                }}
+              />
+            </div>
+          )} */}
 
-      {geoData.length > 0 && (
-        <div className="bg-white/50 rounded p-4 shadow mt-6">
-          <h3 className="font-semibold text-sm mb-2">地域別アクセス分布</h3>
-          <Bar
-            data={{
-              labels: geoData.map((d) => d.region),
-              datasets: [
-                {
-                  label: "アクセス数",
-                  data: geoData.map((d) => d.count),
-                  backgroundColor: "rgba(37, 99, 235, 0.6)", // blue
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              plugins: { tooltip: { enabled: true } },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: { display: true, text: "アクセス数" },
-                },
-              },
-            }}
-          />
-        </div>
+          {/* 地域別（累計） */}
+          {geoData.length > 0 && (
+            <div className="bg-white/50 rounded p-4 shadow mt-6">
+              <h3 className="font-semibold text-sm mb-2">
+                地域別アクセス分布（累計）
+              </h3>
+              <Bar
+                data={{
+                  labels: geoData.map((d) => d.region),
+                  datasets: [
+                    {
+                      label: "アクセス数",
+                      data: geoData.map((d) => d.count),
+                      backgroundColor: "rgba(37, 99, 235, 0.6)",
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  plugins: { tooltip: { enabled: true } },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      title: { display: true, text: "アクセス数" },
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

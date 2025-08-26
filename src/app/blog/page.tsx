@@ -83,7 +83,7 @@ export default function BlogListPage() {
         setLoading(false);
       }
     },
-    [cursor, loading, noMore]
+    [SITE_KEY, cursor, loading, noMore]
   );
 
   useEffect(() => {
@@ -116,7 +116,18 @@ export default function BlogListPage() {
 
     setDeletingId(post.id);
     try {
-      const medias = Array.isArray(post.media) ? post.media : [];
+      // --- blocks 内のメディア（新仕様）を削除 ---
+      const blocks = Array.isArray((post as any).blocks) ? (post as any).blocks : [];
+      for (const b of blocks) {
+        if ((b?.type === "image" || b?.type === "video") && b?.path) {
+          try {
+            await deleteObject(storageRef(storage, b.path));
+          } catch {}
+        }
+      }
+
+      // --- 旧仕様 media 配列も後方互換で削除 ---
+      const medias = Array.isArray((post as any).media) ? (post as any).media : [];
       for (const m of medias) {
         if (m?.path) {
           try {
@@ -124,14 +135,13 @@ export default function BlogListPage() {
           } catch {}
         }
       }
+
       await deleteDoc(doc(db, "siteBlogs", SITE_KEY, "posts", post.id));
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
     } finally {
       setDeletingId(null);
     }
   };
-
-  // app/blog/page.tsx (抜粋)
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
