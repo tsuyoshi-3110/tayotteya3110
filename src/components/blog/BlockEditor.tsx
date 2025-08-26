@@ -13,6 +13,7 @@ import {
   getDownloadURL,
   uploadBytesResumable,
   UploadTask,
+  deleteObject,
 } from "firebase/storage";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
@@ -35,13 +36,17 @@ import {
   useSortable,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
+import {
+  restrictToVerticalAxis,
+  restrictToParentElement,
+} from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
   value: BlogBlock[];
   onChange: Dispatch<SetStateAction<BlogBlock[]>>;
-  postIdForPath?: string | null; // 新規は null/undefined で temp
+  /** 既存記事は postId、新規は null/undefined（temp 配下へ） */
+  postIdForPath?: string | null;
 };
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
@@ -53,11 +58,11 @@ function SortableBlockCard({
   children,
   onMoveUp,
   onMoveDown,
-  onAddTextBelow,
-  onAddMediaBelow,
+  onEditMedia, // ★ 追加：メディア差し替え
   onDelete,
   disableUp,
   disableDown,
+  isMedia,
 }: {
   id: string;
   isDark: boolean;
@@ -66,12 +71,20 @@ function SortableBlockCard({
   onMoveDown: () => void;
   onAddTextBelow: () => void;
   onAddMediaBelow: () => void;
+  onEditMedia?: () => void;
   onDelete: () => void;
   disableUp: boolean;
   disableDown: boolean;
+  isMedia: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -90,7 +103,9 @@ function SortableBlockCard({
         <button
           className={clsx(
             "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-            isDark ? "border-white/15 bg-black/30 text-white/80" : "border-black/10 bg-gray-50 text-gray-700",
+            isDark
+              ? "border-white/15 bg-black/30 text-white/80"
+              : "border-black/10 bg-gray-50 text-gray-700",
             "cursor-grab active:cursor-grabbing"
           )}
           aria-label="ドラッグして並び替え"
@@ -101,19 +116,41 @@ function SortableBlockCard({
           並び替え
         </button>
 
-        <Button type="button" size="sm" variant="secondary" onClick={onMoveUp} disabled={disableUp}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onMoveUp}
+          disabled={disableUp}
+        >
           ↑
         </Button>
-        <Button type="button" size="sm" variant="secondary" onClick={onMoveDown} disabled={disableDown}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onMoveDown}
+          disabled={disableDown}
+        >
           ↓
         </Button>
-        <Button type="button" size="sm" variant="secondary" onClick={onAddTextBelow}>
-          下にテキスト
-        </Button>
-        <Button type="button" size="sm" onClick={onAddMediaBelow}>
-          下に画像/動画
-        </Button>
-        <Button type="button" size="sm" variant="destructive" onClick={onDelete}>
+
+        {isMedia && onEditMedia && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={onEditMedia}
+            className="bg-blue-500 hover:bg-blue-700"
+          >
+            変更
+          </Button>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          onClick={onDelete}
+        >
           削除
         </Button>
       </div>
@@ -133,14 +170,30 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
   );
   const textClass = isDark ? "text-white" : "text-black";
   const subTextClass = isDark ? "text-white/70" : "text-muted-foreground";
-  const cardClass = isDark ? "border-white/15 bg-black/10" : "border-black/10 bg-white";
+  const cardClass = isDark
+    ? "border-white/15 bg-black/10"
+    : "border-black/10 bg-white";
 
-  // ==== アップロード系 ====
+  // ==== アップロード系（追加／差し替えを共用） ====
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskRef = useRef<UploadTask | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [uploadingName, setUploadingName] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // __mode: "insert" or "replace"
+  // __insertIndex: number（insert時）
+  // __replaceIndex: number（replace時）
+  const setInsertMode = (index: number) => {
+    (fileInputRef.current as any).__mode = "insert";
+    (fileInputRef.current as any).__insertIndex = index;
+    (fileInputRef.current as any).__replaceIndex = undefined;
+  };
+  const setReplaceMode = (index: number) => {
+    (fileInputRef.current as any).__mode = "replace";
+    (fileInputRef.current as any).__replaceIndex = index;
+    (fileInputRef.current as any).__insertIndex = undefined;
+  };
 
   // ==== DnD センサー ====
   const sensors = useSensors(
@@ -188,10 +241,14 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
   );
 
   const updateAt = useCallback(
-    (idx: number, patch: Partial<BlogBlock>) => {
+    (idx: number, patch: Partial<BlogBlock> | BlogBlock) => {
       onChange((prev) => {
         const next = prev.slice();
-        next[idx] = { ...next[idx], ...patch } as BlogBlock;
+        // patch が完全オブジェクトなら置換、部分ならマージ
+        next[idx] =
+          "id" in patch
+            ? (patch as BlogBlock)
+            : ({ ...next[idx], ...patch } as BlogBlock);
         return next;
       });
     },
@@ -237,7 +294,13 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
   // ==== メディア追加 ====
   const handleAddMediaBelow = (idx: number) => {
-    (fileInputRef.current as any).__insertIndex = Math.max(0, idx + 1);
+    setInsertMode(Math.max(0, idx + 1));
+    fileInputRef.current?.click();
+  };
+
+  // ==== メディア編集（差し替え） ====
+  const handleEditMedia = (idx: number) => {
+    setReplaceMode(idx);
     fileInputRef.current?.click();
   };
 
@@ -278,9 +341,19 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     setUploadingName(file.name);
     setUploadPct(0);
 
+    // どのモードか確認
+    const mode = (fileInputRef.current as any).__mode as
+      | "insert"
+      | "replace"
+      | undefined;
+    const insertIndex =
+      (fileInputRef.current as any).__insertIndex ?? value.length;
+    const replaceIndex = (fileInputRef.current as any).__replaceIndex ?? -1;
+
     const safePostId = postIdForPath || "temp";
-    const ext =
-      (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
+    const ext = (
+      file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")
+    ).toLowerCase();
     const fileId = uuid();
     const path = `siteBlogs/${SITE_KEY}/posts/${safePostId}/${fileId}.${ext}`;
     const ref = sRef(storage, path);
@@ -304,19 +377,37 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       });
 
       const url = await getDownloadURL(ref);
-      const insertIndex =
-        (fileInputRef.current as any).__insertIndex ?? value.length;
 
-      const block: BlogBlock =
-        isVideo
+      if (mode === "replace" && replaceIndex >= 0) {
+        // 既存カード差し替え：古いオブジェクトは成功後に削除（失敗は無視）
+        const old = value[replaceIndex];
+        const keepTitle =
+          (old as any)?.title !== undefined ? (old as any).title : "";
+        const oldPath = (old as any)?.path as string | undefined;
+
+        const newBlock: BlogBlock = isVideo
+          ? { id: old.id, type: "video", url, path, title: keepTitle }
+          : { id: old.id, type: "image", url, path, title: keepTitle };
+
+        updateAt(replaceIndex, newBlock);
+
+        if (oldPath && oldPath !== path) {
+          try {
+            await deleteObject(sRef(storage, oldPath));
+          } catch {}
+        }
+      } else {
+        // 追加（下に挿入）
+        const block: BlogBlock = isVideo
           ? { id: uuid(), type: "video", url, path, title: "" }
           : { id: uuid(), type: "image", url, path, title: "" };
 
-      onChange((prev) => {
-        const next = prev.slice();
-        next.splice(insertIndex, 0, block);
-        return next;
-      });
+        onChange((prev) => {
+          const next = prev.slice();
+          next.splice(insertIndex, 0, block);
+          return next;
+        });
+      }
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err?.message ?? "アップロードに失敗しました。");
@@ -325,6 +416,10 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         setUploadPct(null);
         setUploadingName(null);
         taskRef.current = null;
+        // モードリセット
+        (fileInputRef.current as any).__mode = undefined;
+        (fileInputRef.current as any).__insertIndex = undefined;
+        (fileInputRef.current as any).__replaceIndex = undefined;
       }, 300);
     }
   };
@@ -338,6 +433,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       setUploadPct(null);
       setUploadingName(null);
       taskRef.current = null;
+      (fileInputRef.current as any).__mode = undefined;
+      (fileInputRef.current as any).__insertIndex = undefined;
+      (fileInputRef.current as any).__replaceIndex = undefined;
     }, 200);
   };
 
@@ -349,12 +447,14 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     const el = textRefs.current[blockId];
     const src = String((value[idx] as any).text || "");
     const hasSel = el && el.selectionStart !== el.selectionEnd;
-    const start = hasSel ? (el!.selectionStart ?? 0) : 0;
-    const end = hasSel ? (el!.selectionEnd ?? 0) : src.length;
+    const start = hasSel ? el!.selectionStart ?? 0 : 0;
+    const end = hasSel ? el!.selectionEnd ?? 0 : src.length;
     const source = src.slice(start, end).trim();
 
     if (!source) {
-      alert("校正するテキストがありません。テキストを入力するか、範囲選択してください。");
+      alert(
+        "校正するテキストがありません。テキストを入力するか、範囲選択してください。"
+      );
       return;
     }
 
@@ -376,12 +476,30 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setProof((p) => (p ? { ...p, loading: false, error: data?.error ?? "校正に失敗しました。" } : p));
+        setProof((p) =>
+          p
+            ? {
+                ...p,
+                loading: false,
+                error: data?.error ?? "校正に失敗しました。",
+              }
+            : p
+        );
         return;
       }
-      setProof((p) => (p ? { ...p, loading: false, result: String(data.body || "") } : p));
+      setProof((p) =>
+        p ? { ...p, loading: false, result: String(data.body || "") } : p
+      );
     } catch (e: any) {
-      setProof((p) => (p ? { ...p, loading: false, error: e?.message ?? "校正に失敗しました。" } : p));
+      setProof((p) =>
+        p
+          ? {
+              ...p,
+              loading: false,
+              error: e?.message ?? "校正に失敗しました。",
+            }
+          : p
+      );
     }
   };
 
@@ -436,7 +554,11 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setGen({ ...gen, loading: false, error: data?.error ?? "本文の生成に失敗しました。" });
+        setGen({
+          ...gen,
+          loading: false,
+          error: data?.error ?? "本文の生成に失敗しました。",
+        });
         return;
       }
       const text = String(data.body || "").trim();
@@ -452,7 +574,11 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
       setGen(null);
     } catch (e: any) {
-      setGen({ ...gen, loading: false, error: e?.message ?? "本文の生成に失敗しました。" });
+      setGen({
+        ...gen,
+        loading: false,
+        error: e?.message ?? "本文の生成に失敗しました。",
+      });
     }
   };
 
@@ -467,10 +593,19 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
         onDragEnd={onDragEnd}
       >
-        <SortableContext items={value.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          items={value.map((b) => b.id)}
+          strategy={verticalListSortingStrategy}
+        >
           <div className="space-y-4">
             {value.length === 0 && (
-              <div className={clsx("rounded-2xl border p-4 text-sm", cardClass, subTextClass)}>
+              <div
+                className={clsx(
+                  "rounded-2xl border p-4 text-sm",
+                  cardClass,
+                  subTextClass
+                )}
+              >
                 まだブロックがありません。下の「テキストを追加」または「画像/動画を追加」を押してください。
               </div>
             )}
@@ -482,18 +617,29 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 isDark={isDark}
                 onMoveUp={() => move(i, -1)}
                 onMoveDown={() => move(i, +1)}
-                onAddTextBelow={() => insertAt(i + 1, { id: uuid(), type: "p", text: "" } as any)}
+                onAddTextBelow={() =>
+                  insertAt(i + 1, { id: uuid(), type: "p", text: "" } as any)
+                }
                 onAddMediaBelow={() => handleAddMediaBelow(i)}
+                onEditMedia={
+                  b.type !== "p" ? () => handleEditMedia(i) : undefined
+                } // ★ 追加
                 onDelete={() => removeAt(i)}
                 disableUp={i === 0}
                 disableDown={i === value.length - 1}
+                isMedia={b.type !== "p"}
               >
                 {/* ブロック本体 */}
                 {b.type === "p" ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 ">
                     {/* テキストカードのAI */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button type="button" size="sm" onClick={() => openGenerateForBlock(b.id)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => openGenerateForBlock(b.id)}
+                        className="bg-blue-500 hover:bg-blue-700"
+                      >
                         AIで本文作成
                       </Button>
                       <Button
@@ -554,13 +700,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                           : "bg-white border-black/10 text-black placeholder:text-black/40"
                       )}
                       placeholder="タイトル（任意）"
-                      value={
-                        // 後方互換：もし旧データに caption/alt があれば初期表示に利用
-                        ((b as any).title ??
-                          (b as any).caption ??
-                          (b as any).alt ??
-                          "") as string
-                      }
+                      value={((b as any).title ?? "") as string}
                       onChange={(e) =>
                         updateAt(i, { ...(b as any), title: e.target.value })
                       }
@@ -580,18 +720,23 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       </DndContext>
 
       {/* 末尾に追加 */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 ">
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onChange((prev) => [...prev, { id: uuid(), type: "p", text: "" } as any])}
+          onClick={() =>
+            onChange((prev) => [
+              ...prev,
+              { id: uuid(), type: "p", text: "" } as any,
+            ])
+          }
         >
           テキストを追加
         </Button>
         <Button
           type="button"
           onClick={() => {
-            (fileInputRef.current as any).__insertIndex = value.length;
+            setInsertMode(value.length);
             fileInputRef.current?.click();
           }}
         >
@@ -600,13 +745,17 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         <span className={clsx("text-xs", subTextClass)}>※ 動画は60秒以内</span>
       </div>
 
-      {/* hidden file input */}
+      {/* hidden file input（追加／差し替え共通） */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*,video/*"
         className="hidden"
         onChange={onFileChange}
+        onClick={(e) => {
+          // 同じファイルを連続選択できるようにリセット
+          (e.currentTarget as HTMLInputElement).value = "";
+        }}
       />
 
       {/* アップロード進捗オーバーレイ */}
@@ -622,7 +771,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               {uploadPct !== null ? "アップロード中" : "お知らせ"}
             </div>
             {uploadingName && (
-              <div className={clsx("mb-3 text-sm", subTextClass)}>{uploadingName}</div>
+              <div className={clsx("mb-3 text-sm", subTextClass)}>
+                {uploadingName}
+              </div>
             )}
 
             {uploadPct !== null && (
@@ -633,7 +784,12 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                     style={{ width: `${uploadPct}%` }}
                   />
                 </div>
-                <div className={clsx("mb-2 text-right text-xs tabular-nums", subTextClass)}>
+                <div
+                  className={clsx(
+                    "mb-2 text-right text-xs tabular-nums",
+                    subTextClass
+                  )}
+                >
                   {uploadPct}%
                 </div>
               </>
@@ -647,12 +803,20 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
             <div className="mt-2 flex items-center justify-end gap-2">
               {uploadPct !== null && (
-                <Button type="button" variant="secondary" onClick={cancelUpload}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={cancelUpload}
+                >
                   キャンセル
                 </Button>
               )}
               {errorMsg && (
-                <Button type="button" variant="secondary" onClick={() => setErrorMsg(null)}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setErrorMsg(null)}
+                >
                   閉じる
                 </Button>
               )}
@@ -675,9 +839,12 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               isDark ? "bg-gray-900 text-white" : "bg-white text-black"
             )}
           >
-            <div className="mb-3 text-base font-semibold">AIで校正（本文カード）</div>
+            <div className="mb-3 text-base font-semibold">
+              AIで校正（本文カード）
+            </div>
             <div className={clsx("mb-2 text-xs", subTextClass)}>
-              対象範囲：{proof.start} 〜 {proof.end} 文字（選択がなければブロック全体）
+              対象範囲：{proof.start} 〜 {proof.end}{" "}
+              文字（選択がなければブロック全体）
             </div>
 
             {proof.loading ? (
@@ -701,10 +868,19 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
             )}
 
             <div className="mt-4 flex items-center justify-end gap-2">
-              <Button variant="secondary" type="button" onClick={cancelProof} disabled={proof.loading}>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={cancelProof}
+                disabled={proof.loading}
+              >
                 キャンセル
               </Button>
-              <Button type="button" onClick={applyProofToBlock} disabled={proof.loading || !proof.result.trim()}>
+              <Button
+                type="button"
+                onClick={applyProofToBlock}
+                disabled={proof.loading || !proof.result.trim()}
+              >
                 置き換える
               </Button>
             </div>
@@ -727,9 +903,13 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
             )}
           >
             <div className="mb-4">
-              <div className="text-base font-semibold">AIで本文作成（本文カード）</div>
+              <div className="text-base font-semibold">
+                AIで本文作成（本文カード）
+              </div>
               <div className={clsx("mt-1 text-xs", subTextClass)}>
-                タイトルは使用しません。キーワードを 1〜3 個入力してください。生成結果は<strong>このカードに上書き</strong>されます。
+                タイトルは使用しません。キーワードを 1〜3
+                個入力してください。生成結果は
+                <strong>このカードに上書き</strong>されます。
               </div>
             </div>
 
@@ -738,7 +918,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               <input
                 className={clsx(
                   "w-full rounded-md border p-2 text-sm",
-                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                  isDark
+                    ? "bg-black/20 border-white/15"
+                    : "bg-white border-black/10"
                 )}
                 value={gen.kw1}
                 onChange={(e) => setGen({ ...gen, kw1: e.target.value })}
@@ -747,7 +929,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               <input
                 className={clsx(
                   "w-full rounded-md border p-2 text-sm",
-                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                  isDark
+                    ? "bg-black/20 border-white/15"
+                    : "bg-white border-black/10"
                 )}
                 value={gen.kw2}
                 onChange={(e) => setGen({ ...gen, kw2: e.target.value })}
@@ -756,7 +940,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               <input
                 className={clsx(
                   "w-full rounded-md border p-2 text-sm",
-                  isDark ? "bg-black/20 border-white/15" : "bg-white border-black/10"
+                  isDark
+                    ? "bg-black/20 border-white/15"
+                    : "bg-white border-black/10"
                 )}
                 value={gen.kw3}
                 onChange={(e) => setGen({ ...gen, kw3: e.target.value })}
@@ -765,17 +951,27 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
             </div>
 
             {gen.error && (
-              <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-700">{gen.error}</div>
+              <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-700">
+                {gen.error}
+              </div>
             )}
 
             <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" type="button" onClick={cancelGenerate} disabled={gen.loading}>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={cancelGenerate}
+                disabled={gen.loading}
+              >
                 キャンセル
               </Button>
               <Button
                 type="button"
                 onClick={doGenerateForBlock}
-                disabled={gen.loading || ![gen.kw1, gen.kw2, gen.kw3].some((s) => s.trim())}
+                disabled={
+                  gen.loading ||
+                  ![gen.kw1, gen.kw2, gen.kw3].some((s) => s.trim())
+                }
               >
                 {gen.loading ? "生成中…" : "生成する"}
               </Button>
