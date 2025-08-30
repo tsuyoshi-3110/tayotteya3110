@@ -77,12 +77,11 @@ const DARK_KEYS: ThemeKey[] = ["brandG", "brandH", "brandI"];
       ここからコンポーネント本体
 ========================================================= */
 export default function NewsClient() {
-
-   const gradient = useThemeGradient();
-   const isDark = useMemo(
-  () => !!gradient && DARK_KEYS.some((k) => THEMES[k] === gradient),
-  [gradient]
-);
+  const gradient = useThemeGradient();
+  const isDark = useMemo(
+    () => !!gradient && DARK_KEYS.some((k) => THEMES[k] === gradient),
+    [gradient]
+  );
 
   /* ---------- state ---------- */
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -344,8 +343,6 @@ export default function NewsClient() {
       レンダリング
   ===================================================== */
 
-
-
   if (!gradient) return <CardSpinner />;
 
   return (
@@ -379,7 +376,13 @@ export default function NewsClient() {
       {/* ===== 一覧 ===== */}
       <ul className="space-y-4 p-4">
         {items.length === 0 ? (
-          <li className={`p-6 rounded-lg shadow border ${isDark ? "bg-gray-800 text-white border-gray-700" : "bg-white text-gray-900 border-gray-200"}`}>
+          <li
+            className={`p-6 rounded-lg shadow border ${
+              isDark
+                ? "bg-gray-800 text-white border-gray-700"
+                : "bg-white text-gray-900 border-gray-200"
+            }`}
+          >
             現在、お知らせはまだありません。
           </li>
         ) : (
@@ -415,7 +418,7 @@ export default function NewsClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
           {/* ▼ ② モーダル本体にも最大高さを指定し、中だけスクロールできるように */}
           <div
-            className="bg-white rounded-lg p-6 w-full max-w-md space-y-4 my-8   /* ← my-8 で上下余白 */
+            className="bg-white rounded-lg p-6 w-full max-w-md space-y-4 my-8
                 max-h-[90vh] overflow-y-auto"
           >
             <h3 className="text-xl font-bold text-center">
