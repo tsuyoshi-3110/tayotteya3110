@@ -2,20 +2,18 @@ import type { Metadata } from "next";
 import ProductsClient from "@/components/ProductsClient";
 
 export const metadata: Metadata = {
-  title:
-    "施工実績・ビフォーアフター｜ユーファースト（高崎市 ハウスクリーニング）",
+  title: "サービス一覧｜おそうじ処 たよって屋",
   description:
-    "高崎市ハウスクリーニング『ユーファースト』の施工実績・ビフォーアフター写真一覧。実際の清掃事例やお客様からの感想も掲載。安心してご依頼いただけるプロの仕事をご覧ください。",
+    "おそうじ処 たよって屋のサービス一覧ページ。ハウスクリーニング、家事代行、整理収納など、暮らしをサポートする各種サービスを写真付きでご紹介します。",
   openGraph: {
-    title:
-      "施工実績・ビフォーアフター｜ユーファースト（高崎市 ハウスクリーニング）",
+    title: "サービス一覧｜おそうじ処 たよって屋",
     description:
-      "ユーファーストが手掛けた高崎市内のハウスクリーニング施工実績・ビフォーアフター事例。写真付きでプロの仕上がりを紹介。地域密着・ご夫婦で丁寧対応！",
-    url: "https://you-first.shop/products",
-    siteName: "ユーファースト",
+      "おそうじ処 たよって屋のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載し、自由に編集できます。",
+    url: "https://tayotteya.shop/products", // 本番URLに差し替え
+    siteName: "おそうじ処 たよって屋",
     images: [
       {
-        url: "/logo.jpg", // 施工実績用OGP画像
+        url: "/ogpLogo.png",
         width: 1200,
         height: 630,
       },

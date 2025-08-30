@@ -3,18 +3,18 @@ import StoresClient from "@/components/StoresClient";
 import { PhoneSection } from "@/components/PhoneSection";
 
 export const metadata: Metadata = {
-  title: "店舗・営業エリア｜ユーファースト（高崎市 ハウスクリーニング）",
+  title: "店舗一覧｜おそうじ処 たよって屋",
   description:
-    "ユーファーストの営業エリア・対応地域をご案内。高崎市内のご自宅や事業所の清掃もご相談ください。安心のご夫婦経営、地域密着型ハウスクリーニングサービスです。",
+    "おそうじ処 たよって屋の店舗一覧ページ。大阪・兵庫エリア対応のハウスクリーニング、家事代行、整理収納サービスの拠点情報をご紹介します。",
   openGraph: {
-    title: "店舗・営業エリア｜ユーファースト（高崎市 ハウスクリーニング）",
+    title: "店舗一覧｜おそうじ処 たよって屋",
     description:
-      "高崎市内を中心に、ユーファーストがご自宅・オフィスのハウスクリーニングを承ります。地域密着、安心・丁寧な清掃サービス。",
-    url: "https://you-first.shop/stores",
-    siteName: "ユーファースト",
+      "おそうじ処 たよって屋の各店舗情報。地域ごとのサービス対応エリア、店舗紹介、連絡先を掲載しています。",
+    url: "https://tayotteya.shop/stores", // 本番URLに置き換え
+    siteName: "おそうじ処 たよって屋",
     images: [
       {
-        url: "/ogp-stores.jpg",
+        url: "/ogpLogo.png",
         width: 1200,
         height: 630,
       },
@@ -22,23 +22,22 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     type: "website",
   },
-};;
+};
 
 export default function StoresPage() {
   return (
     <main className="px-4 py-16">
-      {/* 営業エリア・お問い合わせセクション */}
+      {/* ページタイトル・説明文 */}
       <section className="max-w-4xl mx-auto text-center mb-12">
-        <h1 className="text-2xl lg:text-3xl font-extrabold mb-4 text-black/90">
-          ユーファースト ─ 営業エリア・ご案内
+        <h1 className="text-2xl lg:text-3xl font-extrabold mb-4 text-white text-outline">
+          おそうじ処 たよって屋 ─ 店舗一覧
         </h1>
-        <p className="leading-relaxed text-black/80">
-          <strong>ユーファースト</strong> は<strong>高崎市</strong>{" "}
-          を中心に、ご自宅・マンション・事務所の ハウスクリーニングを承ります。
+        <p className="leading-relaxed text-white text-outline">
+          <strong>おそうじ処 たよって屋</strong> は
+          <strong>大阪府・兵庫県</strong>を中心に
+          ハウスクリーニング・家事代行・整理収納サービスを提供しています。
           <br className="hidden lg:block" />
-          地域密着ならではの安心と、夫婦ならではのきめ細かな対応が強みです。
-          <br />
-          「こんな場所も頼める？」といったご相談もお気軽にどうぞ！
+          各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。
         </p>
       </section>
 
@@ -47,9 +46,8 @@ export default function StoresPage() {
         <PhoneSection />
       </section>
 
-      {/* 店舗カード・営業拠点のクライアントレンダリング（1拠点でもOK） */}
+      {/* 店舗カードのクライアントレンダリング（Firestore対応） */}
       <StoresClient />
     </main>
   );
 }
-

@@ -1,20 +1,19 @@
-// src/app/(routes)/about/page.tsx
 import type { Metadata } from "next";
 import AboutClient from "@/components/AboutClient";
 
 export const metadata: Metadata = {
-  title: "私たちの想い｜ユーファースト（高崎市のハウスクリーニング）",
+  title: "私たちの想い｜おそうじ処 たよって屋",
   description:
-    "高崎市密着のハウスクリーニング専門店『ユーファースト』の想い。ご夫婦ならではの丁寧さと安心感で、暮らしを心地よく整えるお手伝いをしています。",
+    "おそうじ処 たよって屋の想いをご紹介します。お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念と姿勢をお伝えします。",
   openGraph: {
-    title: "私たちの想い｜ユーファースト",
+    title: "私たちの想い｜おそうじ処 たよって屋",
     description:
-      "ユーファーストは高崎市のご夫婦経営クリーニング店。水回りからお部屋全体、引越し前後の清掃まで、安心・誠実を大切に対応します。",
-    url: "https://you-first.shop/about",
-    siteName: "ユーファースト",
+      "大阪・兵庫エリアで、心を込めたハウスクリーニング・家事代行・整理収納サービスを提供。お客様の笑顔とゆとりある暮らしを第一に考えています。",
+    url: "https://tayotteya.shop/about", // 本番URLに差し替え
+    siteName: "おそうじ処 たよって屋",
     images: [
       {
-        url: "/ogpLogo.jpg", // 適切なOGP画像に差し替え可能
+        url: "/ogpLogo.png",
         width: 1200,
         height: 630,
       },
@@ -22,22 +21,15 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     type: "website",
   },
-  alternates: { canonical: "https://you-first.shop/about" },
 };
 
 export default function AboutPage() {
   return (
-    <main className="px-4 py-12 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mt-6 mb-6 text-center text-white/80">
+    <main className="px-4 py-4 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mt-4 text-center text-white/80 text-outline">
         私たちの想い
       </h1>
       <AboutClient />
     </main>
   );
 }
-
-
-
-
-
-

@@ -66,7 +66,7 @@ const ALLOWED_VIDEO = [
   "video/3gpp2",
 ];
 const MAX_VIDEO_SEC = 30;
-const STORAGE_PATH = "siteNews/youFirst/items";
+const STORAGE_PATH = "siteNews/tayotteya3110/items";
 
 const FIRST_LOAD = 20; // 初回
 const PAGE_SIZE = 20; // 追加ロード
@@ -119,7 +119,7 @@ export default function NewsClient() {
   const nonEmptyKeywords = keywords.filter(Boolean);
 
   /* ---------- Firestore 参照 ---------- */
-  const SITE_KEY = "youFirst";
+  const SITE_KEY = "tayotteya3110";
   const colRef = useMemo(
     () => collection(db, "siteNews", SITE_KEY, "items"),
     []

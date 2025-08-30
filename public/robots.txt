@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://youFirst.shop
+Host: https://tayotteya3110.shop
 
 # Sitemaps
-Sitemap: https://youFirst.shop/sitemap.xml
+Sitemap: https://tayotteya3110.shop/sitemap.xml
