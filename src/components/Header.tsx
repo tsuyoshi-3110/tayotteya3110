@@ -72,13 +72,13 @@ export default function Header({ className = "" }: { className?: string }) {
             unoptimized
           />
         )}
-        お掃除処たよって屋
+        You-First
       </Link>
 
       {/* SNS アイコン */}
       <nav className="flex gap-2 ml-auto mr-2">
         <a
-          href="https://www.instagram.com/yuki.tayotte2017?igsh=MWY2b2RxMDM5M3dmdw%3D%3D&utm_source=qr"
+          href="https://www.instagram.com/yuu_cleaning?igsh=MTRpM2VkZzQwbDRpZQ=="
           target="_blank"
           rel="noopener noreferrer"
           className={clsx(
@@ -89,42 +89,6 @@ export default function Header({ className = "" }: { className?: string }) {
           <Image
             src="/instagram-logo.png"
             alt="Instagram"
-            width={32}
-            height={32}
-            className="object-contain"
-            unoptimized
-          />
-        </a>
-        <a
-          href="https://lin.ee/YcKAJja"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={clsx(
-            isDark ? "text-white" : "text-black",
-            "hover:text-pink-600 transition"
-          )}
-        >
-          <Image
-            src="/line-logo.png"
-            alt="LINE"
-            width={32}
-            height={32}
-            className="object-contain"
-            unoptimized
-          />
-        </a>
-        <a
-          href="https://tayotteya.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={clsx(
-            isDark ? "text-white" : "text-black",
-            "hover:text-pink-600 transition"
-          )}
-        >
-          <Image
-            src="/tayotteya_circle_image.png"
-            alt="Home"
             width={32}
             height={32}
             className="object-contain"

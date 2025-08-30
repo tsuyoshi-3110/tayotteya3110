@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
 
   // 例: /home などをフィルタリング（対象のパスだけチェック）
   if (pathname.startsWith("/home")) {
-    const siteKey = "tayotteya3110"; // ← あなたのURL構成に応じて動的に取得できるなら修正
+    const siteKey = "youFirst"; // ← あなたのURL構成に応じて動的に取得できるなら修正
 
     const siteRef = doc(db, "siteSettings", siteKey);
     const siteSnap = await getDoc(siteRef);
