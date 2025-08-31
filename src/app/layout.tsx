@@ -16,6 +16,7 @@ import {
   yomogi,
   hachiMaruPop,
 } from "@/lib/font";
+import AnalyticsLogger from "@/components/AnalyticsLogger";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({
@@ -85,7 +86,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="ja"
@@ -99,18 +104,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* OGP画像の事前読み込み */}
         <link rel="preload" as="image" href="/ogpLogo.png" type="image/png" />
-        <meta name="google-site-verification" content="uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs" />
+        <meta
+          name="google-site-verification"
+          content="uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs"
+        />
       </head>
 
       <body className="relative min-h-screen bg-[#ffffff]">
         <SubscriptionOverlay siteKey={SITE_KEY} />
+        <AnalyticsLogger />
         <WallpaperBackground />
         <ThemeBackground />
         <Header />
         {children}
 
         {/* 構造化データ */}
-        <Script id="ld-json" type="application/ld+json" strategy="afterInteractive">
+        <Script
+          id="ld-json"
+          type="application/ld+json"
+          strategy="afterInteractive"
+        >
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "CleaningService",
