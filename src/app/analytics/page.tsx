@@ -122,19 +122,23 @@ export default function AnalyticsPage() {
     []
   );
 
-
   // 期間が変わるたびAI提案をリセット
   useEffect(() => {
     setAdvice("");
   }, [startDate, endDate]);
+
+  const toLocalDate = (ymd: string) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0); // ローカル 0:00
+  };
 
   /* ───────── 期間指定で全部まとめて取得 ───────── */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setHourlyLoading(true);
     try {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const start = toLocalDate(startDate);
+      const end = toLocalDate(endDate);
 
       const [
         pagesTotals,
@@ -301,7 +305,7 @@ export default function AnalyticsPage() {
           <button
             onClick={handleAnalysis}
             disabled={analyzing}
-            className={`px-3 py-1 rounded text-sm text-white w-50 ${
+            className={`px-3 py-1 rounded text-sm text-white w-52 ${
               analyzing ? "bg-purple-300 cursor-not-allowed" : "bg-purple-600"
             }`}
           >

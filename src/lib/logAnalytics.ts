@@ -43,7 +43,7 @@ function safeDecode(str: string) {
 }
 
 /** ページIDの正規化 */
-function normalizePageId(path: string): string {
+export function normalizePageId(path: string): string {
   const raw = (path || "").replace(/^\/+/, "").split("?")[0].split("#")[0];
   const decoded = safeDecode(raw);
   if (!decoded) return "home";
@@ -391,7 +391,7 @@ export async function fetchDailyByPeriod(siteKey: string, start: Date, end: Date
     const dayTs = data.day?.toDate ? data.day.toDate() : undefined;
     rows.push({ id: d.id, count: data.count ?? 0, day: dayTs ?? new Date(d.id) });
   });
-  rows.sort((a, b) => (a.id < b.id ? -1 : 1));
+  rows.sort((a, b) => a.id.localeCompare(b.id));
   return rows; // ソート済み [{ id: 'YYYY-MM-DD', count, day }]
 }
 
@@ -414,12 +414,17 @@ export async function fetchWeekdayByPeriod(siteKey: string, start: Date, end: Da
   return counts; // [日,月,火,水,木,金,土]
 }
 
+function isExcluded(pageId: string) {
+  return EXCLUDE_PAGES.includes(pageId);
+}
+
 // 追加：ランディングビュー（セッション開始時に1回だけ呼ぶ）
-export async function logLandingView(siteKey: string, pageId: string) {
+export async function logLandingView(siteKey: string, rawPageId: string) {
+  const pageId = normalizePageId(rawPageId); // ★正規化
+  if (isExcluded(pageId)) return;            // ★除外
   const { day, dayId } = todayKeyAndDay();
   const dailyRef = doc(db, "analytics", siteKey, "bounceDaily", `${dayId}_${pageId}`);
-  const aggRef   = doc(db, "analytics", siteKey, "bounceStats", pageId); // 互換
-
+  const aggRef   = doc(db, "analytics", siteKey, "bounceStats", pageId);
   await Promise.all([
     setDoc(dailyRef, { day, pageId, views: increment(1) }, { merge: true }),
     setDoc(aggRef,   { totalViews: increment(1) }, { merge: true }),
@@ -427,11 +432,12 @@ export async function logLandingView(siteKey: string, pageId: string) {
 }
 
 // 変更：バウンス時は bounces のみ加算（views は加算しない）
-export async function logBounce(siteKey: string, pageId: string) {
+export async function logBounce(siteKey: string, rawPageId: string) {
+  const pageId = normalizePageId(rawPageId); // ★正規化
+  if (isExcluded(pageId)) return;            // ★除外
   const { day, dayId } = todayKeyAndDay();
   const dailyRef = doc(db, "analytics", siteKey, "bounceDaily", `${dayId}_${pageId}`);
   const aggRef   = doc(db, "analytics", siteKey, "bounceStats", pageId);
-
   await Promise.all([
     setDoc(dailyRef, { day, pageId, bounces: increment(1) }, { merge: true }),
     setDoc(aggRef,   { count: increment(1) }, { merge: true }),
@@ -445,5 +451,5 @@ export async function fetchGeoAgg(siteKey: string) {
     const { count = 0 } = d.data() as { count?: number };
     totals[d.id] = count;
   });
-  return totals; // { region: count }
+  return totals;
 }
