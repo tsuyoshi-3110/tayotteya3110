@@ -406,54 +406,58 @@ export default function MenuPage() {
             items={sections.map((s) => s.id)}
             strategy={verticalListSortingStrategy}
           >
-            {sections.map((section) => (
-              <SortableSectionItem key={section.id} id={section.id}>
-                {({ attributes, listeners, isDragging }) => (
-                  <div className="relative">
-                    {isLoggedIn && (
-                      <div
-                        {...attributes}
-                        {...listeners}
-                        className="absolute left-1/2 -translate-x-1/2 -top-4 z-10 cursor-grab active:cursor-grabbing touch-none select-none"
-                        aria-label="ドラッグで並び替え"
-                        onTouchStart={(e) => e.preventDefault()} // スクロール誤爆防止（必要なら）
-                      >
-                        <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
-                          ≡
+            {/* カード間の余白を追加：縦レイアウト + gap */}
+            <div className="flex flex-col gap-4 sm:gap-6 md:gap-8">
+              {sections.map((section) => (
+                <SortableSectionItem key={section.id} id={section.id}>
+                  {({ attributes, listeners, isDragging }) => (
+                    <div className="relative">
+                      {isLoggedIn && (
+                        <div
+                          {...attributes}
+                          {...listeners}
+                          className="absolute left-1/2 -translate-x-1/2 -top-4 z-10 cursor-grab active:cursor-grabbing touch-none select-none"
+                          aria-label="ドラッグで並び替え"
+                          onTouchStart={(e) => e.preventDefault()} // スクロール誤爆防止（必要なら）
+                        >
+                          <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
+                            ≡
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <div className={isDragging ? "opacity-70" : ""}>
-                      <MenuSectionCard
-                        section={section}
-                        isLoggedIn={isLoggedIn}
-                        onTitleUpdate={(t) => {
-                          setSections((prev) =>
-                            prev.map((s) =>
-                              s.id === section.id ? { ...s, title: t } : s
-                            )
-                          );
-                        }}
-                        onDeleteSection={() => {
-                          setSections((prev) =>
-                            prev.filter((s) => s.id !== section.id)
-                          );
-                        }}
-                        // メディア変更などの即時反映
-                        onSectionPatch={(patch) => {
-                          setSections((prev) =>
-                            prev.map((s) =>
-                              s.id === section.id ? { ...s, ...patch } : s
-                            )
-                          );
-                        }}
-                      />
+                      <div className={isDragging ? "opacity-70" : ""}>
+                        <MenuSectionCard
+                          section={section}
+                          isLoggedIn={isLoggedIn}
+                          onTitleUpdate={(t) => {
+                            setSections((prev) =>
+                              prev.map((s) =>
+                                s.id === section.id ? { ...s, title: t } : s
+                              )
+                            );
+                          }}
+                          onDeleteSection={() => {
+                            setSections((prev) =>
+                              prev.filter((s) => s.id !== section.id)
+                            );
+                          }}
+                          // メディア変更などの即時反映
+                          onSectionPatch={(patch) => {
+                            setSections((prev) =>
+                              prev.map((s) =>
+                                s.id === section.id ? { ...s, ...patch } : s
+                              )
+                            );
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </SortableSectionItem>
-            ))}
+                  )}
+                </SortableSectionItem>
+              ))}
+            </div>
+            {/* ここまでラッパー */}
           </SortableContext>
         </DndContext>
 

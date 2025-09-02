@@ -25,6 +25,10 @@ import {
   UploadTask,
 } from "firebase/storage";
 
+import clsx from "clsx";
+import { ThemeKey, THEMES } from "@/lib/themes";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ProductMedia from "@/components/ProductMedia";
 
@@ -90,6 +94,14 @@ export default function MenuSectionCard({
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
   const uploadTaskRef = useRef<UploadTask | null>(null);
+
+  const gradient = useThemeGradient();
+
+  const isDark = useMemo(() => {
+    const darkThemes: ThemeKey[] = ["brandG", "brandH", "brandI"];
+    if (!gradient) return false;
+    return darkThemes.some((key) => gradient === THEMES[key]);
+  }, [gradient]);
 
   // セクション変更時にタイトル初期化
   useEffect(() => {
@@ -397,21 +409,19 @@ export default function MenuSectionCard({
     }
   };
 
+  const mediaNode = useMemo(() => {
+    if (!section.mediaUrl || !section.mediaType) return null;
 
-
- const mediaNode = useMemo(() => {
-  if (!section.mediaUrl || !section.mediaType) return null;
-
-  return (
-    <ProductMedia
-      src={section.mediaUrl}
-      type={section.mediaType} // "image" | "video"
-      className="mb-3 rounded-lg shadow-sm" // 見た目はお好みで
-      alt={`${section.title} のメディア`}
-      // autoPlay / loop / muted はデフォルト true（動画時）
-    />
-  );
-}, [section.mediaUrl, section.mediaType, section.title]);
+    return (
+      <ProductMedia
+        src={section.mediaUrl}
+        type={section.mediaType} // "image" | "video"
+        className="mb-3 rounded-lg shadow-sm" // 見た目はお好みで
+        alt={`${section.title} のメディア`}
+        // autoPlay / loop / muted はデフォルト true（動画時）
+      />
+    );
+  }, [section.mediaUrl, section.mediaType, section.title]);
 
   return (
     <>
@@ -435,7 +445,14 @@ export default function MenuSectionCard({
           </div>
         )}
 
-        <h2 className="text-xl font-semibold mb-4">{section.title}</h2>
+        <h2
+          className={clsx(
+            "text-xl font-semibold mb-4",
+            isDark ? "text-white" : "text-gray-900"
+          )}
+        >
+          {section.title}
+        </h2>
         {mediaNode}
 
         <div className="flex-col justify-between items-center mb-2"></div>

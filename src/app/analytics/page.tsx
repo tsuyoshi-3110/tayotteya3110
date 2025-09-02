@@ -60,6 +60,9 @@ const PAGE_LABELS: Record<string, string> = {
   analytics: "アクセス解析",
   staffs: "スタッフ紹介ぺージ",
   jobApp: "応募ページ",
+  apply: "応募ページ",
+  blog: "ブログページ",
+  menu: "料金ページ",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -72,6 +75,9 @@ const EVENT_LABELS: Record<string, string> = {
   home_stay_seconds_news: "お知らせ滞在",
   home_stay_seconds_email: "メールアクセス滞在",
   home_stay_seconds_map_click: "マップアクセス滞在",
+  home_stay_seconds_apply: "応募滞在",
+  home_stay_seconds_menu: "料金滞在",
+  home_stay_seconds_blog: "ブログ滞在",
 };
 
 const EXCLUDED_PAGE_IDS = ["login", "analytics", "community", "postList"];
