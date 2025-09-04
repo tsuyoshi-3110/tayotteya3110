@@ -32,7 +32,7 @@ import {
 
 /* ========= Types ========= */
 type CompanyProfile = {
-  name: string;            // ✅ 最低限の必須
+  name: string; // ✅ 最低限の必須
   tagline?: string;
   about?: string;
   founded?: string;
@@ -43,8 +43,8 @@ type CompanyProfile = {
   phone?: string;
   email?: string;
   website?: string;
-  business?: string[];     // 事業内容（配列）※空文字も保持して改行を表現
-  mapEmbedUrl?: string;    // Google マップ埋め込みURL（任意 or 自動生成）
+  business?: string[]; // 事業内容（配列）※空文字も保持して改行を表現
+  mapEmbedUrl?: string; // Google マップ埋め込みURL（任意 or 自動生成）
   updatedAt?: any;
   updatedByUid?: string | null;
   updatedByName?: string | null;
@@ -466,14 +466,47 @@ function ReadOnlyView({ data }: { data: CompanyProfile }) {
       )}
 
       <section className="grid md:grid-cols-2 gap-6 mb-5">
-        <Field icon={<UserIcon className="h-4 w-4" />} label="代表者" value={data.ceo} />
-        <Field icon={<Calendar className="h-4 w-4" />} label="設立" value={data.founded} />
-        <Field icon={<Sparkles className="h-4 w-4" />} label="資本金" value={data.capital} />
-        <Field icon={<Users className="h-4 w-4" />} label="従業員数" value={data.employees} />
-        <Field icon={<MapPin className="h-4 w-4" />} label="所在地" value={data.address} />
-        <Field icon={<Phone className="h-4 w-4" />} label="電話番号" value={data.phone} />
-        <Field icon={<Mail className="h-4 w-4" />} label="メール" value={data.email} />
-        <Field icon={<Globe className="h-4 w-4" />} label="Webサイト" value={data.website} isLink />
+        <Field
+          icon={<UserIcon className="h-4 w-4" />}
+          label="代表者"
+          value={data.ceo}
+        />
+        <Field
+          icon={<Calendar className="h-4 w-4" />}
+          label="設立"
+          value={data.founded}
+        />
+        <Field
+          icon={<Sparkles className="h-4 w-4" />}
+          label="資本金"
+          value={data.capital}
+        />
+        <Field
+          icon={<Users className="h-4 w-4" />}
+          label="従業員数"
+          value={data.employees}
+        />
+        <Field
+          icon={<MapPin className="h-4 w-4" />}
+          label="所在地"
+          value={data.address}
+        />
+        <Field
+          icon={<Phone className="h-4 w-4" />}
+          label="電話番号"
+          value={data.phone}
+        />
+        <Field
+          icon={<Mail className="h-4 w-4" />}
+          label="メール"
+          value={data.email}
+        />
+        <Field
+          icon={<Globe className="h-4 w-4" />}
+          label="Webサイト"
+          value={data.website}
+          isLink
+        />
       </section>
 
       {Array.isArray(data.business) && data.business.length > 0 && (
@@ -650,13 +683,6 @@ function EditView({
           <div className="text-sm text-gray-600">
             事業内容（任意・1行につき1項目 / 空行OK）
           </div>
-          <Button
-            onClick={() => onOpenAi("business")}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            <Wand2 className="h-4 w-4 mr-1" />
-            AIで生成
-          </Button>
         </div>
         <Textarea
           value={arrayToLinesPreserve(data.business)}
@@ -673,7 +699,8 @@ function EditView({
           className="bg-white/80"
         />
         <p className="text-xs text-gray-500">
-          ※ Enter での空行や、最後の改行も保持されます（閲覧表示では空行は表示されません）。
+          ※ Enter
+          での空行や、最後の改行も保持されます（閲覧表示では空行は表示されません）。
         </p>
       </div>
 
@@ -686,9 +713,9 @@ function EditView({
           placeholder="https://www.google.com/maps/embed?..."
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-        
           <span className="text-xs text-gray-500">
-            ※ 短縮URL（maps.app.goo.gl）や通常URLでもOK。自動で埋め込み形式に変換します。
+            ※
+            短縮URL（maps.app.goo.gl）や通常URLでもOK。自動で埋め込み形式に変換します。
           </span>
         </div>
 
