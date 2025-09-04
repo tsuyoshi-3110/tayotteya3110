@@ -18,7 +18,7 @@ import {
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import { GripVertical } from "lucide-react";
+import { Pin } from "lucide-react";
 
 // dnd-kit
 import {
@@ -36,10 +36,7 @@ import {
   useSortable,
   arrayMove,
 } from "@dnd-kit/sortable";
-import {
-  restrictToVerticalAxis,
-  restrictToParentElement,
-} from "@dnd-kit/modifiers";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
@@ -81,6 +78,7 @@ function SortableBlockCard({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef, // ★ 追加
     transform,
     transition,
     isDragging,
@@ -93,28 +91,31 @@ function SortableBlockCard({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "rounded-2xl border p-4",
+        "relative overflow-visible rounded-2xl border p-4 pt-8", // ← 追加
         isDark ? "border-white/15 bg-black/10" : "border-black/10 bg-white",
         isDragging && "shadow-xl ring-2 ring-blue-400/40"
       )}
     >
       {/* 操作列 */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          className={clsx(
-            "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-            isDark
-              ? "border-white/15 bg-black/30 text-white/80"
-              : "border-black/10 bg-gray-50 text-gray-700",
-            "cursor-grab active:cursor-grabbing"
-          )}
-          aria-label="ドラッグして並び替え"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" />
-          並び替え
-        </button>
+        <div className="absolute left-1/2 -top-3 -translate-x-1/2 z-20">
+          <button
+            ref={setActivatorNodeRef} // ★ 追加
+            type="button"
+            aria-label="ドラッグして並び替え"
+            className={clsx(
+              "h-8 w-8 rounded-full border shadow flex items-center justify-center",
+              "cursor-grab active:cursor-grabbing select-none touch-none", // ★ 追加: touch-none
+              isDark
+                ? "bg-white/90 border-white/30"
+                : "bg-white/90 border-black/10"
+            )}
+            {...attributes}
+            {...listeners}
+          >
+            <Pin className="h-4 w-4 text-gray-700" />
+          </button>
+        </div>
 
         <Button
           type="button"
@@ -586,18 +587,20 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
   // ==== レンダリング ====
   return (
-    <div className={clsx("space-y-4", textClass)}>
+    // 親も overflow-visible にして、はみ出した画鋲が隠れないように
+    <div className={clsx("space-y-4 relative overflow-visible", textClass)}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        modifiers={[restrictToVerticalAxis]} // 親要素制限は外す
         onDragEnd={onDragEnd}
       >
         <SortableContext
           items={value.map((b) => b.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-4">
+          {/* リスト側も overflow-visible。pt を少し入れて最上段の画鋲に余白を確保 */}
+          <div className="space-y-6 relative overflow-visible pt-3">
             {value.length === 0 && (
               <div
                 className={clsx(
@@ -623,7 +626,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 onAddMediaBelow={() => handleAddMediaBelow(i)}
                 onEditMedia={
                   b.type !== "p" ? () => handleEditMedia(i) : undefined
-                } // ★ 追加
+                }
                 onDelete={() => removeAt(i)}
                 disableUp={i === 0}
                 disableDown={i === value.length - 1}
@@ -631,7 +634,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               >
                 {/* ブロック本体 */}
                 {b.type === "p" ? (
-                  <div className="space-y-2 ">
+                  <div className="space-y-2">
                     {/* テキストカードのAI */}
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
@@ -720,7 +723,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       </DndContext>
 
       {/* 末尾に追加 */}
-      <div className="flex flex-wrap gap-2 ">
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           variant="secondary"
