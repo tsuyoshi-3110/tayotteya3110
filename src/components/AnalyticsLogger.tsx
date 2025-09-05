@@ -13,22 +13,18 @@ import {
   logBounce,
   logGeo,
   logLandingView,
+  normalizePageId as normalizeId,
 } from "@/lib/logAnalytics";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import { normalizePageId as normalizeId } from "@/lib/logAnalytics";
 
-/** 期間集計対応ロガー（改訂版）
+/** 期間集計対応ロガー（改訂版・JST統一対応）
  * - 直帰率（二重発火ガード付き）
  * - 解析系ページなどは集計から除外（ただし直前ページの滞在時間は記録）
- * - pagehide / beforeunload の二重発火をフラグで防止
+ * - pagehide / beforeunload / visibilitychange の二重発火をフラグで防止
  */
 
 const STAY_MAX_SEC = 60; // 実運用は 300〜600 も検討可
-
-/* ───────── ローカル正規化（logAnalytics 側の normalize と整合） ───────── */
-
 const EXCLUDED = new Set(["login", "analytics", "community", "postList"]);
-
 
 export default function AnalyticsLogger() {
   const pathname = usePathname() || "/";
@@ -42,23 +38,30 @@ export default function AnalyticsLogger() {
 
   /* 1) セッション一度だけ：地域 */
   useEffect(() => {
-    if (sessionStorage.getItem("geoLogged")) return;
-    sessionStorage.setItem("geoLogged", "1");
+    const key = `geoLogged:${SITE_KEY}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
 
-    fetch("https://ipapi.co/json")
+    const ac = new AbortController();
+    fetch("https://ipapi.co/json", { signal: ac.signal })
       .then((res) => res.json())
       .then((data) => {
         const region = data?.region || data?.country_name || "Unknown";
         logGeo(SITE_KEY, region);
       })
-      .catch((e) => console.error("地域取得失敗:", e));
+      .catch((e) => {
+        if (e?.name !== "AbortError") console.error("地域取得失敗:", e);
+      });
+
+    return () => ac.abort();
   }, []);
 
   /* 2) セッション一度だけ：リファラー */
   useEffect(() => {
-    if (sessionStorage.getItem("refLogged")) return;
+    const key = `refLogged:${SITE_KEY}`;
+    if (sessionStorage.getItem(key)) return;
     logReferrer(SITE_KEY);
-    sessionStorage.setItem("refLogged", "1");
+    sessionStorage.setItem(key, "1");
   }, []);
 
   /* 3) ランディング views と バウンス（セッション内） */
@@ -89,11 +92,19 @@ export default function AnalyticsLogger() {
       }
     };
 
+    // ページ離脱系イベント
     window.addEventListener("beforeunload", handleBounce);
     window.addEventListener("pagehide", handleBounce);
+    // タブが非表示 → そのまま閉じられるケースの補足
+    const visHandler = () => {
+      if (document.visibilityState === "hidden") handleBounce();
+    };
+    document.addEventListener("visibilitychange", visHandler);
+
     return () => {
       window.removeEventListener("beforeunload", handleBounce);
       window.removeEventListener("pagehide", handleBounce);
+      document.removeEventListener("visibilitychange", visHandler);
     };
   }, [pathname]);
 
@@ -113,7 +124,7 @@ export default function AnalyticsLogger() {
 
     // 現在ページが除外対象なら、集計系の書き込みはスキップ
     if (!EXCLUDED.has(currId)) {
-      logPageView(pathname, SITE_KEY);      // pages / pagesDaily（内部でも正規化）
+      logPageView(pathname, SITE_KEY);      // pages / pagesDaily（内部でもJST 0:00で記録）
       logHourlyAccess(SITE_KEY, currId);    // hourlyLogs (accessedAt/hour)
       logDailyAccess(SITE_KEY);             // dailyLogs (day)
       logWeekdayAccess(SITE_KEY);           // weekdayDaily
@@ -145,9 +156,15 @@ export default function AnalyticsLogger() {
 
     window.addEventListener("beforeunload", handleLeave);
     window.addEventListener("pagehide", handleLeave);
+    const visHandler = () => {
+      if (document.visibilityState === "hidden") handleLeave();
+    };
+    document.addEventListener("visibilitychange", visHandler);
+
     return () => {
       window.removeEventListener("beforeunload", handleLeave);
       window.removeEventListener("pagehide", handleLeave);
+      document.removeEventListener("visibilitychange", visHandler);
     };
   }, [pathname]);
 

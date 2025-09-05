@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-// ★ 期間指定対応の取得関数（logAnalytics 側で追加済みの想定）
+// 期間指定取得関数（JST 0:00 統一済み）
 import {
   fetchPagesByPeriod,
   fetchEventsByPeriod,
@@ -40,7 +40,7 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 Chart.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
-/* ───────── 期間計算用ヘルパー ───────── */
+/* ───────── 期間計算用ヘルパー（JST） ───────── */
 const calcStart = (daysAgo: number) =>
   format(subDays(new Date(), daysAgo), "yyyy-MM-dd");
 
@@ -63,6 +63,7 @@ const PAGE_LABELS: Record<string, string> = {
   apply: "応募ページ",
   blog: "ブログページ",
   menu: "料金ページ",
+  company: "会社概要ページ",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -78,6 +79,7 @@ const EVENT_LABELS: Record<string, string> = {
   home_stay_seconds_apply: "応募滞在",
   home_stay_seconds_menu: "料金滞在",
   home_stay_seconds_blog: "ブログ滞在",
+  home_stay_seconds_company: "会社概要滞在",
 };
 
 const EXCLUDED_PAGE_IDS = ["login", "analytics", "community", "postList"];
@@ -94,6 +96,12 @@ function getHourlyChartData(counts: number[]) {
       },
     ],
   };
+}
+
+// ymd("YYYY-MM-DD") -> JSTの 0:00 Date
+function ymdToLocalMidnight(ymd: string) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
 export default function AnalyticsPage() {
@@ -133,19 +141,18 @@ export default function AnalyticsPage() {
     setAdvice("");
   }, [startDate, endDate]);
 
-  const toLocalDate = (ymd: string) => {
-    const [y, m, d] = ymd.split("-").map(Number);
-    return new Date(y, m - 1, d, 0, 0, 0, 0); // ローカル 0:00
-  };
-
   /* ───────── 期間指定で全部まとめて取得 ───────── */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setHourlyLoading(true);
-    try {
-      const start = toLocalDate(startDate);
-      const end = toLocalDate(endDate);
 
+    // 入力の範囲を安全に補正
+    const startLocal = ymdToLocalMidnight(startDate);
+    const endLocal = ymdToLocalMidnight(endDate);
+    const start = endLocal < startLocal ? endLocal : startLocal;
+    const end = endLocal < startLocal ? startLocal : endLocal;
+
+    try {
       const [
         pagesTotals,
         eventsTotals,
