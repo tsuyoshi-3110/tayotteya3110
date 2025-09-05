@@ -24,7 +24,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-// ===== Firebase App 安全初期化 =====
+/* ========= Firebase App 安全初期化 ========= */
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import {
@@ -43,12 +43,8 @@ import {
 } from "firebase/storage";
 
 /**
- * ※ next/image を使うために、Firebase Storage を画像最適化の許可に追加する場合は next.config.js を設定してください。
- *   ひとまずこの実装は `unoptimized` を true にしているので設定なしでも動きます。
- *   後で最適化したくなったら `unoptimized` を外し、以下のように remotePatterns を追加してください。
- *   images: {
- *     remotePatterns: [{ protocol: "https", hostname: "firebasestorage.googleapis.com", pathname: "/v0/b/**" }]
- *   }
+ * next/image の最適化を使う場合は next.config.js に remotePatterns を追加してください。
+ * この実装は `unoptimized` を使っているので設定無しで動きます。
  */
 
 /* ========= Firebase Config（.env から） ========= */
@@ -64,24 +60,36 @@ const firebaseConfig = {
 type MediaKind = "image" | "video" | null;
 
 type CompanyProfile = {
-  name: string; // ✅ 最低限の必須
+  // 必須
+  name: string;
+
+  // 任意
   tagline?: string | null;
   about?: string | null;
-  founded?: string | null;
-  ceo?: string | null;
-  capital?: string | null;
-  employees?: string | null;
+
+  // 会社情報
+  founded?: string | null;   // 設立
+  ceo?: string | null;       // 代表者名
+  capital?: string | null;   // 資本金
+  employees?: string | null; // 従業員数
+
+  // 連絡先
   address?: string | null;
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+
+  // 事業内容（複数行）
   business?: string[];
+
+  // Google マップ埋め込み
   mapEmbedUrl?: string | null;
 
-  // タイトル直下に表示するメディア
+  // タイトル直下のメディア
   heroMediaUrl?: string | null;
   heroMediaType?: MediaKind;
 
+  // メタ
   updatedAt?: any;
   updatedByUid?: string | null;
   updatedByName?: string | null;
@@ -115,9 +123,8 @@ function arrayToLinesPreserve(a?: string[]) {
 }
 
 /**
- * すでに正しい embed URL ならそのまま返し、
- * それ以外（住所・通常URL・短縮URL等）は q= に詰めて output=embed へ変換
- * ※ NEXT_PUBLIC_MAPS_EMBED_KEY があれば v1/place を使用（任意）
+ * 既に embed URL ならそのまま返し、それ以外は q= に詰めて output=embed へ変換
+ * NEXT_PUBLIC_MAPS_EMBED_KEY があれば v1/place を使用
  */
 function buildSimpleEmbedSrc(input?: string | null) {
   const s = (input ?? "").trim();
@@ -182,10 +189,8 @@ function AutoResizeTextarea({
     const el = ref.current;
     if (!el) return;
 
-    // いったんリセットしてから高さを計算
     el.style.height = "auto";
 
-    // line-height が 'normal' の場合に備えてフォールバック
     const lhRaw = parseFloat(window.getComputedStyle(el).lineHeight || "0");
     const lineHeight = Number.isFinite(lhRaw) && lhRaw > 0 ? lhRaw : 24;
 
@@ -197,12 +202,10 @@ function AutoResizeTextarea({
     el.style.overflowY = el.scrollHeight > nextH ? "auto" : "hidden";
   }, [minRows, maxRows]);
 
-  // 値が変わるたびにリサイズ（＋関数依存を明示）
   useEffect(() => {
     resize();
   }, [value, resize]);
 
-  // ウィンドウリサイズにも追従（依存に resize を入れる）
   useEffect(() => {
     const handler = () => resize();
     window.addEventListener("resize", handler);
@@ -220,8 +223,7 @@ function AutoResizeTextarea({
   );
 }
 
-
-/* ========= タイトル直下に表示するメディア Viewer（自動再生・音声なし） ========= */
+/* ========= タイトル直下メディア Viewer ========= */
 function InlineMediaViewer({
   url,
   type,
@@ -238,7 +240,7 @@ function InlineMediaViewer({
       >
         {type === "video" ? (
           <video
-            src={url}
+            src={url ?? undefined}
             className="absolute inset-0 h-full w-full object-cover"
             autoPlay
             muted
@@ -246,7 +248,7 @@ function InlineMediaViewer({
           />
         ) : (
           <Image
-            src={url}
+            src={url ?? ""}
             alt="company-hero"
             fill
             className="object-cover"
@@ -260,7 +262,7 @@ function InlineMediaViewer({
   );
 }
 
-/* ========= タイトル直下に表示するメディア Uploader ========= */
+/* ========= タイトル直下メディア Uploader ========= */
 function InlineMediaEditor({
   data,
   onChange,
@@ -356,7 +358,7 @@ function InlineMediaEditor({
             const oldRef = sRef(storage, pathOld);
             await deleteObject(oldRef);
           } catch {
-            /* ignore: 別バケットや権限で削除不可なら無視 */
+            /* ignore */
           }
         }
       }
@@ -392,7 +394,6 @@ function InlineMediaEditor({
     await onFilesArray(dropped);
   };
 
-  // 先に配列化 → 非同期処理 → 最後に value を空に（同じファイルを再選択可）
   const onInputChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const input = e.currentTarget;
     const picked = input.files ? Array.from(input.files) : [];
@@ -402,7 +403,7 @@ function InlineMediaEditor({
         try {
           input.value = "";
         } catch {
-          // unmounted 等で失敗しても無視
+          /* ignore */
         }
       }
     })();
@@ -419,7 +420,7 @@ function InlineMediaEditor({
         await deleteObject(r);
       }
     } catch {
-      // 削除できなくても UI はクリア
+      /* ignore */
     } finally {
       onChange({ ...data, heroMediaUrl: "", heroMediaType: null });
     }
@@ -501,10 +502,8 @@ function InlineMediaEditor({
         )}
       </div>
 
-      {/* 生成ヒント（ユーザーに影響項目を明記） */}
       <p className="mt-2 text-xs text-gray-500">
-        ※ タイトル下のメディアは保存後に公開画面へ反映。AI生成は
-        「会社名・タグライン・所在地・既存の会社説明／事業内容」の入力内容を文脈として利用します（未入力は送信されません）。
+        ※ タイトル下のメディアは保存後に公開画面へ反映。
       </p>
     </div>
   );
@@ -558,7 +557,7 @@ function AiGenerateModal({
     const keywords = [k1, k2, k3].map((v) => v.trim()).filter(Boolean);
 
     try {
-      const res = await fetch("/api/ai/generate-company", {
+      const res = await fetch("/api/generate-company", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
@@ -567,7 +566,7 @@ function AiGenerateModal({
           keywords,
           temperature: 0.85,
           seed: Date.now() + Math.random(),
-          ...context, // 文脈を同梱
+          ...context,
         }),
       });
 
@@ -575,7 +574,7 @@ function AiGenerateModal({
         const msg = await res.text().catch(() => "");
         console.error("AI generate failed:", res.status, msg);
         alert("AI生成に失敗しました。時間をおいて再度お試しください。");
-        return; // フォールバックしない（100% AI結果のみ使用）
+        return;
       }
 
       const data = await res.json();
@@ -600,7 +599,7 @@ function AiGenerateModal({
         );
       }
 
-      onClose(); // 成功時のみ閉じる
+      onClose();
     } catch (e) {
       console.error(e);
       alert(
@@ -623,10 +622,6 @@ function AiGenerateModal({
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             キーワードを最大3つまで入力（1つ以上で開始可能）
-          </p>
-          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
-            ※ 入力済みの「会社名・タグライン・所在地・既存の会社説明／事業内容」もAIに渡され、生成品質に影響します。
-            未入力の項目は送信されません。
           </p>
         </div>
 
@@ -760,6 +755,7 @@ export default function CompanyOverview() {
       const ref = doc(db, "siteMeta", SITE_KEY, "company", "profile");
       const payload: CompanyProfile = normalizeForSave({
         ...edit,
+        // business は改行保持のまま配列
         business: edit.business,
         updatedAt: serverTimestamp(),
         updatedByUid: user?.uid ?? null,
@@ -798,7 +794,7 @@ export default function CompanyOverview() {
       <div className="relative rounded-3xl bg-white/60 backdrop-blur-md shadow-xl border border-white/50 ring-1 ring-black/5 p-0 overflow-hidden">
         {(loading || saving) && <CardSpinner />}
 
-        {/* 先頭：編集/保存ボタン（会社名とは別行） */}
+        {/* 先頭：編集/保存ボタン */}
         {canEdit && (
           <div className="px-6 md:px-8 pt-4">
             <div className="flex justify-end gap-2">
@@ -911,55 +907,22 @@ function ReadOnlyView({ data }: { data: CompanyProfile }) {
         </section>
       )}
 
+      {/* 会社情報グリッド */}
       <section className="grid md:grid-cols-2 gap-6 mb-5">
-        <Field
-          icon={<UserIcon className="h-4 w-4" />}
-          label="代表者"
-          value={data.ceo ?? undefined}
-        />
-        <Field
-          icon={<Calendar className="h-4 w-4" />}
-          label="設立"
-          value={data.founded ?? undefined}
-        />
-        <Field
-          icon={<Sparkles className="h-4 w-4" />}
-          label="資本金"
-          value={data.capital ?? undefined}
-        />
-        <Field
-          icon={<Users className="h-4 w-4" />}
-          label="従業員数"
-          value={data.employees ?? undefined}
-        />
-        <Field
-          icon={<MapPin className="h-4 w-4" />}
-          label="所在地"
-          value={data.address ?? undefined}
-        />
-        <Field
-          icon={<Phone className="h-4 w-4" />}
-          label="電話番号"
-          value={data.phone ?? undefined}
-        />
-        <Field
-          icon={<Mail className="h-4 w-4" />}
-          label="メール"
-          value={data.email ?? undefined}
-        />
-        <Field
-          icon={<Globe className="h-4 w-4" />}
-          label="Webサイト"
-          value={data.website ?? undefined}
-          isLink
-        />
+        <Field icon={<UserIcon className="h-4 w-4" />} label="代表者" value={data.ceo ?? undefined} />
+        <Field icon={<Calendar className="h-4 w-4" />} label="設立" value={data.founded ?? undefined} />
+        <Field icon={<Sparkles className="h-4 w-4" />} label="資本金" value={data.capital ?? undefined} />
+        <Field icon={<Users className="h-4 w-4" />} label="従業員数" value={data.employees ?? undefined} />
+        <Field icon={<MapPin className="h-4 w-4" />} label="所在地" value={data.address ?? undefined} />
+        <Field icon={<Phone className="h-4 w-4" />} label="電話番号" value={data.phone ?? undefined} />
+        <Field icon={<Mail className="h-4 w-4" />} label="メール" value={data.email ?? undefined} />
+        <Field icon={<Globe className="h-4 w-4" />} label="Webサイト" value={data.website ?? undefined} isLink />
       </section>
 
+      {/* 事業内容 */}
       {Array.isArray(data.business) && data.business.length > 0 && (
         <section className="rounded-2xl border border-gray-200 p-4 md:p-5 bg-white/70">
-          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-            事業内容
-          </h3>
+          <h3 className="font-medium text-gray-700 mb-3">事業内容</h3>
           <ul className="list-disc pl-5 space-y-1">
             {data.business
               .filter((b) => (b ?? "").trim() !== "")
@@ -972,6 +935,7 @@ function ReadOnlyView({ data }: { data: CompanyProfile }) {
         </section>
       )}
 
+      {/* アクセス（マップ） */}
       {embedSrc && (
         <section className="rounded-2xl overflow-hidden border border-gray-200 bg-white/70">
           <h3 className="font-medium text-gray-700 mb-2 p-4 flex items-center gap-2">
@@ -1053,6 +1017,62 @@ function EditView({
           label="キャッチコピー（任意）"
           value={data.tagline ?? ""}
           onChange={(v) => onChange({ ...data, tagline: v })}
+        />
+      </div>
+
+      {/* 会社情報（代表者・設立・資本金・従業員数） */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <LabeledInput
+          label="代表者（任意）"
+          value={data.ceo ?? ""}
+          onChange={(v) => onChange({ ...data, ceo: v })}
+          placeholder="例）山田 太郎"
+        />
+        <LabeledInput
+          label="設立（任意）"
+          value={data.founded ?? ""}
+          onChange={(v) => onChange({ ...data, founded: v })}
+          placeholder="例）2020年4月"
+        />
+        <LabeledInput
+          label="資本金（任意）"
+          value={data.capital ?? ""}
+          onChange={(v) => onChange({ ...data, capital: v })}
+          placeholder="例）1,000万円"
+        />
+        <LabeledInput
+          label="従業員数（任意）"
+          value={data.employees ?? ""}
+          onChange={(v) => onChange({ ...data, employees: v })}
+          placeholder="例）25名（アルバイト含む）"
+        />
+      </div>
+
+      {/* 連絡先（住所・電話・メール・Web） */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <LabeledInput
+          label="所在地（任意）"
+          value={data.address ?? ""}
+          onChange={(v) => onChange({ ...data, address: v })}
+          placeholder="住所または地名"
+        />
+        <LabeledInput
+          label="電話番号（任意）"
+          value={data.phone ?? ""}
+          onChange={(v) => onChange({ ...data, phone: v })}
+          placeholder="例）03-1234-5678"
+        />
+        <LabeledInput
+          label="メール（任意）"
+          value={data.email ?? ""}
+          onChange={(v) => onChange({ ...data, email: v })}
+          placeholder="info@example.com"
+        />
+        <LabeledInput
+          label="Webサイト（任意）"
+          value={data.website ?? ""}
+          onChange={(v) => onChange({ ...data, website: v })}
+          placeholder="https://example.com"
         />
       </div>
 
