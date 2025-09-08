@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Plus } from "lucide-react";
-import { v4 as uuid } from "uuid";
+import { Pin, Plus } from "lucide-react";
+import clsx from "clsx";
 import {
   collection,
   doc,
-  addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -15,6 +15,8 @@ import {
   CollectionReference,
   DocumentData,
   writeBatch,
+  orderBy,
+  query,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -23,15 +25,14 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
 import type { FieldValue } from "firebase/firestore";
+
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import clsx from "clsx";
 import { ThemeKey, THEMES } from "@/lib/themes";
-import { Button } from "./ui/button";
 import CardSpinner from "./CardSpinner";
-import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { Button } from "./ui/button";
 
 import {
   DndContext,
@@ -51,26 +52,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { motion, useInView } from "framer-motion";
 
-/* 多言語候補 */
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
-type LangKey = (typeof LANGS)[number]["key"];
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { LANGS, type LangKey } from "@/lib/langs";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 
+/* ======================== 定数/型 ======================== */
 const STORE_COL = `siteStores/${SITE_KEY}/items`;
 const STORAGE_PATH = `stores/public/${SITE_KEY}`;
 
@@ -82,15 +68,106 @@ type Store = {
   imageURL: string;
   originalFileName?: string;
   order?: number;
+  createdAt?: any;
+  updatedAt?: any;
 };
 
-export default function StoresClient() {
-  const [stores, setStores] = useState<Store[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
-  const [editingStore, setEditingStore] = useState<Store | null>(null);
+// 多言語フィールド
+type Base = { name: string; address: string; description?: string };
+type TrStore = {
+  lang: LangKey;
+  name?: string;
+  address?: string;
+  description?: string;
+};
 
-  // 入力
+// Firestore ドキュメント（後方互換のため top-level も保持）
+type StoreDoc = Store & {
+  base?: Base;
+  t?: TrStore[];
+};
+
+/* ======================== 表示ユーティリティ ======================== */
+const norm = (s: string) => (s ?? "").replace(/\r/g, "").trim();
+const splitLines = (text: string) =>
+  norm(text)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+function pickLocalized(s: StoreDoc, ui: ReturnType<typeof useUILang>["uiLang"]): Required<Base> {
+  if (ui === "ja") {
+    return {
+      name: s.base?.name ?? s.name ?? "",
+      address: s.base?.address ?? s.address ?? "",
+      description: s.base?.description ?? s.description ?? "",
+    };
+  }
+  const hit = s.t?.find((x) => x.lang === ui);
+  return {
+    name: hit?.name ?? s.base?.name ?? s.name ?? "",
+    address: hit?.address ?? s.base?.address ?? s.address ?? "",
+    description: hit?.description ?? s.base?.description ?? s.description ?? "",
+  };
+}
+
+/* ======================== 翻訳（保存時に一括） ======================== */
+async function translateAllStore(
+  nameJa: string,
+  addressJa: string,
+  descriptionJa: string
+): Promise<TrStore[]> {
+  const jobs: Promise<TrStore>[] = LANGS.map(async (l) => {
+    const [res1, res2] = await Promise.all([
+      fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: nameJa,
+          body: descriptionJa || " ",
+          target: l.key,
+        }),
+      }),
+      addressJa.trim()
+        ? fetch("/api/translate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: addressJa, body: " ", target: l.key }),
+          })
+        : Promise.resolve({ ok: true, json: async () => ({ title: "" }) } as any),
+    ]);
+
+    if (!res1.ok) throw new Error(`translate error(name/desc): ${l.key}`);
+    const d1 = (await res1.json()) as { title?: string; body?: string };
+
+    if (!res2.ok) throw new Error(`translate error(address): ${l.key}`);
+    const d2 = (await res2.json()) as { title?: string };
+
+    return {
+      lang: l.key,
+      name: (d1.title ?? "").trim(),
+      description: (d1.body ?? "").trim(),
+      address: (d2.title ?? "").trim(),
+    };
+  });
+
+  const settled = await Promise.allSettled(jobs);
+  return settled
+    .filter((r): r is PromiseFulfilledResult<TrStore> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
+/* ======================== 本体 ======================== */
+export default function StoresClient() {
+  const { uiLang } = useUILang();
+
+  const [stores, setStores] = useState<StoreDoc[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
+  const [editingStore, setEditingStore] = useState<StoreDoc | null>(null);
+
+  // 入力（原文＝日本語）
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
@@ -99,26 +176,13 @@ export default function StoresClient() {
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const uploading = progress !== null;
+  const [submitFlag, setSubmitFlag] = useState(false);
 
-  // AI 紹介文
+  // ✅ AI 紹介文モーダル（復活）
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiKeyword, setAiKeyword] = useState("");
   const [aiFeature, setAiFeature] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-
-  // 多言語ピッカー
-  const [showLangPicker, setShowLangPicker] = useState(false);
-  const [langQuery, setLangQuery] = useState("");
-  const [translating, setTranslating] = useState(false);
-
-  // 追記時の重複・同時実行ガード
-  const inFlightRef = useRef(false);
-  const doneLangsRef = useRef<Set<LangKey>>(new Set());
-  const baseNameRef = useRef<string>("");
-  const baseDescRef = useRef<string>("");
-  const baseAddrRef = useRef<string>("");
-
-  const [submitFlag, setSubmitFlag] = useState(false);
 
   const gradient = useThemeGradient();
   const isDark = useMemo(() => {
@@ -132,6 +196,7 @@ export default function StoresClient() {
     []
   );
 
+  /* -------- DnD -------- */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -149,123 +214,53 @@ export default function StoresClient() {
     await batch.commit();
   };
 
+  /* -------- Auth/購読 -------- */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      colRef,
-      (snap) => {
-        const docs = snap.docs.map((d) => {
-          const data = d.data() as DocumentData;
-          return {
-            id: d.id,
-            name: data.name,
-            address: data.address,
-            description: data.description ?? "",
-            imageURL: data.imageURL,
-            originalFileName: data.originalFileName,
-            order: data.order ?? 9999,
-          } as Store;
-        });
-        docs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
-        setStores(docs);
-      },
-      (e) => console.error(e)
-    );
+    const qy = query(colRef, orderBy("order", "asc"));
+    const unsub = onSnapshot(qy, (snap) => {
+      const docs: StoreDoc[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+
+        const base: Base = data.base ?? {
+          name: data.name ?? "",
+          address: data.address ?? "",
+          description: data.description ?? "",
+        };
+
+        const t: TrStore[] = Array.isArray(data.t)
+          ? data.t.map((x: any) => ({
+              lang: x.lang as LangKey,
+              name: (x.name ?? "").trim(),
+              address: (x.address ?? "").trim(),
+              description: (x.description ?? "").trim(),
+            }))
+          : [];
+
+        return {
+          id: d.id,
+          name: data.name ?? base.name,
+          address: data.address ?? base.address,
+          description: data.description ?? base.description ?? "",
+          imageURL: data.imageURL ?? "",
+          originalFileName: data.originalFileName,
+          order: data.order ?? 9999,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          base,
+          t,
+        } as StoreDoc;
+      });
+      docs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+      setStores(docs);
+    });
     return () => unsub();
   }, [colRef]);
 
-  /* ===== 多言語ユーティリティ ===== */
-  const filteredLangs = useMemo(() => {
-    const q = langQuery.trim().toLowerCase();
-    if (!q) return LANGS;
-    return LANGS.filter(
-      (l) => l.label.toLowerCase().includes(q) || l.key.toLowerCase().includes(q)
-    );
-  }, [langQuery]);
-
-  const norm = (s: string) => (s ?? "").replace(/\r/g, "").trim();
-  const hasSameLine = (text: string, candidate: string) => {
-    const lines = norm(text).split("\n").map((l) => l.trim()).filter(Boolean);
-    const c = norm(candidate);
-    return !!c && lines.includes(c);
-  };
-  const containsParagraph = (text: string, paragraph: string) =>
-    !!norm(paragraph) && norm(text).includes(norm(paragraph));
-  const firstLine = (s: string) => (s || "").split("\n")[0]?.trim() ?? "";
-  const firstParagraph = (s: string) => (s || "").split(/\n{2,}/)[0]?.trim() ?? "";
-
-  const openLang = () => {
-    if (!name.trim() && !description.trim() && !address.trim()) {
-      alert("店舗名・住所・紹介文のいずれかを入力してください");
-      return;
-    }
-    baseNameRef.current = firstLine(name);
-    baseDescRef.current = firstParagraph(description);
-    baseAddrRef.current = (address ?? "").replace(/\r/g, "").trim();
-    doneLangsRef.current = new Set();
-    inFlightRef.current = false;
-    setLangQuery("");
-    setShowLangPicker(true);
-  };
-
-  const translateOnce = async (title: string, body: string, target: LangKey) => {
-    const res = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, target }),
-    });
-    if (!res.ok) throw new Error("翻訳APIエラー");
-    return (await res.json()) as { title?: string; body?: string };
-  };
-
-  const translateAndAppend = async (target: LangKey) => {
-    if (inFlightRef.current) return;
-    if (doneLangsRef.current.has(target)) return;
-    inFlightRef.current = true;
-    try {
-      setTranslating(true);
-
-      // 店名＋紹介文
-      if (baseNameRef.current || baseDescRef.current) {
-        const data = await translateOnce(
-          baseNameRef.current,
-          baseDescRef.current || " ",
-          target
-        );
-        const tTitle = norm(data.title ?? "");
-        const tBody = norm(data.body ?? "");
-        if (tTitle && tTitle !== norm(baseNameRef.current) && !hasSameLine(name, tTitle)) {
-          setName((prev) => (prev ? `${prev}\n${tTitle}` : tTitle));
-        }
-        if (tBody && !containsParagraph(description, tBody)) {
-          setDescription((prev) => (prev ? `${prev}\n\n${tBody}` : tBody));
-        }
-      }
-
-      // 住所（原文全文→翻訳1行を末尾に追記）
-      if (baseAddrRef.current) {
-        const addrData = await translateOnce(baseAddrRef.current, " ", target);
-        const tAddr = norm(addrData.title ?? "");
-        if (tAddr && tAddr !== norm(baseAddrRef.current) && !hasSameLine(address, tAddr)) {
-          setAddress((prev) => (prev ? `${prev}\n${tAddr}` : tAddr));
-        }
-      }
-
-      doneLangsRef.current.add(target);
-      // 自動クローズ
-      setShowLangPicker(false);
-    } catch (e) {
-      console.error(e);
-      alert("翻訳に失敗しました。時間をおいて再度お試しください。");
-    } finally {
-      setTranslating(false);
-      inFlightRef.current = false;
-    }
-  };
-
-  /* ===== CRUD ===== */
+  /* -------- CRUD -------- */
   const openAdd = () => {
+    if (uploading || submitFlag) return;
     setEditingStore(null);
     setName("");
     setAddress("");
@@ -274,40 +269,50 @@ export default function StoresClient() {
     setFormMode("add");
   };
 
-  const openEdit = (s: Store) => {
+  const openEdit = (s: StoreDoc) => {
+    if (uploading || submitFlag) return;
     setEditingStore(s);
-    setName(s.name);
-    setAddress(s.address);
-    setDescription(s.description ?? "");
+    setName(s.base?.name ?? s.name ?? "");
+    setAddress(s.base?.address ?? s.address ?? "");
+    setDescription(s.base?.description ?? s.description ?? "");
     setFile(null);
     setFormMode("edit");
   };
 
   const closeForm = () => {
-    if (uploading) return;
+    if (uploading || submitFlag) return;
     setFormMode(null);
   };
 
   const saveStore = async () => {
+    if (uploading || submitFlag) return;
     if (!name.trim() || !address.trim()) {
-      return alert("名前と住所は必須です");
+      return alert("店舗名（原文）と住所（原文）は必須です");
     }
     try {
       setSubmitFlag(true);
-      const id = editingStore?.id ?? uuid();
-      let imageURL = editingStore?.imageURL ?? "";
-      const originalFileName = file?.name ?? editingStore?.originalFileName ?? "";
+
+      const isEdit = formMode === "edit" && !!editingStore;
+      const docRef = isEdit ? doc(colRef, editingStore!.id) : doc(colRef);
+      const id = docRef.id;
+
+      // 画像アップロード
+      let imageURL = isEdit ? editingStore!.imageURL || "" : "";
+      let originalFileName = file?.name ?? editingStore?.originalFileName ?? "";
 
       if (file) {
-        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const ext = (file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1] || "jpg").toLowerCase();
         const allowedExts = ["jpg", "jpeg", "png", "webp"];
-        if (!ext || !allowedExts.includes(ext)) {
-          alert("サポートされていない画像形式です");
+        if (!allowedExts.includes(ext)) {
+          alert("サポートされていない画像形式です（jpg/jpeg/png/webp）");
+          setSubmitFlag(false);
           return;
         }
+
         const sref = storageRef(getStorage(), `${STORAGE_PATH}/${id}.${ext}`);
         const task = uploadBytesResumable(sref, file, { contentType: file.type });
         setProgress(0);
+
         await new Promise<void>((resolve, reject) => {
           task.on(
             "state_changed",
@@ -326,15 +331,15 @@ export default function StoresClient() {
                   "crepe-shop-homepage.firebasestorage.app"
                 );
                 setProgress(null);
-                if (formMode === "edit" && editingStore) {
-                  const oldExt = editingStore.imageURL.split(".").pop()?.toLowerCase() || "";
-                  if (oldExt && oldExt !== ext) {
+
+                if (isEdit && editingStore) {
+                  const oldExt = editingStore.imageURL.match(/\.([a-zA-Z0-9]+)(\?|$)/)?.[1];
+                  if (oldExt && oldExt.toLowerCase() !== ext) {
                     await deleteObject(
                       storageRef(getStorage(), `${STORAGE_PATH}/${id}.${oldExt}`)
                     ).catch(() => {});
                   }
                 }
-                await upsertFirestore(id, imageURL, originalFileName);
                 resolve();
               } catch (err) {
                 reject(err);
@@ -342,9 +347,52 @@ export default function StoresClient() {
             }
           );
         });
-      } else {
-        await upsertFirestore(id, imageURL, originalFileName);
+
+        originalFileName = file.name;
       }
+
+      // ✅ 全言語翻訳（保存前に一括）
+      const t = await translateAllStore(name.trim(), address.trim(), (description ?? "").trim());
+
+      // Firestore へ保存（互換用 top-level も保持）
+      const base: Base = {
+        name: name.trim(),
+        address: address.trim(),
+        ...(description.trim() && { description: description.trim() }),
+      };
+
+      const payload: {
+        base: Base;
+        t: TrStore[];
+        name: string;
+        address: string;
+        description?: string;
+        imageURL: string;
+        updatedAt: FieldValue;
+        originalFileName?: string;
+      } = {
+        base,
+        t,
+        name: base.name,
+        address: base.address,
+        ...(base.description && { description: base.description }),
+        imageURL,
+        updatedAt: serverTimestamp(),
+        ...(originalFileName && { originalFileName }),
+      };
+
+      if (isEdit) {
+        await updateDoc(docRef, payload);
+      } else {
+        const nextOrder = (stores.at(-1)?.order ?? stores.length - 1) + 1;
+        await setDoc(docRef, {
+          ...payload,
+          createdAt: serverTimestamp(),
+          order: nextOrder,
+        });
+      }
+
+      closeForm();
     } catch (e) {
       console.error(e);
       alert("保存に失敗しました");
@@ -354,47 +402,17 @@ export default function StoresClient() {
     }
   };
 
-  const upsertFirestore = async (id: string, imageURL: string, originalFileName?: string) => {
-    const payload: {
-      name: string;
-      address: string;
-      description?: string;
-      imageURL: string;
-      updatedAt: FieldValue;
-      originalFileName?: string;
-    } = {
-      name,
-      address,
-      ...(description.trim() && { description }),
-      imageURL,
-      updatedAt: serverTimestamp(),
-      ...(originalFileName && { originalFileName }),
-    };
-
-    if (formMode === "edit" && editingStore) {
-      await updateDoc(doc(colRef, id), payload);
-    } else {
-      await addDoc(colRef, {
-        ...payload,
-        createdAt: serverTimestamp(),
-        order: (stores.at(-1)?.order ?? stores.length - 1) + 1,
-      });
-    }
-    closeForm();
-  };
-
-  const removeStore = async (s: Store) => {
+  const removeStore = async (s: StoreDoc) => {
     if (!confirm(`「${s.name}」を削除しますか？`)) return;
     try {
       await deleteDoc(doc(colRef, s.id));
       if (s.imageURL) {
-        const ext = s.imageURL.split(".").pop()?.toLowerCase();
+        const ext = s.imageURL.match(/\.([a-zA-Z0-9]+)(\?|$)/)?.[1]?.toLowerCase();
         const allowedExts = ["jpg", "jpeg", "png", "webp"];
         if (ext && allowedExts.includes(ext)) {
-          const fileRef = storageRef(getStorage(), `${STORAGE_PATH}/${s.id}.${ext}`);
-          await deleteObject(fileRef).catch((err) => {
-            console.warn("画像の削除に失敗しました:", err);
-          });
+          await deleteObject(storageRef(getStorage(), `${STORAGE_PATH}/${s.id}.${ext}`)).catch(
+            (err) => console.warn("画像の削除に失敗しました:", err)
+          );
         }
       }
     } catch (err) {
@@ -407,26 +425,33 @@ export default function StoresClient() {
 
   return (
     <main className="max-w-5xl mx-auto p-4 mt-20">
+      {/* 並べ替え */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={stores.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {stores.map((s) => (
-              <SortableStoreItem key={s.id} store={s}>
-                {({ attributes, listeners, isDragging }) => (
-                  <StoreCard
-                    store={s}
-                    isAdmin={isAdmin}
-                    isDragging={isDragging}
-                    isDark={isDark}
-                    gradient={gradient!}
-                    listeners={listeners}
-                    attributes={attributes}
-                    onEdit={openEdit}
-                    onRemove={removeStore}
-                  />
-                )}
-              </SortableStoreItem>
-            ))}
+            {stores.map((s) => {
+              const loc = pickLocalized(s, uiLang);
+              return (
+                <SortableStoreItem key={s.id} store={s}>
+                  {({ attributes, listeners, isDragging }) => (
+                    <StoreCard
+                      store={s}
+                      locName={loc.name}
+                      locAddress={loc.address}
+                      locDescription={loc.description ?? ""}
+                      isAdmin={isAdmin}
+                      isDragging={isDragging}
+                      isDark={isDark}
+                      gradient={gradient!}
+                      listeners={listeners}
+                      attributes={attributes}
+                      onEdit={openEdit}
+                      onRemove={removeStore}
+                    />
+                  )}
+                </SortableStoreItem>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
@@ -441,47 +466,48 @@ export default function StoresClient() {
         </button>
       )}
 
-      {/* フォームモーダル */}
+      {/* フォームモーダル（原文=日本語のみ編集） */}
       {isAdmin && formMode && (
         <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
             <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "店舗を編集" : "店舗を追加"}
+              {formMode === "edit" ? "店舗を編集（原文）" : "店舗を追加（原文）"}
             </h2>
 
-            {/* 店名（改行可） */}
+            {/* 店名（原文、日本語、改行可） */}
             <textarea
-              placeholder="店舗名（改行可）"
+              placeholder="店舗名（日本語・改行可）"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full border px-3 py-2 rounded whitespace-pre-wrap"
               rows={2}
-              disabled={uploading}
+              disabled={uploading || submitFlag}
             />
 
-            {/* 住所（改行可） */}
+            {/* 住所（原文、日本語、改行可） */}
             <textarea
-              placeholder="住所（改行可）"
+              placeholder="住所（日本語・改行可）"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full border px-3 py-2 rounded whitespace-pre-wrap"
               rows={2}
-              disabled={uploading}
+              disabled={uploading || submitFlag}
             />
 
+            {/* 紹介文（任意） */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">（任意）紹介文</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">（任意）紹介文（日本語）</label>
               <textarea
-                placeholder="紹介文"
+                placeholder="紹介文（日本語）"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full border px-3 py-2 rounded whitespace-pre-wrap"
                 rows={3}
-                disabled={uploading}
+                disabled={uploading || submitFlag}
               />
             </div>
 
-            {/* AI紹介文 */}
+            {/* ✅ AIで紹介文を生成（モーダルを開く） */}
             <button
               onClick={() => {
                 if (!name.trim() || !address.trim()) {
@@ -490,7 +516,7 @@ export default function StoresClient() {
                 }
                 setShowAIModal(true);
               }}
-              disabled={uploading || aiLoading}
+              disabled={uploading || submitFlag || aiLoading}
               className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {aiLoading ? (
@@ -506,167 +532,7 @@ export default function StoresClient() {
               )}
             </button>
 
-            {/* 多言語対応 */}
-            {(name.trim() || address.trim() || description.trim()) && (
-              <button
-                onClick={openLang}
-                className="w-full mt-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-                disabled={uploading || aiLoading || translating}
-              >
-                AIで多国語対応
-              </button>
-            )}
-
-            {/* AIモーダル */}
-            {showAIModal && (
-              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-                <div className="bg-white rounded-lg p-6 w-full max-w-sm space-y-4">
-                  <h3 className="text-lg font-semibold text-center">紹介文をAIで生成</h3>
-
-                  <input
-                    type="text"
-                    placeholder="何の店舗か？（例: クレープ屋）"
-                    value={aiKeyword}
-                    onChange={(e) => setAiKeyword(e.target.value)}
-                    className="w-full border px-3 py-2 rounded"
-                  />
-                  <input
-                    type="text"
-                    placeholder="イチオシは？（例: チョコバナナ）"
-                    value={aiFeature}
-                    onChange={(e) => setAiFeature(e.target.value)}
-                    className="w-full border px-3 py-2 rounded"
-                  />
-
-                  <div className="space-y-2">
-                    <Button
-                      className="bg-indigo-600 w-full disabled:opacity-50"
-                      disabled={!aiKeyword || !aiFeature || aiLoading}
-                      onClick={async () => {
-                        setAiLoading(true);
-                        try {
-                          const res = await fetch("/api/generate-store-description", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name, address, keyword: aiKeyword, feature: aiFeature }),
-                          });
-                          const data = await res.json();
-                          if (data.description) {
-                            setDescription((prev) => (prev?.trim() ? `${prev}\n\n${data.description}` : data.description));
-                            setShowAIModal(false);
-                            setAiKeyword("");
-                            setAiFeature("");
-                          } else {
-                            alert("生成に失敗しました");
-                          }
-                        } catch (err) {
-                          alert("エラーが発生しました");
-                          console.error(err);
-                        } finally {
-                          setAiLoading(false);
-                        }
-                      }}
-                    >
-                      {aiLoading ? "生成中..." : "生成する"}
-                    </Button>
-
-                    <Button className="bg-gray-300 w-full" variant="outline" onClick={() => { setShowAIModal(false); setAiKeyword(""); setAiFeature(""); }}>
-                      閉じる
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 言語ピッカー */}
-            {showLangPicker && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
-                onClick={() => !translating && setShowLangPicker(false)}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="rounded-2xl bg-white/90 backdrop-saturate-150 border border-white/50">
-                    <div className="p-5 border-b border-black/5 flex items-center justify-between">
-                      <h3 className="text-lg font-bold">言語を選択</h3>
-                      <button
-                        type="button"
-                        onClick={() => setShowLangPicker(false)}
-                        className="text-sm text-gray-500 hover:text-gray-800"
-                        disabled={translating}
-                      >
-                        閉じる
-                      </button>
-                    </div>
-
-                    <div className="px-5 pt-4">
-                      <input
-                        type="text"
-                        value={langQuery}
-                        onChange={(e) => setLangQuery(e.target.value)}
-                        placeholder="言語名やコードで検索（例: フランス語 / fr）"
-                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {filteredLangs.map((lng) => (
-                        <button
-                          key={lng.key}
-                          type="button"
-                          onClick={() => translateAndAppend(lng.key)}
-                          disabled={translating}
-                          className={clsx(
-                            "group relative rounded-xl border p-3 text-left transition",
-                            "bg-white hover:shadow-lg hover:-translate-y-0.5",
-                            "focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                            "disabled:opacity-60"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">{lng.emoji}</span>
-                            <div className="min-w-0">
-                              <div className="font-semibold truncate">{lng.label}</div>
-                              <div className="text-xs text-gray-500">/{lng.key}</div>
-                            </div>
-                          </div>
-                          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-indigo-400 opacity-0 group-hover:opacity-100 transition" />
-                        </button>
-                      ))}
-                      {filteredLangs.length === 0 && (
-                        <div className="col-span-full text-center text-sm text-gray-500 py-6">
-                          一致する言語が見つかりません
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-5 pb-5">
-                      <button
-                        type="button"
-                        onClick={() => setShowLangPicker(false)}
-                        className="w-full rounded-lg px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700"
-                        disabled={translating}
-                      >
-                        キャンセル
-                      </button>
-                    </div>
-
-                    {translating && (
-                      <div className="h-1 w-full overflow-hidden rounded-b-2xl">
-                        <div className="h-full w-1/2 animate-[progress_1.2s_ease-in-out_infinite] bg-indigo-500" />
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-
-            {/* 画像選択 */}
+            {/* （任意）画像 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">（任意）画像</label>
               <input
@@ -674,34 +540,102 @@ export default function StoresClient() {
                 accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="w-full h-10 bg-gray-400 text-white rounded-md file:text-white file:px-4 file:py-1 file:border-0 file:cursor-pointer"
-                disabled={uploading}
+                disabled={uploading || submitFlag}
               />
             </div>
-
-            {/* 選択 or 既存のファイル名 */}
-            {file ? (
-              <p className="text-sm text-gray-600">選択中のファイル: {file.name}</p>
-            ) : formMode === "edit" && editingStore?.originalFileName ? (
-              <p className="text-sm text-gray-600">現在登録されているファイル: {editingStore.originalFileName}</p>
-            ) : null}
 
             {/* 進捗 */}
             {uploading && (
               <div className="space-y-2">
                 <p className="text-sm text-gray-500">アップロード中… {progress}%</p>
                 <div className="w-full h-2 bg-gray-300 rounded">
-                  <div className="h-full bg-green-500 rounded transition-all" style={{ width: `${progress}%` }} />
+                  <div className="h-full bg-green-500 rounded transition-all" style={{ width: `${progress ?? 0}%` }} />
                 </div>
               </div>
             )}
 
             <div className="flex justify-center gap-2">
-              <Button onClick={saveStore} disabled={submitFlag} className="px-4 py-2 bg-green-600 text-white rounded">
-                {submitFlag ? "保存中..." : "保存"}
+              <Button onClick={saveStore} disabled={submitFlag || uploading} className="px-4 py-2 bg-green-600 text-white rounded">
+                {submitFlag ? "保存中..." : "保存（全言語へ反映）"}
               </Button>
-              <button onClick={closeForm} disabled={submitFlag} className="px-4 py-2 bg-gray-500 text-white rounded">
+              <button onClick={closeForm} disabled={submitFlag || uploading} className="px-4 py-2 bg-gray-500 text-white rounded">
                 キャンセル
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ AIモーダル（成功時に自動で閉じる） */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-lg font-semibold text-center">紹介文をAIで生成</h3>
+
+            <input
+              type="text"
+              placeholder="何の店舗か？（例: クレープ屋）"
+              value={aiKeyword}
+              onChange={(e) => setAiKeyword(e.target.value)}
+              className="w-full border px-3 py-2 rounded"
+              disabled={aiLoading}
+            />
+            <input
+              type="text"
+              placeholder="イチオシは？（例: チョコバナナ）"
+              value={aiFeature}
+              onChange={(e) => setAiFeature(e.target.value)}
+              className="w-full border px-3 py-2 rounded"
+              disabled={aiLoading}
+            />
+
+            <div className="space-y-2">
+              <Button
+                className="bg-indigo-600 w-full disabled:opacity-50"
+                disabled={!aiKeyword || !aiFeature || aiLoading}
+                onClick={async () => {
+                  setAiLoading(true);
+                  try {
+                    const res = await fetch("/api/generate-store-description", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name,
+                        address,
+                        keyword: aiKeyword,
+                        feature: aiFeature,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data?.description) throw new Error(data?.error || "生成に失敗");
+                    const out = String(data.description).trim();
+                    setDescription((prev) => (prev?.trim() ? `${prev}\n\n${out}` : out));
+                    // 生成成功 → 自動でモーダルを閉じる
+                    setShowAIModal(false);
+                    setAiKeyword("");
+                    setAiFeature("");
+                  } catch (err) {
+                    alert("エラーが発生しました");
+                    console.error(err);
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+              >
+                {aiLoading ? "生成中..." : "生成する"}
+              </Button>
+
+              <Button
+                className="bg-gray-300 w-full"
+                variant="outline"
+                onClick={() => {
+                  setShowAIModal(false);
+                  setAiKeyword("");
+                  setAiFeature("");
+                }}
+              >
+                閉じる
+              </Button>
             </div>
           </div>
         </div>
@@ -710,12 +644,12 @@ export default function StoresClient() {
   );
 }
 
-/* ===== Sortable item ===== */
+/* ======================== Sortable item ======================== */
 function SortableStoreItem({
   store,
   children,
 }: {
-  store: Store;
+  store: StoreDoc;
   children: (props: { attributes: any; listeners: any; isDragging: boolean }) => React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: store.id });
@@ -727,20 +661,27 @@ function SortableStoreItem({
   );
 }
 
+/* ======================== カード ======================== */
 interface StoreCardProps {
-  store: Store;
+  store: StoreDoc;
+  locName: string;
+  locAddress: string;
+  locDescription: string;
   isAdmin: boolean;
   isDragging: boolean;
   isDark: boolean;
   gradient: string;
   listeners: any;
   attributes: any;
-  onEdit: (store: Store) => void;
-  onRemove: (store: Store) => void;
+  onEdit: (store: StoreDoc) => void;
+  onRemove: (store: StoreDoc) => void;
 }
 
 function StoreCard({
   store: s,
+  locName,
+  locAddress,
+  locDescription,
   isAdmin,
   isDragging,
   isDark,
@@ -753,8 +694,7 @@ function StoreCard({
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -150px 0px" });
 
-  // ✅ 住所を行ごとに分割。最初の行だけリンク化
-  const addrLines = (s.address ?? "").replace(/\r/g, "").split("\n").filter((l) => l.trim() !== "");
+  const addrLines = splitLines(locAddress);
   const primaryAddr = addrLines[0] ?? "";
 
   return (
@@ -765,48 +705,41 @@ function StoreCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={clsx(
-        "rounded-lg overflow-hidden shadow relative transition-colors",
+        "rounded-lg shadow relative transition-colors overflow-visible mt-6",
         "bg-gradient-to-b",
         gradient,
         isDragging ? "bg-yellow-100" : isDark ? "bg-black/40 text-white" : "bg-white"
       )}
     >
-      {/* ドラッグハンドル */}
       {auth.currentUser !== null && (
         <div
           {...attributes}
           {...listeners}
           onTouchStart={(e) => e.preventDefault()}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 cursor-grab active:cursor-grabbing touch-none select-none"
+          className="absolute -top-5 left-1/2 -translate-x-1/2 z-30 cursor-grab active:cursor-grabbing touch-none select-none"
         >
-          <div className="w-8 h-8 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
-            ≡
+          <div className="w-10 h-10 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow-md ring-1 ring-black/10 backdrop-blur">
+            <Pin className="w-5 h-5" />
           </div>
         </div>
       )}
 
-      {/* 画像 */}
       {s.imageURL && (
         <div className="relative w-full aspect-[1/1]">
-          <Image src={s.imageURL} alt={s.name} fill className="object-cover rounded-t-lg" unoptimized />
+          <Image src={s.imageURL} alt={locName || s.name} fill className="object-cover rounded-t-lg" unoptimized />
         </div>
       )}
 
-      {/* 本文 */}
       <div className={clsx("p-4 space-y-2", isDark && "text-white")}>
-        <h2 className="text-xl font-semibold whitespace-pre-wrap">{s.name}</h2>
+        <h2 className="text-xl font-semibold whitespace-pre-wrap">{locName}</h2>
 
-        {/* ✅ 原文の住所(1行目)だけリンク。以降はプレーンテキストで改行表示 */}
         <div className="text-sm">
           {primaryAddr && (
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(primaryAddr)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={clsx(
-                "underline",
-                isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-700 hover:text-blue-900"
-              )}
+              className={clsx("underline", isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-700 hover:text-blue-900")}
             >
               {primaryAddr}
             </a>
@@ -818,7 +751,7 @@ function StoreCard({
           ))}
         </div>
 
-        {s.description && <p className="text-sm whitespace-pre-wrap">{s.description}</p>}
+        {locDescription && <p className="text-sm whitespace-pre-wrap">{locDescription}</p>}
       </div>
 
       {isAdmin && (

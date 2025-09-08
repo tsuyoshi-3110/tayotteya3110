@@ -10,6 +10,7 @@ import {
   deleteDoc,
   updateDoc,
   addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import MenuItemCard from "./MenuItemCard";
@@ -21,7 +22,6 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
-  ref,
   UploadTask,
 } from "firebase/storage";
 
@@ -31,25 +31,8 @@ import { useThemeGradient } from "@/lib/useThemeGradient";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ProductMedia from "@/components/ProductMedia";
 
-/* ===== 多言語候補 ===== */
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
-type LangKey = (typeof LANGS)[number]["key"];
+import { useUILang } from "@/lib/atoms/uiLangAtom";
+import { LANGS, type LangKey } from "@/lib/langs";
 
 /* ===== 型 ===== */
 type MenuItem = {
@@ -59,7 +42,11 @@ type MenuItem = {
   price?: number | null;
   isTaxIncluded?: boolean;
   order: number;
+  // 多言語互換
+  base?: { name: string; description?: string };
+  t?: Array<{ lang: LangKey; name?: string; description?: string }>;
 };
+
 type Section = {
   id: string;
   title: string;
@@ -73,6 +60,138 @@ type Section = {
   mediaHeight?: number | null;
 };
 
+/* ===== ローカライズ表示 ===== */
+function pickItemLocalized(
+  it: MenuItem,
+  uiLang: ReturnType<typeof useUILang>["uiLang"]
+) {
+  if (uiLang === "ja") {
+    return {
+      name: it.base?.name ?? it.name ?? "",
+      description: it.base?.description ?? it.description ?? "",
+    };
+  }
+  const hit = it.t?.find((x) => x.lang === uiLang);
+  return {
+    name: hit?.name ?? it.base?.name ?? it.name ?? "",
+    description:
+      hit?.description ?? it.base?.description ?? it.description ?? "",
+  };
+}
+
+/* ===== 翻訳APIラッパ（型安全・エラー耐性） ===== */
+type TrTitle = { lang: LangKey; title: string };
+type TrItem = { lang: LangKey; name?: string; description?: string };
+
+async function translateAllTitle(titleJa: string): Promise<TrTitle[]> {
+  const jobs = LANGS.map(async (l) => {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: titleJa, body: " ", target: l.key }),
+    });
+    if (!res.ok) throw new Error("translate error");
+    const data = (await res.json()) as { title?: string };
+    return { lang: l.key as LangKey, title: (data.title ?? "").trim() };
+  });
+
+  const settled = await Promise.allSettled(jobs);
+  const out: TrTitle[] = [];
+  for (const r of settled) {
+    if (r.status === "fulfilled") out.push(r.value);
+  }
+  return out;
+}
+
+async function translateAllItem(
+  nameJa: string,
+  descJa: string
+): Promise<TrItem[]> {
+  const jobs = LANGS.map(async (l) => {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: nameJa,
+        body: descJa || " ",
+        target: l.key,
+      }),
+    });
+    if (!res.ok) throw new Error("translate error");
+    const data = (await res.json()) as { title?: string; body?: string };
+    return {
+      lang: l.key as LangKey,
+      name: (data.title ?? "").trim(),
+      description: (data.body ?? "").trim(),
+    };
+  });
+
+  const settled = await Promise.allSettled(jobs);
+  const out: TrItem[] = [];
+  for (const r of settled) {
+    if (r.status === "fulfilled") out.push(r.value);
+  }
+  return out;
+}
+
+/* ===== 画像/動画メタ ===== */
+export function getVideoMetaFromFile(
+  file: File
+): Promise<{ duration: number; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.src = url;
+    v.onloadedmetadata = () => {
+      const meta = {
+        duration: v.duration,
+        width: v.videoWidth,
+        height: v.videoHeight,
+      };
+      URL.revokeObjectURL(url);
+      v.removeAttribute("src");
+      v.load();
+      resolve(meta);
+    };
+    v.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("動画メタデータの取得に失敗しました"));
+    };
+  });
+}
+function getImageSize(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = document.createElement("img");
+    img.onload = () => {
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+      URL.revokeObjectURL(url);
+      resolve({ width, height });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = url;
+  });
+}
+function getExt(name: string) {
+  const m = name.match(/\.([a-zA-Z0-9]+)$/);
+  return m ? m[1].toLowerCase() : "";
+}
+
+/* ===== Base抽出 ===== */
+function extractBaseTitle(s: string) {
+  return (s || "").split("\n")[0]?.trim() ?? "";
+}
+function extractBaseBody(s: string) {
+  const m = (s || "").split(/\n{2,}/);
+  return (m[0] || "").trim();
+}
+
+/* ===== 本体 ===== */
 export default function MenuSectionCard({
   section,
   onTitleUpdate,
@@ -83,19 +202,21 @@ export default function MenuSectionCard({
   onTitleUpdate: (newTitle: string) => void;
   isLoggedIn: boolean;
   onDeleteSection: () => void;
-  onSectionPatch?: (patch: Partial<Section>) => void;
+  onSectionPatch?: (patch: Partial<Section>) => void; // 型はそのまま残してOK
 }) {
+  const { uiLang } = useUILang();
+
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
+  const [newTitle, setNewTitle] = useState(section.title);
+  const [savingTitle, setSavingTitle] = useState(false);
 
-  // ▼▼ ここが統一モーダルの状態 ▼▼
+  // 統一アイテムモーダル
   const [itemModal, setItemModal] = useState<{
     open: boolean;
     mode: "create" | "edit";
     target?: MenuItem | null;
   }>({ open: false, mode: "create", target: null });
-
-  const [newTitle, setNewTitle] = useState(section.title);
 
   const gradient = useThemeGradient();
   const isDark = useMemo(() => {
@@ -118,12 +239,31 @@ export default function MenuSectionCard({
         orderBy("order", "asc")
       );
       const snap = await getDocs(qy);
-      setItems(
-        snap.docs.map((d) => ({
+      const rows = snap.docs.map((d) => {
+        const data = d.data() as any;
+        const base = data.base ?? {
+          name: data.name ?? "",
+          description: data.description ?? "",
+        };
+        const t: MenuItem["t"] = Array.isArray(data.t)
+          ? data.t.map((x: any) => ({
+              lang: x.lang as LangKey,
+              name: (x.name ?? "").trim(),
+              description: (x.description ?? "").trim(),
+            }))
+          : [];
+        return {
           id: d.id,
-          ...(d.data() as Omit<MenuItem, "id">),
-        }))
-      );
+          name: data.name ?? base.name,
+          description: data.description ?? base.description,
+          price: data.price ?? null,
+          isTaxIncluded: data.isTaxIncluded ?? true,
+          order: data.order ?? 9999,
+          base,
+          t,
+        } as MenuItem;
+      });
+      setItems(rows);
     })();
   }, [section.id]);
 
@@ -132,7 +272,7 @@ export default function MenuSectionCard({
     if (!confirm("このセクションを削除しますか？")) return;
     try {
       if (section.mediaUrl) {
-        const sref = ref(getStorage(), section.mediaUrl);
+        const sref = storageRef(getStorage(), section.mediaUrl);
         await deleteObject(sref);
       }
     } catch {}
@@ -140,13 +280,27 @@ export default function MenuSectionCard({
     onDeleteSection();
   };
 
-  /* ===== セクション名更新 ===== */
+  /* ===== セクション名更新（タイトル翻訳も保存：任意） ===== */
   const handleUpdateSectionTitle = async () => {
     const trimmed = newTitle.trim();
     if (!trimmed) return alert("セクション名を入力してください");
-    await updateDoc(doc(db, "menuSections", section.id), { title: trimmed });
-    onTitleUpdate(trimmed);
-    setShowEditSectionModal(false);
+    try {
+      setSavingTitle(true); // ← ここを追加
+      let tTitle: TrTitle[] = [];
+      try {
+        tTitle = await translateAllTitle(trimmed);
+      } catch {}
+      await updateDoc(doc(db, "menuSections", section.id), {
+        title: trimmed,
+        baseTitle: { title: trimmed },
+        tTitle,
+        updatedAt: serverTimestamp(),
+      });
+      onTitleUpdate(trimmed);
+      setShowEditSectionModal(false);
+    } finally {
+      setSavingTitle(false); // ← ここを追加
+    }
   };
 
   /* ===== メディア関連 ===== */
@@ -285,7 +439,7 @@ export default function MenuSectionCard({
     if (!confirm("添付メディアを削除しますか？")) return;
     try {
       try {
-        const sref = ref(getStorage(), section.mediaUrl);
+        const sref = storageRef(getStorage(), section.mediaUrl);
         await deleteObject(sref);
       } catch {}
       await updateDoc(doc(db, "menuSections", section.id), {
@@ -356,23 +510,30 @@ export default function MenuSectionCard({
 
         {mediaNode}
 
-        {items.map((item) => (
-          <MenuItemCard
-            key={item.id}
-            item={item}
-            isLoggedIn={isLoggedIn}
-            onDelete={async () => {
-              if (!confirm("このメニューを削除しますか？")) return;
-              await deleteDoc(
-                doc(db, `menuSections/${section.id}/items`, item.id)
-              );
-              setItems((prev) => prev.filter((it) => it.id !== item.id));
-            }}
-            onEdit={(it) =>
-              setItemModal({ open: true, mode: "edit", target: it })
-            }
-          />
-        ))}
+        {items.map((item) => {
+          const loc = pickItemLocalized(item, uiLang);
+          return (
+            <MenuItemCard
+              key={item.id}
+              item={{ ...item, name: loc.name, description: loc.description }}
+              isLoggedIn={isLoggedIn}
+              onDelete={async () => {
+                if (!confirm("このメニューを削除しますか？")) return;
+                await deleteDoc(
+                  doc(db, `menuSections/${section.id}/items`, item.id)
+                );
+                setItems((prev) => prev.filter((it) => it.id !== item.id));
+              }}
+              onEdit={(it) =>
+                setItemModal({
+                  open: true,
+                  mode: "edit",
+                  target: it,
+                })
+              }
+            />
+          );
+        })}
 
         {isLoggedIn && (
           <Button
@@ -392,11 +553,12 @@ export default function MenuSectionCard({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-4">セクションを編集</h2>
-            <label className="text-sm font-medium">セクション名</label>
+            <label className="text-sm font-medium">セクション名（原文）</label>
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="mb-4 mt-1"
+              disabled={uploading || savingTitle}
             />
             <div className="mb-3">
               <div className="text-sm font-medium mb-1">メディア（任意）</div>
@@ -451,18 +613,23 @@ export default function MenuSectionCard({
               <Button
                 variant="outline"
                 onClick={() => setShowEditSectionModal(false)}
+                disabled={uploading || savingTitle}
               >
                 閉じる
               </Button>
-              <Button onClick={handleUpdateSectionTitle} disabled={uploading}>
-                保存
+
+              <Button
+                onClick={handleUpdateSectionTitle}
+                disabled={uploading || savingTitle}
+              >
+                {savingTitle ? "保存中..." : "保存（全言語へ反映）"}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ★★★ 追加/編集 兼用：統一モーダル ★★★ */}
+      {/* 追加/編集 兼用：統一モーダル（AI説明のみ） */}
       <ItemModal
         open={itemModal.open}
         mode={itemModal.mode}
@@ -470,8 +637,13 @@ export default function MenuSectionCard({
           itemModal.mode === "edit" && itemModal.target
             ? {
                 id: itemModal.target.id,
-                name: itemModal.target.name ?? "",
-                description: itemModal.target.description ?? "",
+                // 原文（base）を優先
+                name:
+                  itemModal.target.base?.name ?? itemModal.target.name ?? "",
+                description:
+                  itemModal.target.base?.description ??
+                  itemModal.target.description ??
+                  "",
                 price:
                   itemModal.target.price == null
                     ? ""
@@ -491,10 +663,10 @@ export default function MenuSectionCard({
         onClose={() => setItemModal((s) => ({ ...s, open: false }))}
         onSaved={(saved) => {
           if (itemModal.mode === "create") {
-            setItems((prev) => [...prev, saved]);
+            setItems((prev) => [...prev, saved as any]);
           } else {
             setItems((prev) =>
-              prev.map((it) => (it.id === saved.id ? saved : it))
+              prev.map((it) => (it.id === saved.id ? (saved as any) : it))
             );
           }
           setItemModal((s) => ({ ...s, open: false }));
@@ -512,7 +684,7 @@ export default function MenuSectionCard({
   );
 }
 
-/* ========= ItemModal（追加/編集 兼用・AI多言語＋AI説明生成入り） ========= */
+/* ========= ItemModal（AI説明のみ。翻訳UIは無し。保存時に自動翻訳） ========= */
 function ItemModal({
   open,
   mode,
@@ -532,14 +704,7 @@ function ItemModal({
     order: number;
   };
   onClose: () => void;
-  onSaved: (saved: {
-    id: string;
-    name: string;
-    description?: string;
-    price?: number | null;
-    isTaxIncluded?: boolean;
-    order: number;
-  }) => void;
+  onSaved: (saved: MenuItem) => void;
   sectionId: string;
 }) {
   const [name, setName] = useState(initial.name);
@@ -547,141 +712,33 @@ function ItemModal({
   const [price, setPrice] = useState(initial.price);
   const [isTaxIncluded, setIsTaxIncluded] = useState(initial.isTaxIncluded);
 
-  // AI: 多言語
-  const [trOpen, setTrOpen] = useState(false);
-  const [trLangQuery, setTrLangQuery] = useState("");
-  const [trLoading, setTrLoading] = useState(false);
-  const [autoCollapse, setAutoCollapse] = useState(true);
-  const baseTitleRef = useRef<string>("");
-  const baseBodyRef = useRef<string>("");
-  const inFlightRef = useRef(false);
-  const doneLangsRef = useRef<Set<LangKey>>(new Set());
-  const filteredLangs = useMemo(() => {
-    const q = trLangQuery.trim().toLowerCase();
-    if (!q) return LANGS;
-    return LANGS.filter(
-      (l) =>
-        l.label.toLowerCase().includes(q) || l.key.toLowerCase().includes(q)
-    );
-  }, [trLangQuery]);
-
-  // AI: 説明生成
+  // AI説明生成
   const [genOpen, setGenOpen] = useState(false);
   const [genKeywords, setGenKeywords] = useState<string[]>(["", "", ""]);
   const [genLoading, setGenLoading] = useState(false);
 
-  const firstLine = (s: string) => (s || "").split("\n")[0]?.trim() ?? "";
-  const firstPara = (s: string) => (s || "").split(/\n{2,}/)[0]?.trim() ?? "";
+  // ★ 追加：保存中インジケーター
+  const [saving, setSaving] = useState(false);
 
-  // モーダル開くたびに初期値へ
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setName(initial.name);
       setDesc(initial.description);
       setPrice(initial.price);
       setIsTaxIncluded(initial.isTaxIncluded);
-      setTrOpen(false);
       setGenOpen(false);
-      setTrLangQuery("");
       setGenKeywords(["", "", ""]);
-      doneLangsRef.current = new Set();
-      inFlightRef.current = false;
+      setGenLoading(false);
+      setSaving(false);
     }
   }, [open, initial]);
 
-  const save = async () => {
-    if (!name.trim()) return alert("名前は必須です");
-    const priceNum =
-      price.trim() === ""
-        ? null
-        : Number.isNaN(Number(price))
-        ? null
-        : Number(price);
-
-    if (mode === "create") {
-      const refDoc = await addDoc(
-        collection(db, `menuSections/${sectionId}/items`),
-        {
-          name: name.trim(),
-          description: desc.trim(),
-          price: priceNum,
-          isTaxIncluded,
-          order: initial.order,
-        }
-      );
-      onSaved({
-        id: refDoc.id,
-        name: name.trim(),
-        description: desc.trim(),
-        price: priceNum,
-        isTaxIncluded,
-        order: initial.order,
-      });
-    } else {
-      if (!initial.id) return;
-      await updateDoc(doc(db, `menuSections/${sectionId}/items`, initial.id), {
-        name: name.trim(),
-        description: desc.trim(),
-        price: priceNum,
-        isTaxIncluded,
-      });
-      onSaved({
-        id: initial.id,
-        name: name.trim(),
-        description: desc.trim(),
-        price: priceNum,
-        isTaxIncluded,
-        order: initial.order,
-      });
-    }
-  };
-
-  const canTranslate = Boolean(name.trim() || desc.trim());
-  const canOpenGen = name.trim().length > 0;
+  const canOpenGen = (name ?? "").trim().length > 0;
   const canGenerate =
-    canOpenGen && genKeywords.some((k) => (k || "").trim()) && !genLoading;
-
-  const startTranslatePanel = () => {
-    const next = !trOpen;
-    setTrOpen(next);
-    if (next) {
-      baseTitleRef.current = firstLine(name);
-      baseBodyRef.current = firstPara(desc);
-      doneLangsRef.current = new Set();
-    }
-  };
-
-  const doTranslate = async (target: LangKey) => {
-    if (!canTranslate) return;
-    if (inFlightRef.current) return;
-    if (doneLangsRef.current.has(target)) return;
-    inFlightRef.current = true;
-    setTrLoading(true);
-    try {
-      const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: baseTitleRef.current,
-          body: baseBodyRef.current || " ",
-          target,
-        }),
-      });
-      if (!res.ok) throw new Error("翻訳APIエラー");
-      const data = (await res.json()) as { title?: string; body?: string };
-      const tTitle = (data.title ?? "").trim();
-      const tBody = (data.body ?? "").trim();
-      if (tTitle) setName((prev) => (prev ? `${prev}\n${tTitle}` : tTitle));
-      if (tBody) setDesc((prev) => (prev ? `${prev}\n\n${tBody}` : tBody));
-      doneLangsRef.current.add(target);
-      if (autoCollapse) setTrOpen(false);
-    } catch {
-      alert("翻訳に失敗しました。時間をおいて再度お試しください。");
-    } finally {
-      setTrLoading(false);
-      inFlightRef.current = false;
-    }
-  };
+    canOpenGen &&
+    genKeywords.some((k) => (k || "").trim()) &&
+    !genLoading &&
+    !saving;
 
   const doGenerate = async () => {
     if (!canGenerate) return;
@@ -691,7 +748,7 @@ function ItemModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: name.trim(),
+          title: (extractBaseTitle(name) || name || "").trim(),
           keywords: genKeywords.map((k) => k.trim()).filter(Boolean),
         }),
       });
@@ -699,9 +756,12 @@ function ItemModal({
       if (!res.ok || !data?.body)
         throw new Error(data?.error || "生成に失敗しました");
       const out = String(data.body).trim();
-      setDesc((prev) => (prev?.trim() ? `${prev}\n\n${out}` : out));
+
+      // ★ 要望対応：既存の本文は削除して「上書き」
+      setDesc(out);
+
       setGenKeywords(["", "", ""]);
-      if (autoCollapse) setGenOpen(false);
+      setGenOpen(false);
     } catch {
       alert("説明文の生成に失敗しました。時間をおいて再度お試しください。");
     } finally {
@@ -709,113 +769,168 @@ function ItemModal({
     }
   };
 
+  const save = async () => {
+    if (saving) return;
+    const nameJa = extractBaseTitle(name).trim() || name.trim();
+    const descJa = extractBaseBody(desc).trim() || desc.trim();
+    if (!nameJa) return alert("名前は必須です");
+
+    const priceNum =
+      price.trim() === ""
+        ? null
+        : Number.isNaN(Number(price))
+        ? null
+        : Number(price);
+
+    setSaving(true); // ★ 表示切替・操作ロック開始
+    try {
+      // 保存前に全言語翻訳を生成（失敗しても top-level/base は保存継続）
+      let t: TrItem[] = [];
+      try {
+        t = await translateAllItem(nameJa, descJa);
+      } catch {
+        /* noop */
+      }
+
+      const base = { name: nameJa, ...(descJa && { description: descJa }) };
+
+      if (mode === "create") {
+        const refDoc = await addDoc(
+          collection(db, `menuSections/${sectionId}/items`),
+          {
+            base,
+            t,
+            // 互換: top-level も保存
+            name: base.name,
+            ...(base.description && { description: base.description }),
+            price: priceNum,
+            isTaxIncluded,
+            order: initial.order,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
+        );
+
+        onSaved({
+          id: refDoc.id,
+          name: base.name,
+          description: base.description,
+          price: priceNum,
+          isTaxIncluded,
+          order: initial.order,
+          base,
+          t,
+        });
+      } else {
+        if (!initial.id) return;
+        await updateDoc(
+          doc(db, `menuSections/${sectionId}/items`, initial.id),
+          {
+            base,
+            t,
+            name: base.name,
+            ...(base.description && { description: base.description }),
+            price: priceNum,
+            isTaxIncluded,
+            updatedAt: serverTimestamp(),
+          }
+        );
+        onSaved({
+          id: initial.id,
+          name: base.name,
+          description: base.description,
+          price: priceNum,
+          isTaxIncluded,
+          order: initial.order,
+          base,
+          t,
+        });
+      }
+    } catch {
+      alert("保存に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSaving(false); // ★ 解除。親側で onSaved → モーダルが閉じます
+    }
+  };
+
   if (!open) return null;
+
   return (
     <div
       className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      // ★ 保存中は誤タッチで閉じない
+      onClick={() => (!saving ? onClose() : undefined)}
     >
       <div
-        className="w-full max-w-sm bg-white rounded-lg shadow-xl p-5"
+        className="w-full max-w-sm bg-white rounded-lg shadow-xl p-5 relative"
         onClick={(e) => e.stopPropagation()}
+        aria-busy={saving}
       >
+        {/* ★ 上部インジケーター（保存中） */}
+        {saving && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+            <div className="flex items-center gap-2 text-gray-800">
+              <svg
+                className="animate-spin h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              <span>保存中…</span>
+            </div>
+          </div>
+        )}
+
         <h3 className="text-lg font-bold mb-4">
           {mode === "create" ? "メニューを追加" : "メニューを編集"}
         </h3>
 
         <Input
-          placeholder="名前"
+          placeholder="名前（原文は日本語。翻訳は保存時に自動生成）"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="mb-2"
+          disabled={saving}
         />
         <textarea
-          placeholder="説明（任意）"
+          placeholder="説明（原文は日本語。翻訳は保存時に自動生成）"
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
           className="w-full border px-3 py-2 rounded mb-3"
+          disabled={saving}
         />
 
-        {/* AIアクション（同一モーダル内で開閉） */}
-        <div className="flex gap-2 mb-2">
+        {/* AI説明のみ（翻訳UIはなし） */}
+        <div className="flex flex-col gap-2 mb-3">
           <button
             type="button"
-            disabled={!canTranslate}
-            onClick={startTranslatePanel}
-            className={clsx(
-              "flex-1 rounded px-4 py-2 text-white",
-              canTranslate
-                ? "bg-indigo-600 hover:bg-indigo-700"
-                : "bg-indigo-400 cursor-not-allowed"
-            )}
-          >
-            AIで多言語対応
-          </button>
-
-          <button
-            type="button"
-            disabled={!canOpenGen}
+            disabled={!canOpenGen || saving}
             onClick={() => setGenOpen((v) => !v)}
             className={clsx(
-              "flex-1 rounded px-4 py-2 text-white",
-              canOpenGen
+              "w-full rounded px-4 py-2 text-white",
+              canOpenGen && !saving
                 ? "bg-purple-600 hover:bg-purple-700"
                 : "bg-purple-400 cursor-not-allowed"
             )}
           >
-            AIで紹介文を作成
+            AIで説明を作成
           </button>
         </div>
 
-        {/* 成功後の自動クローズ */}
-        <label className="flex items-center gap-2 text-xs text-gray-600 mb-3">
-          <input
-            type="checkbox"
-            checked={autoCollapse}
-            onChange={(e) => setAutoCollapse(e.target.checked)}
-          />
-          生成/翻訳が完了したらパネルを自動で閉じる
-        </label>
-
-        {/* ▼ 多言語パネル */}
-        {trOpen && (
-          <div className="rounded-lg border p-3 mb-3">
-            <input
-              type="text"
-              value={trLangQuery}
-              onChange={(e) => setTrLangQuery(e.target.value)}
-              placeholder="言語名やコード（例: フランス語 / fr）"
-              className="w-full border rounded px-3 py-2 text-sm mb-2"
-            />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {filteredLangs.map((lng) => (
-                <button
-                  key={lng.key}
-                  type="button"
-                  disabled={trLoading}
-                  onClick={() => doTranslate(lng.key)}
-                  className="rounded border p-3 text-left bg-white hover:shadow"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{lng.emoji}</span>
-                    <div className="text-sm">
-                      <div className="font-semibold">{lng.label}</div>
-                      <div className="text-gray-500 text-xs">/{lng.key}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            {trLoading && (
-              <div className="mt-2 h-1 w-full overflow-hidden rounded bg-gray-200">
-                <div className="h-full w-1/2 animate-[progress_1.2s_ease-in-out_infinite] bg-indigo-500" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ▼ 紹介文生成パネル */}
         {genOpen && (
           <div className="rounded-lg border p-3 mb-3">
             <p className="text-sm text-gray-600 mb-2">
@@ -837,16 +952,16 @@ function ItemModal({
                   setGenKeywords(next);
                 }}
                 className="w-full border rounded px-3 py-2 text-sm mb-2"
-                disabled={genLoading}
+                disabled={genLoading || saving}
               />
             ))}
             <button
               type="button"
               onClick={doGenerate}
-              disabled={!canGenerate}
+              disabled={!canGenerate || saving}
               className={clsx(
                 "w-full rounded px-4 py-2 text-white flex items-center justify-center gap-2",
-                canGenerate
+                canGenerate && !saving
                   ? "bg-purple-600 hover:bg-purple-700"
                   : "bg-purple-400 cursor-not-allowed"
               )}
@@ -888,6 +1003,7 @@ function ItemModal({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           className="mb-2"
+          disabled={saving}
         />
         <div className="flex gap-4 mb-4 text-sm">
           <label className="flex items-center gap-1">
@@ -896,6 +1012,7 @@ function ItemModal({
               name="tax"
               checked={isTaxIncluded}
               onChange={() => setIsTaxIncluded(true)}
+              disabled={saving}
             />
             税込
           </label>
@@ -905,66 +1022,29 @@ function ItemModal({
               name="tax"
               checked={!isTaxIncluded}
               onChange={() => setIsTaxIncluded(false)}
+              disabled={saving}
             />
             税別
           </label>
         </div>
 
         <div className="flex justify-between">
-          <Button variant="outline" onClick={onClose}>
+          <Button
+            variant="outline"
+            onClick={() => !saving && onClose()}
+            disabled={saving}
+          >
             キャンセル
           </Button>
-          <Button onClick={save}>{mode === "create" ? "追加" : "保存"}</Button>
+          <Button onClick={save} disabled={saving || genLoading}>
+            {saving
+              ? "保存中..."
+              : mode === "create"
+              ? "追加（全言語へ保存）"
+              : "保存（全言語へ反映）"}
+          </Button>
         </div>
       </div>
     </div>
   );
-}
-
-/* ===== helpers ===== */
-function getExt(name: string) {
-  const m = name.match(/\.([a-zA-Z0-9]+)$/);
-  return m ? m[1].toLowerCase() : "";
-}
-export function getVideoMetaFromFile(
-  file: File
-): Promise<{ duration: number; width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.src = url;
-    v.onloadedmetadata = () => {
-      const meta = {
-        duration: v.duration,
-        width: v.videoWidth,
-        height: v.videoHeight,
-      };
-      URL.revokeObjectURL(url);
-      v.removeAttribute("src");
-      v.load();
-      resolve(meta);
-    };
-    v.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("動画メタデータの取得に失敗しました"));
-    };
-  });
-}
-function getImageSize(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = document.createElement("img");
-    img.onload = () => {
-      const width = img.naturalWidth;
-      const height = img.naturalHeight;
-      URL.revokeObjectURL(url);
-      resolve({ width, height });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Failed to load image"));
-    };
-    img.src = url;
-  });
 }

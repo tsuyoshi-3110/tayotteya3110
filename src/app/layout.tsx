@@ -18,6 +18,7 @@ import {
 } from "@/lib/font";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
 
+
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({
   subsets: ["latin"],

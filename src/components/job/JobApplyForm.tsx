@@ -1,7 +1,7 @@
 // components/job/JobApplyForm.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
 import { z } from "zod";
@@ -13,29 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 
 /* ===============================
-   言語リスト＋日本語（既定）
+   言語キー
 ================================ */
-const BASE_LANG = { key: "ja", label: "日本語", emoji: "🇯🇵" } as const;
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
-type LangKey = typeof BASE_LANG.key | (typeof LANGS)[number]["key"];
+type LangKey =
+  | "ja" | "en" | "zh" | "zh-TW" | "ko" | "fr" | "es" | "de"
+  | "pt" | "it" | "ru" | "th" | "vi" | "id" | "hi" | "ar";
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
 
@@ -57,16 +42,29 @@ const genTimes = (start = "09:00", end = "18:00") => {
 const TIME_SLOTS = genTimes("09:00", "18:00");
 
 /* ===============================
-   連絡方法（内部既定で "phone"）
+   連絡方法（UIは多言語、送信メッセージは既定の日本語のまま）
 ================================ */
-const CONTACT_METHODS = [
-  { key: "phone", label: "電話" },
-  { key: "email", label: "メール" },
-  { key: "line", label: "LINE" },
-] as const;
+const CONTACT_LABELS: Record<LangKey, Record<"phone"|"email"|"line", string>> = {
+  ja: { phone: "電話", email: "メール", line: "LINE" },
+  en: { phone: "Phone", email: "Email", line: "LINE" },
+  zh: { phone: "电话", email: "邮箱", line: "LINE" },
+  "zh-TW": { phone: "電話", email: "電子郵件", line: "LINE" },
+  ko: { phone: "전화", email: "이메일", line: "LINE" },
+  fr: { phone: "Téléphone", email: "E-mail", line: "LINE" },
+  es: { phone: "Teléfono", email: "Correo", line: "LINE" },
+  de: { phone: "Telefon", email: "E-Mail", line: "LINE" },
+  pt: { phone: "Telefone", email: "E-mail", line: "LINE" },
+  it: { phone: "Telefono", email: "Email", line: "LINE" },
+  ru: { phone: "Телефон", email: "Email", line: "LINE" },
+  th: { phone: "โทรศัพท์", email: "อีเมล", line: "LINE" },
+  vi: { phone: "Điện thoại", email: "Email", line: "LINE" },
+  id: { phone: "Telepon", email: "Email", line: "LINE" },
+  hi: { phone: "फ़ोन", email: "ईमेल", line: "LINE" },
+  ar: { phone: "هاتف", email: "بريد", line: "LINE" },
+};
 
 /* ===============================
-   フォーム型（手書き：ESLint対策）
+   フォーム型
 ================================ */
 type FormValues = {
   name: string;
@@ -80,7 +78,8 @@ type FormValues = {
 };
 
 /* ===============================
-   多言語テキスト定義
+   多言語テキスト
+   （必要に応じて文言を調整してください）
 ================================ */
 type Strings = {
   ui: {
@@ -101,7 +100,6 @@ type Strings = {
     emailPh: string;
     addressPh: string;
     notesPh: string;
-    langPickerLabel: string;
   };
   modal: {
     doneTitle: string;
@@ -124,7 +122,7 @@ type Strings = {
   };
 };
 
-const JP: Strings = {
+const JA: Strings = {
   ui: {
     sectionTitle: "ご依頼内容",
     sectionHelp: "全ての項目をご入力ください。担当者より折り返しご連絡いたします。",
@@ -143,7 +141,6 @@ const JP: Strings = {
     emailPh: "example@example.com",
     addressPh: "例）大阪府豊中市小曽根3-6-13",
     notesPh: "サービス内容をご記入ください",
-    langPickerLabel: "表示言語",
   },
   modal: {
     doneTitle: "送信が完了しました",
@@ -158,7 +155,7 @@ const JP: Strings = {
     email: "メールアドレスを入力してください",
     emailFormat: "メールアドレスの形式が不正です",
     date: "ご希望日を選択してください",
-    dateFormat: "日付形式が不正です",
+    dateFormat: "日付形式が不正です（YYYY-MM-DD）",
     time: "ご希望時間を選択してください",
     address: "ご住所を入力してください",
     notes: "ご要望・相談内容を入力してください",
@@ -166,8 +163,643 @@ const JP: Strings = {
   },
 };
 
+const EN: Strings = {
+  ui: {
+    sectionTitle: "Request Details",
+    sectionHelp: "Please fill out all fields. We will contact you shortly.",
+    name: "Name",
+    phone: "Phone",
+    email: "Email",
+    date: "Preferred Date",
+    time: "Preferred Time",
+    timeSelectPlaceholder: "Select",
+    address: "Address",
+    notes: "Notes / Request",
+    submit: "Submit Request",
+    sending: "Sending…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "e.g. 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Describe the service you need",
+  },
+  modal: {
+    doneTitle: "Your request has been sent",
+    doneLine1: (name) => `Thank you, ${name}.`,
+    doneLine2: "We will get back to you shortly.",
+    close: "Close",
+  },
+  errors: {
+    name: "Please enter your name",
+    phone: "Please enter your phone number",
+    phoneFormat: "Use numbers and symbols only",
+    email: "Please enter your email address",
+    emailFormat: "Invalid email format",
+    date: "Please select a date",
+    dateFormat: "Invalid date format (YYYY-MM-DD)",
+    time: "Please select a time",
+    address: "Please enter your address",
+    notes: "Please enter your request",
+    notesMax: "Your request is too long",
+  },
+};
+
+/* --- 以下は簡易訳（必要なら精緻化してください） --- */
+const ZH: Strings = {
+  ui: {
+    sectionTitle: "请求详情",
+    sectionHelp: "请填写所有项目，我们会尽快与您联系。",
+    name: "姓名",
+    phone: "电话",
+    email: "邮箱",
+    date: "期望日期",
+    time: "期望时间",
+    timeSelectPlaceholder: "请选择",
+    address: "地址",
+    notes: "需求 / 备注",
+    submit: "提交请求",
+    sending: "发送中…",
+    namePh: "山田 太郎",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "例如：大阪府丰中市小曽根3-6-13",
+    notesPh: "请描述所需服务",
+  },
+  modal: {
+    doneTitle: "已提交",
+    doneLine1: (name) => `感谢您，${name}。`,
+    doneLine2: "我们将尽快与您联系。",
+    close: "关闭",
+  },
+  errors: {
+    name: "请输入姓名",
+    phone: "请输入电话号码",
+    phoneFormat: "仅使用数字和符号",
+    email: "请输入邮箱地址",
+    emailFormat: "邮箱格式无效",
+    date: "请选择日期",
+    dateFormat: "日期格式无效（YYYY-MM-DD）",
+    time: "请选择时间",
+    address: "请输入地址",
+    notes: "请输入需求内容",
+    notesMax: "内容过长",
+  },
+};
+
+const ZH_TW: Strings = {
+  ui: {
+    sectionTitle: "請求內容",
+    sectionHelp: "請填寫所有欄位，我們將盡快與您聯繫。",
+    name: "姓名",
+    phone: "電話",
+    email: "電子郵件",
+    date: "期望日期",
+    time: "期望時間",
+    timeSelectPlaceholder: "請選擇",
+    address: "地址",
+    notes: "需求 / 備註",
+    submit: "送出請求",
+    sending: "傳送中…",
+    namePh: "山田 太郎",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "例如：大阪府豐中市小曽根3-6-13",
+    notesPh: "請描述所需服務",
+  },
+  modal: {
+    doneTitle: "已送出",
+    doneLine1: (name) => `感謝您，${name}。`,
+    doneLine2: "我們將盡快與您聯繫。",
+    close: "關閉",
+  },
+  errors: {
+    name: "請輸入姓名",
+    phone: "請輸入電話號碼",
+    phoneFormat: "僅使用數字與符號",
+    email: "請輸入電子郵件",
+    emailFormat: "電子郵件格式不正確",
+    date: "請選擇日期",
+    dateFormat: "日期格式不正確（YYYY-MM-DD）",
+    time: "請選擇時間",
+    address: "請輸入地址",
+    notes: "請輸入需求內容",
+    notesMax: "內容過長",
+  },
+};
+
+const KO: Strings = {
+  ui: {
+    sectionTitle: "요청 내용",
+    sectionHelp: "모든 항목을 입력해 주세요. 곧 연락드리겠습니다.",
+    name: "이름",
+    phone: "전화번호",
+    email: "이메일",
+    date: "희망 날짜",
+    time: "희망 시간",
+    timeSelectPlaceholder: "선택",
+    address: "주소",
+    notes: "요청 / 상담 내용",
+    submit: "요청 보내기",
+    sending: "전송 중…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "예: Osaka...",
+    notesPh: "필요한 서비스를 입력하세요",
+  },
+  modal: {
+    doneTitle: "요청이 전송되었습니다",
+    doneLine1: (name) => `${name} 님, 감사합니다.`,
+    doneLine2: "곧 연락드리겠습니다.",
+    close: "닫기",
+  },
+  errors: {
+    name: "이름을 입력하세요",
+    phone: "전화번호를 입력하세요",
+    phoneFormat: "숫자와 기호만 사용하세요",
+    email: "이메일을 입력하세요",
+    emailFormat: "이메일 형식이 올바르지 않습니다",
+    date: "날짜를 선택하세요",
+    dateFormat: "날짜 형식이 올바르지 않습니다 (YYYY-MM-DD)",
+    time: "시간을 선택하세요",
+    address: "주소를 입력하세요",
+    notes: "요청 내용을 입력하세요",
+    notesMax: "요청 내용이 너무 깁니다",
+  },
+};
+
+const FR: Strings = {
+  ui: {
+    sectionTitle: "Détails de la demande",
+    sectionHelp: "Veuillez remplir tous les champs. Nous vous contacterons rapidement.",
+    name: "Nom",
+    phone: "Téléphone",
+    email: "E-mail",
+    date: "Date souhaitée",
+    time: "Heure souhaitée",
+    timeSelectPlaceholder: "Sélectionner",
+    address: "Adresse",
+    notes: "Remarques / Demande",
+    submit: "Envoyer la demande",
+    sending: "Envoi…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "ex. 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Décrivez le service souhaité",
+  },
+  modal: {
+    doneTitle: "Votre demande a été envoyée",
+    doneLine1: (name) => `Merci, ${name}.`,
+    doneLine2: "Nous vous répondrons sous peu.",
+    close: "Fermer",
+  },
+  errors: {
+    name: "Veuillez saisir votre nom",
+    phone: "Veuillez saisir votre numéro de téléphone",
+    phoneFormat: "Utilisez uniquement des chiffres et symboles",
+    email: "Veuillez saisir votre e-mail",
+    emailFormat: "Format d’e-mail invalide",
+    date: "Veuillez sélectionner une date",
+    dateFormat: "Format de date invalide (YYYY-MM-DD)",
+    time: "Veuillez sélectionner une heure",
+    address: "Veuillez saisir votre adresse",
+    notes: "Veuillez saisir votre demande",
+    notesMax: "Votre demande est trop longue",
+  },
+};
+
+const ES: Strings = {
+  ui: {
+    sectionTitle: "Detalles de la solicitud",
+    sectionHelp: "Complete todos los campos. Nos pondremos en contacto pronto.",
+    name: "Nombre",
+    phone: "Teléfono",
+    email: "Correo electrónico",
+    date: "Fecha preferida",
+    time: "Hora preferida",
+    timeSelectPlaceholder: "Seleccionar",
+    address: "Dirección",
+    notes: "Notas / Solicitud",
+    submit: "Enviar solicitud",
+    sending: "Enviando…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "ej. 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Describa el servicio que necesita",
+  },
+  modal: {
+    doneTitle: "Tu solicitud ha sido enviada",
+    doneLine1: (name) => `Gracias, ${name}.`,
+    doneLine2: "Nos pondremos en contacto en breve.",
+    close: "Cerrar",
+  },
+  errors: {
+    name: "Ingrese su nombre",
+    phone: "Ingrese su teléfono",
+    phoneFormat: "Use solo números y símbolos",
+    email: "Ingrese su correo",
+    emailFormat: "Formato de correo inválido",
+    date: "Seleccione una fecha",
+    dateFormat: "Formato de fecha inválido (YYYY-MM-DD)",
+    time: "Seleccione una hora",
+    address: "Ingrese su dirección",
+    notes: "Ingrese su solicitud",
+    notesMax: "Su solicitud es demasiado larga",
+  },
+};
+
+const DE: Strings = {
+  ui: {
+    sectionTitle: "Anfragedetails",
+    sectionHelp: "Bitte alle Felder ausfüllen. Wir melden uns zeitnah.",
+    name: "Name",
+    phone: "Telefon",
+    email: "E-Mail",
+    date: "Bevorzugtes Datum",
+    time: "Bevorzugte Uhrzeit",
+    timeSelectPlaceholder: "Auswählen",
+    address: "Adresse",
+    notes: "Anmerkungen / Anfrage",
+    submit: "Anfrage senden",
+    sending: "Senden…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "z. B. 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Beschreiben Sie den gewünschten Service",
+  },
+  modal: {
+    doneTitle: "Ihre Anfrage wurde gesendet",
+    doneLine1: (name) => `Vielen Dank, ${name}.`,
+    doneLine2: "Wir melden uns in Kürze.",
+    close: "Schließen",
+  },
+  errors: {
+    name: "Bitte geben Sie Ihren Namen ein",
+    phone: "Bitte geben Sie Ihre Telefonnummer ein",
+    phoneFormat: "Nur Zahlen und Symbole verwenden",
+    email: "Bitte geben Sie Ihre E-Mail ein",
+    emailFormat: "Ungültiges E-Mail-Format",
+    date: "Bitte wählen Sie ein Datum",
+    dateFormat: "Ungültiges Datumsformat (YYYY-MM-DD)",
+    time: "Bitte wählen Sie eine Uhrzeit",
+    address: "Bitte geben Sie Ihre Adresse ein",
+    notes: "Bitte geben Sie Ihre Anfrage ein",
+    notesMax: "Ihre Anfrage ist zu lang",
+  },
+};
+
+const PT: Strings = {
+  ui: {
+    sectionTitle: "Detalhes do pedido",
+    sectionHelp: "Preencha todos os campos. Entraremos em contato em breve.",
+    name: "Nome",
+    phone: "Telefone",
+    email: "E-mail",
+    date: "Data preferida",
+    time: "Hora preferida",
+    timeSelectPlaceholder: "Selecionar",
+    address: "Endereço",
+    notes: "Observações / Solicitação",
+    submit: "Enviar pedido",
+    sending: "Enviando…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "ex.: 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Descreva o serviço necessário",
+  },
+  modal: {
+    doneTitle: "Seu pedido foi enviado",
+    doneLine1: (name) => `Obrigado, ${name}.`,
+    doneLine2: "Entraremos em contato em breve.",
+    close: "Fechar",
+  },
+  errors: {
+    name: "Informe seu nome",
+    phone: "Informe seu telefone",
+    phoneFormat: "Use apenas números e símbolos",
+    email: "Informe seu e-mail",
+    emailFormat: "Formato de e-mail inválido",
+    date: "Selecione uma data",
+    dateFormat: "Formato de data inválido (YYYY-MM-DD)",
+    time: "Selecione um horário",
+    address: "Informe seu endereço",
+    notes: "Descreva sua solicitação",
+    notesMax: "Sua solicitação é muito longa",
+  },
+};
+
+const IT: Strings = {
+  ui: {
+    sectionTitle: "Dettagli della richiesta",
+    sectionHelp: "Compila tutti i campi. Ti contatteremo a breve.",
+    name: "Nome",
+    phone: "Telefono",
+    email: "Email",
+    date: "Data preferita",
+    time: "Ora preferita",
+    timeSelectPlaceholder: "Seleziona",
+    address: "Indirizzo",
+    notes: "Note / Richiesta",
+    submit: "Invia richiesta",
+    sending: "Invio…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "es. 3-6-13 Ozone, Toyonaka, Osaka",
+    notesPh: "Descrivi il servizio richiesto",
+  },
+  modal: {
+    doneTitle: "La tua richiesta è stata inviata",
+    doneLine1: (name) => `Grazie, ${name}.`,
+    doneLine2: "Ti contatteremo al più presto.",
+    close: "Chiudi",
+  },
+  errors: {
+    name: "Inserisci il nome",
+    phone: "Inserisci il telefono",
+    phoneFormat: "Usa solo numeri e simboli",
+    email: "Inserisci l’email",
+    emailFormat: "Formato email non valido",
+    date: "Seleziona una data",
+    dateFormat: "Formato data non valido (YYYY-MM-DD)",
+    time: "Seleziona un orario",
+    address: "Inserisci l’indirizzo",
+    notes: "Inserisci la richiesta",
+    notesMax: "La richiesta è troppo lunga",
+  },
+};
+
+const RU: Strings = {
+  ui: {
+    sectionTitle: "Детали запроса",
+    sectionHelp: "Заполните все поля. Мы свяжемся с вами в ближайшее время.",
+    name: "Имя",
+    phone: "Телефон",
+    email: "Email",
+    date: "Предпочтительная дата",
+    time: "Предпочтительное время",
+    timeSelectPlaceholder: "Выбрать",
+    address: "Адрес",
+    notes: "Примечания / Запрос",
+    submit: "Отправить запрос",
+    sending: "Отправка…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "например, Osaka…",
+    notesPh: "Опишите необходимую услугу",
+  },
+  modal: {
+    doneTitle: "Ваш запрос отправлен",
+    doneLine1: (name) => `Спасибо, ${name}.`,
+    doneLine2: "Мы скоро свяжемся с вами.",
+    close: "Закрыть",
+  },
+  errors: {
+    name: "Введите имя",
+    phone: "Введите номер телефона",
+    phoneFormat: "Используйте только цифры и символы",
+    email: "Введите email",
+    emailFormat: "Неверный формат email",
+    date: "Выберите дату",
+    dateFormat: "Неверный формат даты (YYYY-MM-DD)",
+    time: "Выберите время",
+    address: "Введите адрес",
+    notes: "Введите запрос",
+    notesMax: "Слишком длинный запрос",
+  },
+};
+
+const TH: Strings = {
+  ui: {
+    sectionTitle: "รายละเอียดคำขอ",
+    sectionHelp: "กรอกข้อมูลให้ครบถ้วน เราจะติดต่อกลับโดยเร็ว",
+    name: "ชื่อ",
+    phone: "โทรศัพท์",
+    email: "อีเมล",
+    date: "วันที่ต้องการ",
+    time: "เวลาที่ต้องการ",
+    timeSelectPlaceholder: "เลือก",
+    address: "ที่อยู่",
+    notes: "รายละเอียด / คำขอ",
+    submit: "ส่งคำขอ",
+    sending: "กำลังส่ง…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "เช่น Osaka…",
+    notesPh: "อธิบายบริการที่ต้องการ",
+  },
+  modal: {
+    doneTitle: "ส่งคำขอแล้ว",
+    doneLine1: (name) => `ขอบคุณคุณ ${name}`,
+    doneLine2: "เราจะติดต่อกลับโดยเร็ว",
+    close: "ปิด",
+  },
+  errors: {
+    name: "กรุณากรอกชื่อ",
+    phone: "กรุณากรอกโทรศัพท์",
+    phoneFormat: "ใช้ตัวเลขและสัญลักษณ์เท่านั้น",
+    email: "กรุณากรอกอีเมล",
+    emailFormat: "รูปแบบอีเมลไม่ถูกต้อง",
+    date: "กรุณาเลือกวันที่",
+    dateFormat: "รูปแบบวันที่ไม่ถูกต้อง (YYYY-MM-DD)",
+    time: "กรุณาเลือกเวลา",
+    address: "กรุณากรอกที่อยู่",
+    notes: "กรุณากรอกรายละเอียด",
+    notesMax: "รายละเอียดยาวเกินไป",
+  },
+};
+
+const VI: Strings = {
+  ui: {
+    sectionTitle: "Chi tiết yêu cầu",
+    sectionHelp: "Vui lòng điền đầy đủ. Chúng tôi sẽ liên hệ sớm.",
+    name: "Họ tên",
+    phone: "Điện thoại",
+    email: "Email",
+    date: "Ngày mong muốn",
+    time: "Giờ mong muốn",
+    timeSelectPlaceholder: "Chọn",
+    address: "Địa chỉ",
+    notes: "Ghi chú / Yêu cầu",
+    submit: "Gửi yêu cầu",
+    sending: "Đang gửi…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "vd: Osaka…",
+    notesPh: "Mô tả dịch vụ bạn cần",
+  },
+  modal: {
+    doneTitle: "Đã gửi yêu cầu",
+    doneLine1: (name) => `Cảm ơn ${name}.`,
+    doneLine2: "Chúng tôi sẽ sớm liên hệ lại.",
+    close: "Đóng",
+  },
+  errors: {
+    name: "Vui lòng nhập họ tên",
+    phone: "Vui lòng nhập điện thoại",
+    phoneFormat: "Chỉ dùng số và ký hiệu",
+    email: "Vui lòng nhập email",
+    emailFormat: "Email không hợp lệ",
+    date: "Vui lòng chọn ngày",
+    dateFormat: "Sai định dạng ngày (YYYY-MM-DD)",
+    time: "Vui lòng chọn giờ",
+    address: "Vui lòng nhập địa chỉ",
+    notes: "Vui lòng nhập yêu cầu",
+    notesMax: "Yêu cầu quá dài",
+  },
+};
+
+const IDN: Strings = {
+  ui: {
+    sectionTitle: "Detail Permintaan",
+    sectionHelp: "Isi semua bidang. Kami akan segera menghubungi Anda.",
+    name: "Nama",
+    phone: "Telepon",
+    email: "Email",
+    date: "Tanggal pilihan",
+    time: "Waktu pilihan",
+    timeSelectPlaceholder: "Pilih",
+    address: "Alamat",
+    notes: "Catatan / Permintaan",
+    submit: "Kirim Permintaan",
+    sending: "Mengirim…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "cth: Osaka…",
+    notesPh: "Jelaskan layanan yang dibutuhkan",
+  },
+  modal: {
+    doneTitle: "Permintaan Anda telah dikirim",
+    doneLine1: (name) => `Terima kasih, ${name}.`,
+    doneLine2: "Kami akan segera menghubungi Anda.",
+    close: "Tutup",
+  },
+  errors: {
+    name: "Masukkan nama",
+    phone: "Masukkan nomor telepon",
+    phoneFormat: "Gunakan angka & simbol saja",
+    email: "Masukkan email",
+    emailFormat: "Format email tidak valid",
+    date: "Pilih tanggal",
+    dateFormat: "Format tanggal tidak valid (YYYY-MM-DD)",
+    time: "Pilih waktu",
+    address: "Masukkan alamat",
+    notes: "Masukkan permintaan",
+    notesMax: "Permintaan terlalu panjang",
+  },
+};
+
+const HI: Strings = {
+  ui: {
+    sectionTitle: "अनुरोध विवरण",
+    sectionHelp: "कृपया सभी फ़ील्ड भरें। हम शीघ्र संपर्क करेंगे।",
+    name: "नाम",
+    phone: "फ़ोन",
+    email: "ईमेल",
+    date: "वांछित तिथि",
+    time: "वांछित समय",
+    timeSelectPlaceholder: "चुनें",
+    address: "पता",
+    notes: "टिप्पणी / अनुरोध",
+    submit: "अनुरोध भेजें",
+    sending: "भेजा जा रहा है…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "उदा. ओसाका…",
+    notesPh: "आवश्यक सेवा का वर्णन करें",
+  },
+  modal: {
+    doneTitle: "आपका अनुरोध भेज दिया गया है",
+    doneLine1: (name) => `धन्यवाद, ${name}।`,
+    doneLine2: "हम शीघ्र ही संपर्क करेंगे।",
+    close: "बंद करें",
+  },
+  errors: {
+    name: "कृपया नाम दर्ज करें",
+    phone: "कृपया फ़ोन नंबर दर्ज करें",
+    phoneFormat: "केवल अंक और चिन्ह का उपयोग करें",
+    email: "कृपया ईमेल दर्ज करें",
+    emailFormat: "ईमेल प्रारूप अमान्य है",
+    date: "कृपया तिथि चुनें",
+    dateFormat: "तिथि प्रारूप अमान्य (YYYY-MM-DD)",
+    time: "कृपया समय चुनें",
+    address: "कृपया पता दर्ज करें",
+    notes: "कृपया अनुरोध दर्ज करें",
+    notesMax: "अनुरोध बहुत लंबा है",
+  },
+};
+
+const AR: Strings = {
+  ui: {
+    sectionTitle: "تفاصيل الطلب",
+    sectionHelp: "يرجى تعبئة جميع الحقول. سنتواصل معك قريبًا.",
+    name: "الاسم",
+    phone: "الهاتف",
+    email: "البريد الإلكتروني",
+    date: "التاريخ المفضل",
+    time: "الوقت المفضل",
+    timeSelectPlaceholder: "اختر",
+    address: "العنوان",
+    notes: "ملاحظات / طلب",
+    submit: "إرسال الطلب",
+    sending: "جاري الإرسال…",
+    namePh: "Taro Yamada",
+    phonePh: "09012345678",
+    emailPh: "example@example.com",
+    addressPh: "مثال: أوساكا…",
+    notesPh: "صف الخدمة المطلوبة",
+  },
+  modal: {
+    doneTitle: "تم إرسال طلبك",
+    doneLine1: (name) => `شكرًا لك، ${name}.`,
+    doneLine2: "سنتواصل معك قريبًا.",
+    close: "إغلاق",
+  },
+  errors: {
+    name: "يرجى إدخال الاسم",
+    phone: "يرجى إدخال رقم الهاتف",
+    phoneFormat: "استخدم الأرقام والرموز فقط",
+    email: "يرجى إدخال البريد الإلكتروني",
+    emailFormat: "صيغة بريد غير صالحة",
+    date: "يرجى اختيار التاريخ",
+    dateFormat: "صيغة تاريخ غير صالحة (YYYY-MM-DD)",
+    time: "يرجى اختيار الوقت",
+    address: "يرجى إدخال العنوان",
+    notes: "يرجى إدخال الطلب",
+    notesMax: "الطلب طويل جدًا",
+  },
+};
+
+const STRINGS: Record<LangKey, Strings> = {
+  ja: JA,
+  en: EN,
+  zh: ZH,
+  "zh-TW": ZH_TW,
+  ko: KO,
+  fr: FR,
+  es: ES,
+  de: DE,
+  pt: PT,
+  it: IT,
+  ru: RU,
+  th: TH,
+  vi: VI,
+  id: IDN,
+  hi: HI,
+  ar: AR,
+};
+
 /* ===============================
-   日付ユーティリティ
+   日付ユーティリティ（JST）
 ================================ */
 function todayISO(): string {
   const tz = "Asia/Tokyo";
@@ -189,118 +821,17 @@ export default function JobApplyForm() {
       (Object.keys(THEMES).find((k) => THEMES[k as ThemeKey] === gradient) as ThemeKey) ?? "brandA"
     );
 
-  // 言語状態
-  const [lang, setLang] = useState<LangKey>("ja");
-  const [strings, setStrings] = useState<Strings>(JP);
-  const [loadingLang, setLoadingLang] = useState(false);
-  const cacheRef = useRef<Map<LangKey, Strings>>(new Map([["ja", JP]]));
+  // ★ Jotai の UI 言語で文言を切替（未知キーは ja にフォールバック）
+  const { uiLang } = useUILang();
+  const lang = useMemo<LangKey>(() => {
+    const k = (uiLang || "ja") as LangKey;
+    return (STRINGS as any)[k] ? k : "ja";
+  }, [uiLang]);
 
-  // 翻訳（キャッシュ＋1回のAPIでまとめて取得）
-  const ensureStrings = async (target: LangKey) => {
-    if (target === "ja") {
-      setStrings(JP);
-      return;
-    }
-    if (cacheRef.current.has(target)) {
-      setStrings(cacheRef.current.get(target)!);
-      return;
-    }
-    setLoadingLang(true);
-    try {
-      const kv: Array<[keyof Strings["ui"], string]> = [
-        ["sectionTitle", JP.ui.sectionTitle],
-        ["sectionHelp", JP.ui.sectionHelp],
-        ["name", JP.ui.name],
-        ["phone", JP.ui.phone],
-        ["email", JP.ui.email],
-        ["date", JP.ui.date],
-        ["time", JP.ui.time],
-        ["timeSelectPlaceholder", JP.ui.timeSelectPlaceholder],
-        ["address", JP.ui.address],
-        ["notes", JP.ui.notes],
-        ["submit", JP.ui.submit],
-        ["sending", JP.ui.sending],
-        ["namePh", JP.ui.namePh],
-        ["phonePh", JP.ui.phonePh],
-        ["emailPh", JP.ui.emailPh],
-        ["addressPh", JP.ui.addressPh],
-        ["notesPh", JP.ui.notesPh],
-        ["langPickerLabel", JP.ui.langPickerLabel],
-      ];
+  const strings = useMemo(() => STRINGS[lang], [lang]);
+  const contactLabels = useMemo(() => CONTACT_LABELS[lang] ?? CONTACT_LABELS.ja, [lang]);
 
-      const ev: Array<[keyof Strings["errors"], string]> = [
-        ["name", JP.errors.name],
-        ["phone", JP.errors.phone],
-        ["phoneFormat", JP.errors.phoneFormat],
-        ["email", JP.errors.email],
-        ["emailFormat", JP.errors.emailFormat],
-        ["date", JP.errors.date],
-        ["dateFormat", JP.errors.dateFormat],
-        ["time", JP.errors.time],
-        ["address", JP.errors.address],
-        ["notes", JP.errors.notes],
-        ["notesMax", JP.errors.notesMax],
-      ];
-
-      const modalConst = ["送信が完了しました", "担当者より折り返しご連絡いたします。", "閉じる"].join("\n");
-      const bodyToTranslate = [
-        kv.map(([, v]) => v).join("\n"),
-        ev.map(([, v]) => v).join("\n"),
-        modalConst,
-        "{name} 様、ありがとうございます。",
-      ].join("\n---\n");
-
-      const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "", body: bodyToTranslate, target }),
-      });
-      if (!res.ok) throw new Error("translate API error");
-      const data = (await res.json()) as { body?: string };
-      const translated = (data.body ?? "").split("\n---\n");
-
-      const uiLines = (translated[0] ?? "").split("\n");
-      const errLines = (translated[1] ?? "").split("\n");
-      const modalLines = (translated[2] ?? "").split("\n");
-      const modalNameTpl = (translated[3] ?? "").trim() || "{name}";
-
-      const ui: Strings["ui"] = { ...JP.ui };
-      kv.forEach(([k], i) => {
-        if (uiLines[i]) (ui as any)[k] = uiLines[i];
-      });
-
-      const errors: Strings["errors"] = { ...JP.errors };
-      ev.forEach(([k], i) => {
-        if (errLines[i]) (errors as any)[k] = errLines[i];
-      });
-
-      const modal: Strings["modal"] = {
-        doneTitle: modalLines[0] || JP.modal.doneTitle,
-        doneLine1: (name: string) =>
-          (modalNameTpl || "{name}").replace("{name}", name),
-        doneLine2: modalLines[1] || JP.modal.doneLine2,
-        close: modalLines[2] || JP.modal.close,
-      };
-
-      const pack: Strings = { ui, modal, errors };
-      cacheRef.current.set(target, pack);
-      setStrings(pack);
-    } catch (e) {
-      console.error(e);
-      setStrings(JP);
-      setLang("ja");
-      alert("翻訳に失敗しました。日本語に戻します。");
-    } finally {
-      setLoadingLang(false);
-    }
-  };
-
-  useEffect(() => {
-    void ensureStrings(lang);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
-
-  // 言語ごとにバリデーションメッセージを再構築
+  // バリデーション（言語ごとに再構築）
   const schema = useMemo(
     () =>
       z.object({
@@ -332,7 +863,6 @@ export default function JobApplyForm() {
     reset,
     watch,
   } = useForm<FormValues>({
-    // 一部の環境での型ミスマッチ回避のため any キャスト
     resolver: zodResolver(schema) as unknown as Resolver<FormValues, any>,
     defaultValues: {
       name: "",
@@ -363,9 +893,7 @@ export default function JobApplyForm() {
           phone: v.phone,
           message: [
             "【ご依頼フォーム】",
-            `■ 連絡方法: ${
-              CONTACT_METHODS.find((c) => c.key === v.contactMethod)?.label ?? v.contactMethod
-            }`,
+            `■ 連絡方法: ${contactLabels[v.contactMethod] ?? v.contactMethod}`,
             `■ 希望日時: ${v.date} ${v.time}`,
             `■ ご住所: ${v.address}`,
             "",
@@ -377,7 +905,7 @@ export default function JobApplyForm() {
           time: v.time,
           address: v.address,
           notes: v.notes,
-          lang,
+          lang, // 送信先で利用したい場合に参照可能
         }),
       });
       const data = await res.json();
@@ -414,45 +942,18 @@ export default function JobApplyForm() {
   return (
     <div className={clsx("space-y-6", textClass)}>
       <div className={cardClass}>
-        {/* ヘッダー＋言語切替 */}
+        {/* ヘッダー（ピッカー無し） */}
         <div
           className={clsx(
             "px-5 pt-5 pb-3 border-b rounded-t-2xl",
             isDark ? "bg-black/20 border-white/10" : "bg-white/60 border-black/10"
           )}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <MessageSquareMore className={clsx("h-5 w-5", isDark ? "text-white" : "text-black")} />
-              <h2 className={clsx("text-base font-semibold", isDark ? "text-white" : "text-black")}>
-                {strings.ui.sectionTitle}
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className={clsx("text-xs", isDark ? "text-white/80" : "text-black/70")}>
-                {strings.ui.langPickerLabel}
-              </span>
-              <select
-                value={lang}
-                onChange={(e) => setLang(e.target.value as LangKey)}
-                className={clsx(
-                  "h-8 rounded-md border px-2 text-sm",
-                  isDark ? "bg-black/40 text-white border-white/20" : "bg-white text-black"
-                )}
-                disabled={loadingLang}
-                aria-label={strings.ui.langPickerLabel}
-              >
-                <option value={BASE_LANG.key}>
-                  {BASE_LANG.emoji} {BASE_LANG.label}
-                </option>
-                {LANGS.map((l) => (
-                  <option key={l.key} value={l.key}>
-                    {l.emoji} {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-2">
+            <MessageSquareMore className={clsx("h-5 w-5", isDark ? "text-white" : "text-black")} />
+            <h2 className={clsx("text-base font-semibold", isDark ? "text-white" : "text-black")}>
+              {strings.ui.sectionTitle}
+            </h2>
           </div>
           <p className={clsx("mt-1 text-xs", isDark ? "text-white/70" : "text-black/70")}>
             {strings.ui.sectionHelp}
@@ -585,7 +1086,7 @@ export default function JobApplyForm() {
 
           {/* 送信ボタン */}
           <div className="pt-2">
-            <Button type="submit" disabled={submitting || loadingLang}>
+            <Button type="submit" disabled={submitting}>
               {submitting ? strings.ui.sending : strings.ui.submit}
             </Button>
           </div>
@@ -605,15 +1106,6 @@ export default function JobApplyForm() {
             <div className="text-right">
               <Button onClick={() => setDoneModal(null)}>{strings.modal.close}</Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 言語ロード中オーバーレイ（操作はブロックしない） */}
-      {loadingLang && (
-        <div className="fixed inset-0 z-[999] pointer-events-none flex items-center justify-center">
-          <div className="rounded bg-black/70 text-white text-sm px-3 py-1.5">
-            Loading language…
           </div>
         </div>
       )}

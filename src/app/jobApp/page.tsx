@@ -1,53 +1,40 @@
+// components/job/JobPage.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import CardSpinner from "@/components/CardSpinner";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 
-/** ▼ 指定の対象言語リスト（そのまま使用） */
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
+/* ===============================
+   言語キー（日本語＋指定の15言語）
+================================ */
+type LangKey =
+  | "ja" | "en" | "zh" | "zh-TW" | "ko" | "fr" | "es" | "de"
+  | "pt" | "it" | "ru" | "th" | "vi" | "id" | "hi" | "ar";
 
-/** ▼ UI上の言語選択肢：日本語（基準）を先頭に足す */
-const UI_LANGS = [{ key: "ja", label: "日本語", emoji: "🇯🇵" }, ...LANGS];
-
-/** ▼ 'ja' を含む Union（型の安定用） */
-type LangKey = "ja" | (typeof LANGS)[number]["key"];
-
+/* ===============================
+   UI 文言型
+================================ */
 type UIStrings = {
   title: string;
   subtitle: string;
   namePH: string;
-  kanaPH: string;
+  kanaPH: string;      // 日本語のときだけ使用
   emailPH: string;
   messagePH: string;
   send: string;
   sending: string;
   sent: string;
   success: string;
-  langLabel: string;
 };
 
-/** ▼ 基準（日本語）の文言。これを元に /api/translate で各言語へ一括翻訳します。 */
-const BASE_JA: UIStrings = {
+/* ===============================
+   各言語の文言（必要に応じて調整可）
+================================ */
+const JA: UIStrings = {
   title: "求人応募フォーム",
   subtitle: "以下の内容をご入力のうえ、「送信」ボタンを押してください。",
   namePH: "お名前（例：大阪 太郎）",
@@ -58,132 +45,233 @@ const BASE_JA: UIStrings = {
   sending: "送信中...",
   sent: "送信完了 🎉",
   success: "応募が完了しました。ご応募ありがとうございます。",
-  langLabel: "言語",
 };
 
-const SEP = "\n---\n";
+const EN: UIStrings = {
+  title: "Job Application Form",
+  subtitle: "Please fill in the fields below and press “Send”.",
+  namePH: "Name (e.g., Taro Osaka)",
+  kanaPH: "Furigana (for Japanese only)",
+  emailPH: "Email address",
+  messagePH: "Motivation / Self-PR",
+  send: "Send",
+  sending: "Sending...",
+  sent: "Sent 🎉",
+  success: "Your application has been submitted. Thank you.",
+};
 
-/** ▼ navigator.language を UI_LANGS に寄せて初期判定 */
-function detectInitialLang(): LangKey {
-  if (typeof navigator === "undefined") return "ja";
-  const nav = navigator.language.toLowerCase();
+const ZH: UIStrings = {
+  title: "求职申请表",
+  subtitle: "请填写以下内容并点击“发送”。",
+  namePH: "姓名（例：大阪 太郎）",
+  kanaPH: "假名（仅日语）",
+  emailPH: "邮箱地址",
+  messagePH: "求职动机 / 自我介绍",
+  send: "发送",
+  sending: "发送中...",
+  sent: "已发送 🎉",
+  success: "您的申请已提交，感谢您的关注。",
+};
 
-  // 厳密マッチ優先
-  const exact = UI_LANGS.find((l) => l.key.toLowerCase() === nav);
-  if (exact) return exact.key as LangKey;
+const ZH_TW: UIStrings = {
+  title: "求職申請表",
+  subtitle: "請填寫以下內容並點選「送出」。",
+  namePH: "姓名（例：大阪 太郎）",
+  kanaPH: "假名（僅限日文）",
+  emailPH: "電子郵件",
+  messagePH: "求職動機 / 自我推薦",
+  send: "送出",
+  sending: "傳送中...",
+  sent: "已送出 🎉",
+  success: "您的申請已提交，感謝您的申請。",
+};
 
-  // 代表的なマップ
-  if (nav.startsWith("ja")) return "ja";
-  if (nav.startsWith("zh-tw") || nav.includes("hant")) return "zh-TW";
-  if (nav.startsWith("zh")) return "zh";
-  if (nav.startsWith("en")) return "en";
-  if (nav.startsWith("ko")) return "ko";
-  if (nav.startsWith("fr")) return "fr";
-  if (nav.startsWith("es")) return "es";
-  if (nav.startsWith("de")) return "de";
-  if (nav.startsWith("pt")) return "pt";
-  if (nav.startsWith("it")) return "it";
-  if (nav.startsWith("ru")) return "ru";
-  if (nav.startsWith("th")) return "th";
-  if (nav.startsWith("vi")) return "vi";
-  if (nav.startsWith("id")) return "id";
-  if (nav.startsWith("hi")) return "hi";
-  if (nav.startsWith("ar")) return "ar";
+const KO: UIStrings = {
+  title: "채용 지원 폼",
+  subtitle: "아래 내용을 입력한 후 ‘보내기’를 눌러 주세요.",
+  namePH: "이름 (예: Osaka Taro)",
+  kanaPH: "후리가나 (일본어 전용)",
+  emailPH: "이메일 주소",
+  messagePH: "지원 동기 / 자기 PR",
+  send: "보내기",
+  sending: "전송 중...",
+  sent: "전송 완료 🎉",
+  success: "지원이 완료되었습니다. 감사합니다.",
+};
 
-  return "ja";
-}
+const FR: UIStrings = {
+  title: "Formulaire de candidature",
+  subtitle: "Veuillez remplir les champs ci-dessous puis cliquer « Envoyer ».",
+  namePH: "Nom (ex. Taro Osaka)",
+  kanaPH: "Furigana (pour le japonais)",
+  emailPH: "Adresse e-mail",
+  messagePH: "Motivation / Auto-présentation",
+  send: "Envoyer",
+  sending: "Envoi...",
+  sent: "Envoyé 🎉",
+  success: "Votre candidature a été envoyée. Merci.",
+};
 
+const ES: UIStrings = {
+  title: "Formulario de solicitud",
+  subtitle: "Complete los campos y pulse “Enviar”.",
+  namePH: "Nombre (ej.: Taro Osaka)",
+  kanaPH: "Furigana (solo japonés)",
+  emailPH: "Correo electrónico",
+  messagePH: "Motivación / Autopresentación",
+  send: "Enviar",
+  sending: "Enviando...",
+  sent: "Enviado 🎉",
+  success: "Su solicitud ha sido enviada. Gracias.",
+};
+
+const DE: UIStrings = {
+  title: "Bewerbungsformular",
+  subtitle: "Bitte Felder ausfüllen und auf „Senden“ klicken.",
+  namePH: "Name (z. B. Taro Osaka)",
+  kanaPH: "Furigana (nur Japanisch)",
+  emailPH: "E-Mail-Adresse",
+  messagePH: "Motivation / Selbst-PR",
+  send: "Senden",
+  sending: "Senden...",
+  sent: "Gesendet 🎉",
+  success: "Ihre Bewerbung wurde übermittelt. Vielen Dank.",
+};
+
+const PT: UIStrings = {
+  title: "Formulário de candidatura",
+  subtitle: "Preencha os campos abaixo e clique em “Enviar”.",
+  namePH: "Nome (ex.: Taro Osaka)",
+  kanaPH: "Furigana (apenas japonês)",
+  emailPH: "E-mail",
+  messagePH: "Motivação / Apresentação",
+  send: "Enviar",
+  sending: "Enviando...",
+  sent: "Enviado 🎉",
+  success: "Sua candidatura foi enviada. Obrigado.",
+};
+
+const IT: UIStrings = {
+  title: "Modulo di candidatura",
+  subtitle: "Compila i campi e premi “Invia”.",
+  namePH: "Nome (es.: Taro Osaka)",
+  kanaPH: "Furigana (solo giapponese)",
+  emailPH: "Indirizzo e-mail",
+  messagePH: "Motivazione / Auto-presentazione",
+  send: "Invia",
+  sending: "Invio...",
+  sent: "Inviato 🎉",
+  success: "La tua candidatura è stata inviata. Grazie.",
+};
+
+const RU: UIStrings = {
+  title: "Форма заявки на работу",
+  subtitle: "Заполните поля ниже и нажмите «Отправить».",
+  namePH: "Имя (напр.: Taro Osaka)",
+  kanaPH: "Фуригана (только для японского)",
+  emailPH: "Эл. почта",
+  messagePH: "Мотивация / Самопрезентация",
+  send: "Отправить",
+  sending: "Отправка...",
+  sent: "Отправлено 🎉",
+  success: "Ваша заявка отправлена. Спасибо.",
+};
+
+const TH: UIStrings = {
+  title: "แบบฟอร์มสมัครงาน",
+  subtitle: "กรอกข้อมูลด้านล่างแล้วกด “ส่ง”.",
+  namePH: "ชื่อ (เช่น Taro Osaka)",
+  kanaPH: "ฟุริางานะ (ใช้กับภาษาญี่ปุ่น)",
+  emailPH: "อีเมล",
+  messagePH: "แรงจูงใจ / แนะนำตัว",
+  send: "ส่ง",
+  sending: "กำลังส่ง...",
+  sent: "ส่งแล้ว 🎉",
+  success: "ส่งใบสมัครเรียบร้อย ขอบคุณค่ะ/ครับ",
+};
+
+const VI: UIStrings = {
+  title: "Mẫu ứng tuyển",
+  subtitle: "Điền thông tin bên dưới và nhấn “Gửi”.",
+  namePH: "Họ tên (vd: Taro Osaka)",
+  kanaPH: "Furigana (chỉ tiếng Nhật)",
+  emailPH: "Email",
+  messagePH: "Động lực / Tự giới thiệu",
+  send: "Gửi",
+  sending: "Đang gửi...",
+  sent: "Đã gửi 🎉",
+  success: "Đơn của bạn đã được gửi. Cảm ơn.",
+};
+
+const IDN: UIStrings = {
+  title: "Formulir lamaran",
+  subtitle: "Isi bidang di bawah lalu klik “Kirim”.",
+  namePH: "Nama (cth: Taro Osaka)",
+  kanaPH: "Furigana (khusus Jepang)",
+  emailPH: "Alamat email",
+  messagePH: "Motivasi / Perkenalan diri",
+  send: "Kirim",
+  sending: "Mengirim...",
+  sent: "Terkirim 🎉",
+  success: "Lamaran Anda telah terkirim. Terima kasih.",
+};
+
+const HI: UIStrings = {
+  title: "नौकरी आवेदन फ़ॉर्म",
+  subtitle: "नीचे विवरण भरें और “भेजें” दबाएँ।",
+  namePH: "नाम (उदा.: टारो ओसाका)",
+  kanaPH: "फुरिगाना (केवल जापानी)",
+  emailPH: "ईमेल पता",
+  messagePH: "प्रेरणा / स्वयं-परिचय",
+  send: "भेजें",
+  sending: "भेजा जा रहा है...",
+  sent: "भेज दिया गया 🎉",
+  success: "आपका आवेदन भेज दिया गया है। धन्यवाद।",
+};
+
+const AR: UIStrings = {
+  title: "نموذج التقديم على الوظيفة",
+  subtitle: "يرجى تعبئة الحقول أدناه ثم الضغط على «إرسال».",
+  namePH: "الاسم (مثال: Taro Osaka)",
+  kanaPH: "فوريجانا (لليابانية فقط)",
+  emailPH: "البريد الإلكتروني",
+  messagePH: "الدافع / التعريف بالنفس",
+  send: "إرسال",
+  sending: "جارٍ الإرسال...",
+  sent: "تم الإرسال 🎉",
+  success: "تم إرسال طلبك. شكرًا لك.",
+};
+
+const STRINGS: Record<LangKey, UIStrings> = {
+  ja: JA, en: EN, zh: ZH, "zh-TW": ZH_TW, ko: KO, fr: FR, es: ES, de: DE,
+  pt: PT, it: IT, ru: RU, th: TH, vi: VI, id: IDN, hi: HI, ar: AR,
+};
+
+/* ===============================
+   本体（Jotaiの uiLang に追従）
+================================ */
 export default function JobPage() {
-  /** ▼ 言語状態＆UI文言（翻訳キャッシュ付き） */
-  const [lang, setLang] = useState<LangKey>(detectInitialLang);
-  const [ui, setUI] = useState<UIStrings>(BASE_JA);
-  const [uiCache, setUiCache] = useState<Partial<Record<LangKey, UIStrings>>>({
-    ja: BASE_JA,
-  });
-  const [uiLoading, setUiLoading] = useState(false);
-  const isRTL = useMemo(() => lang === "ar", [lang]);
+  const { uiLang } = useUILang();
+  const lang = useMemo<LangKey>(() => {
+    const k = (uiLang || "ja") as LangKey;
+    return STRINGS[k] ? k : "ja";
+  }, [uiLang]);
 
-  /** ▼ フォーム状態 */
+  const ui = STRINGS[lang];
+  const isRTL = lang === "ar";
+
+  // フォーム状態
   const [name, setName] = useState("");
-  const [kana, setKana] = useState("");
+  const [kana, setKana] = useState(""); // 日本語のみ使用
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent">("idle");
 
-  /** ▼ 言語切替時にUI文言を翻訳（キャッシュ済みなら使用） */
-  useEffect(() => {
-    if (lang === "ja") {
-      setUI(BASE_JA);
-      return;
-    }
-    const hit = uiCache[lang];
-    if (hit) {
-      setUI(hit);
-      return;
-    }
-
-    (async () => {
-      setUiLoading(true); // ← スピナーON
-      try {
-        const source = [
-          BASE_JA.title,
-          BASE_JA.subtitle,
-          BASE_JA.namePH,
-          BASE_JA.kanaPH,
-          BASE_JA.emailPH,
-          BASE_JA.messagePH,
-          BASE_JA.send,
-          BASE_JA.sending,
-          BASE_JA.sent,
-          BASE_JA.success,
-          BASE_JA.langLabel,
-        ].join(SEP);
-
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "", body: source, target: lang }),
-        });
-
-        if (!res.ok) throw new Error("translate failed");
-
-        const data = (await res.json()) as { body?: string };
-        const parts = String(data.body ?? "").split(SEP);
-
-        const translated: UIStrings = {
-          title: parts[0]?.trim() || BASE_JA.title,
-          subtitle: parts[1]?.trim() || BASE_JA.subtitle,
-          namePH: parts[2]?.trim() || BASE_JA.namePH,
-          kanaPH: parts[3]?.trim() || BASE_JA.kanaPH,
-          emailPH: parts[4]?.trim() || BASE_JA.emailPH,
-          messagePH: parts[5]?.trim() || BASE_JA.messagePH,
-          send: parts[6]?.trim() || BASE_JA.send,
-          sending: parts[7]?.trim() || BASE_JA.sending,
-          sent: parts[8]?.trim() || BASE_JA.sent,
-          success: parts[9]?.trim() || BASE_JA.success,
-          langLabel: parts[10]?.trim() || BASE_JA.langLabel,
-        };
-
-        setUI(translated);
-        setUiCache((prev) => ({ ...prev, [lang]: translated }));
-      } catch {
-        // 失敗時は日本語を維持
-        setUI(BASE_JA);
-      } finally {
-        setUiLoading(false); // ← スピナーOFF
-      }
-    })();
-  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** ▼ 送信 */
+  // 送信
   const handleSubmit = async () => {
-    // 日本語UIのときのみ kana 必須。他言語のときは name を代入して送る。
+    // 日本語のときは kana 必須。他言語では name を kana に入れて送る。
     if (!name || !email || !message || !SITE_KEY || (lang === "ja" && !kana)) {
-      alert(
-        lang === "ja"
-          ? "必須項目を入力してください。"
-          : "Please fill in all required fields."
-      );
+      alert(lang === "ja" ? "必須項目を入力してください。" : "Please fill in all required fields.");
       return;
     }
 
@@ -198,8 +286,7 @@ export default function JobPage() {
           email,
           message,
           SITE_KEY,
-          // 参考: 受信側で言語が分かるように添付（任意）
-          locale: lang,
+          locale: lang, // 受信側で参照したい場合に利用可
         }),
       });
 
@@ -211,57 +298,18 @@ export default function JobPage() {
         setMessage("");
       } else {
         setStatus("idle");
-        alert(
-          lang === "ja"
-            ? "送信に失敗しました。再度お試しください。"
-            : "Failed to send. Please try again."
-        );
+        alert(lang === "ja" ? "送信に失敗しました。再度お試しください。" : "Failed to send. Please try again.");
       }
     } catch {
       setStatus("idle");
-      alert(
-        lang === "ja"
-          ? "送信に失敗しました。ネットワークをご確認ください。"
-          : "Failed to send. Please check your network."
-      );
+      alert(lang === "ja" ? "送信に失敗しました。ネットワークをご確認ください。" : "Failed to send. Please check your network.");
     }
   };
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-b py-12 px-4"
-      dir={isRTL ? "rtl" : "ltr"}
-    >
-      <div
-        className="max-w-xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-200 relative"
-        aria-busy={uiLoading ? "true" : "false"}
-      >
-        {/* 変換中オーバーレイ */}
-        {uiLoading && <CardSpinner />}
-
-        {/* 言語切替 */}
-        <div className="flex items-center justify-end mb-4 gap-2">
-          <label htmlFor="lang" className="text-sm text-gray-600">
-            {ui.langLabel}
-          </label>
-          <select
-            id="lang"
-            value={lang}
-            onChange={(e) => setLang(e.target.value as LangKey)}
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
-            disabled={uiLoading || status === "loading"}
-          >
-            {UI_LANGS.map((l) => (
-              <option key={l.key} value={l.key}>
-                {l.emoji} {l.label} / {l.key}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <h1 className="text-3xl font-bold mb-4 text-center text-sky-700">
-          {ui.title}
-        </h1>
+    <div className="min-h-screen bg-gradient-to-b py-12 px-4" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+        <h1 className="text-3xl font-bold mb-4 text-center text-sky-700">{ui.title}</h1>
         <p className="mb-6 text-gray-600 text-center">{ui.subtitle}</p>
 
         <div className="space-y-4">
@@ -270,17 +318,17 @@ export default function JobPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="bg-gray-50"
-            disabled={uiLoading || status === "loading"}
+            disabled={status === "loading"}
           />
 
-          {/* 日本語UI時のみ ふりがなを表示・必須 */}
+          {/* 日本語UI時のみ ふりがな表示・必須 */}
           {lang === "ja" && (
             <Input
               placeholder={ui.kanaPH}
               value={kana}
               onChange={(e) => setKana(e.target.value)}
               className="bg-gray-50"
-              disabled={uiLoading || status === "loading"}
+              disabled={status === "loading"}
             />
           )}
 
@@ -290,7 +338,7 @@ export default function JobPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="bg-gray-50"
-            disabled={uiLoading || status === "loading"}
+            disabled={status === "loading"}
           />
 
           <Textarea
@@ -298,19 +346,15 @@ export default function JobPage() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="bg-gray-50 min-h-[150px]"
-            disabled={uiLoading || status === "loading"}
+            disabled={status === "loading"}
           />
 
           <Button
             onClick={handleSubmit}
-            disabled={status === "loading" || uiLoading}
+            disabled={status === "loading"}
             className="w-full bg-sky-600 hover:bg-sky-700 text-white"
           >
-            {status === "loading"
-              ? ui.sending
-              : status === "sent"
-              ? ui.sent
-              : ui.send}
+            {status === "loading" ? ui.sending : status === "sent" ? ui.sent : ui.send}
           </Button>
         </div>
 

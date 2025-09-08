@@ -46,6 +46,7 @@ import {
 } from "@dnd-kit/sortable";
 
 import { getExt, getVideoMetaFromFile, getImageSize } from "@/lib/media";
+import { Pin } from "lucide-react";
 
 /* =========================
    型
@@ -421,7 +422,7 @@ export default function MenuPage() {
                           onTouchStart={(e) => e.preventDefault()} // スクロール誤爆防止（必要なら）
                         >
                           <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
-                            ≡
+                            <Pin />
                           </div>
                         </div>
                       )}

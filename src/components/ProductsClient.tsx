@@ -1,37 +1,40 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import clsx from "clsx";
+import { Plus, Pin } from "lucide-react";
 import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
+
 import {
   collection,
   doc,
+  onSnapshot,
   addDoc,
   updateDoc,
+  writeBatch,
+  orderBy,
+  query,
   serverTimestamp,
-  onSnapshot,
   CollectionReference,
   DocumentData,
-  writeBatch,
-  limit,
-  query,
-  orderBy,
-  startAfter,
-  getDocs,
 } from "firebase/firestore";
 import {
   getStorage,
-  ref,
+  ref as storageRef,
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import clsx from "clsx";
 import { ThemeKey, THEMES } from "@/lib/themes";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+
 import {
   DndContext,
   closestCenter,
@@ -44,21 +47,40 @@ import {
 import {
   arrayMove,
   SortableContext,
+  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import SortableItem from "./SortableItem";
-import { useRouter } from "next/navigation";
+import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 
-import { type Product } from "@/types/Product";
-import ProductMedia from "./ProductMedia";
-import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { LANGS, type LangKey } from "@/lib/langs";
+import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
+/* ===================== 型 ===================== */
 type MediaType = "image" | "video";
-const MAX_ITEMS = 20;
+
+type Base = { title: string; body: string };
+type Tr = { lang: LangKey; title?: string; body?: string };
+
+type ProductDoc = {
+  id: string;
+  base: Base; // 原文（日本語）
+  t: Tr[]; // 全言語翻訳
+  title?: string; // 互換（原文コピー）
+  body?: string; // 互換（原文コピー）
+  mediaURL: string;
+  mediaType: MediaType;
+  price: number; // 外部型互換のため必須（無ければ 0）
+  order?: number;
+  originalFileName?: string;
+  createdAt?: any;
+  updatedAt?: any;
+};
+
+/* ===================== 定数 ===================== */
+const COL_PATH = `siteProducts/${SITE_KEY}/items`;
 const MAX_VIDEO_SEC = 60;
 
-/* MIME */
 const VIDEO_MIME_TYPES: string[] = [
   "video/mp4",
   "video/quicktime",
@@ -78,61 +100,135 @@ const IMAGE_MIME_TYPES: string[] = [
   "image/gif",
 ];
 
-/* ✅ ESLint対策のため外に出す */
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
+/* ===================== ユーティリティ ===================== */
+function displayOf(p: ProductDoc, lang: UILang): Base {
+  if (lang === "ja") return p.base;
+  const hit = p.t?.find((x) => x.lang === lang);
+  return {
+    title: (hit?.title ?? p.base.title) || "",
+    body: (hit?.body ?? p.base.body) || "",
+  };
+}
 
+// 保存時：全言語を一括翻訳
+async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
+  const tasks = LANGS.map(async (l) => {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: titleJa, body: bodyJa, target: l.key }),
+    });
+    if (!res.ok) throw new Error(`translate failed: ${l.key}`);
+    const data = (await res.json()) as { title?: string; body?: string };
+    return {
+      lang: l.key,
+      title: (data.title ?? "").trim(),
+      body: (data.body ?? "").trim(),
+    };
+  });
+  return Promise.all(tasks);
+}
+
+/* ===================== DnD Item ===================== */
+function SortableItem({
+  product,
+  children,
+}: {
+  product: ProductDoc;
+  children: (args: {
+    attributes: any;
+    listeners: any;
+    isDragging: boolean;
+  }) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, isDragging })}
+    </div>
+  );
+}
+
+/* ===================== 本体 ===================== */
 export default function ProductsClient() {
-  const [list, setList] = useState<Product[]>([]);
+  const router = useRouter();
+  const [list, setList] = useState<ProductDoc[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // グローバル表示言語（ルートのピッカーで制御）
+  const { uiLang } = useUILang();
+
+  // フォーム
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
-  const [editing, setEditing] = useState<Product | null>(null);
+  const [editing, setEditing] = useState<ProductDoc | null>(null);
+
+  // 原文（日本語）の編集フィールド
+  const [titleJa, setTitleJa] = useState("");
+  const [bodyJa, setBodyJa] = useState("");
+  const [price, setPrice] = useState<number>(0);
+
+  // メディア
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [progress, setProgress] = useState<number | null>(null);
-  const uploading = progress !== null;
+  const [progress, setProgress] = useState<number | null>(null); // null で非表示
 
-  const [aiLoading, setAiLoading] = useState(false);
-  const [showKeywordInput, setShowKeywordInput] = useState(false);
-  const [keywords, setKeywords] = useState<string[]>([]);
-
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  /* ✅ 多国語UI */
-  const [showLangPicker, setShowLangPicker] = useState(false);
-  const [translating, setTranslating] = useState(false);
-
-  const [langQuery, setLangQuery] = useState("");
-  const filteredLangs = useMemo(() => {
-    if (!langQuery.trim()) return LANGS;
-    const q = langQuery.trim().toLowerCase();
-    return LANGS.filter(
-      (l) =>
-        l.label.toLowerCase().includes(q) || l.key.toLowerCase().includes(q)
-    );
-  }, [langQuery]);
+  // 保存インジケータ
+  const [saving, setSaving] = useState(false);
 
   const gradient = useThemeGradient();
-  const router = useRouter();
+  const isDark = useMemo(() => {
+    const darks: ThemeKey[] = ["brandG", "brandH", "brandI"];
+    return !!gradient && darks.some((k) => gradient === THEMES[k]);
+  }, [gradient]);
 
+  const colRef: CollectionReference<DocumentData> = useMemo(
+    () => collection(db, COL_PATH),
+    []
+  );
+
+  /* 権限 */
+  useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
+
+  /* 購読（order昇順） */
+  useEffect(() => {
+    const q = query(colRef, orderBy("order", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const rows: ProductDoc[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+        const base: Base = data.base ?? {
+          title: data.title ?? "",
+          body: data.body ?? "",
+        };
+        const t: Tr[] = Array.isArray(data.t) ? data.t : [];
+        return {
+          id: d.id,
+          base,
+          t,
+          title: data.title,
+          body: data.body,
+          mediaURL: data.mediaURL ?? "",
+          mediaType: (data.mediaType as MediaType) ?? "image",
+          price: typeof data.price === "number" ? data.price : 0,
+          order: data.order ?? 9999,
+          originalFileName: data.originalFileName,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        };
+      });
+      rows.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+      setList(rows);
+    });
+    return () => unsub();
+  }, [colRef]);
+
+  /* 並べ替え */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -140,115 +236,90 @@ export default function ProductsClient() {
     })
   );
 
-  const isDark = useMemo(() => {
-    const darkThemes: ThemeKey[] = ["brandG", "brandH", "brandI"];
-    if (!gradient) return false;
-    return darkThemes.some((key) => gradient === THEMES[key]);
-  }, [gradient]);
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-  const colRef: CollectionReference = useMemo(
-    () => collection(db, "siteProducts", SITE_KEY, "items"),
-    []
-  );
+      const oldIndex = list.findIndex((x) => x.id === active.id);
+      const newIndex = list.findIndex((x) => x.id === over.id);
+      const next = arrayMove(list, oldIndex, newIndex);
+      setList(next);
 
-  useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
-
-  /* 編集モード時は既存値をプリセット */
-  useEffect(() => {
-    if (formMode === "edit" && editing) {
-      setTitle(editing.title ?? "");
-      setBody(editing.body ?? "");
-    }
-  }, [formMode, editing]);
-
-  useEffect(() => {
-    const q = query(colRef, orderBy("order"), limit(MAX_ITEMS));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Product[];
-      setList(docs);
-      setLastVisible(snap.docs.at(-1) ?? null);
-      setHasMore(snap.docs.length === MAX_ITEMS);
-    });
-    return () => unsubscribe();
-  }, [colRef]);
-
-  const loadMore = useCallback(async () => {
-    if (!lastVisible || loadingMore) return;
-    setLoadingMore(true);
-
-    const q = query(
-      colRef,
-      orderBy("order"),
-      startAfter(lastVisible),
-      limit(MAX_ITEMS)
-    );
-    const snap = await getDocs(q);
-
-    const existingIds = new Set(list.map((item) => item.id));
-    const newDocs = snap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((item) => !existingIds.has((item as any).id)) as Product[];
-
-    setList((prev) => [...prev, ...newDocs]);
-    setLastVisible(snap.docs[snap.docs.length - 1] ?? null);
-    setHasMore(snap.docs.length === MAX_ITEMS);
-    setLoadingMore(false);
-  }, [lastVisible, loadingMore, colRef, list]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const nearBottom =
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
-      if (nearBottom && !loadingMore && hasMore) loadMore();
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [loadMore, loadingMore, hasMore]);
-
-  /* ✅ 翻訳→追記（タイトルは改行で追加） */
-  const translateAndAppend = useCallback(
-    async (langKey: (typeof LANGS)[number]["key"]) => {
-      if (!title.trim() || !body.trim()) return;
-      setTranslating(true);
-      try {
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, body, target: langKey }),
-        });
-        if (!res.ok) throw new Error("翻訳APIエラー");
-        const data = (await res.json()) as { title: string; body: string };
-
-        setTitle((prev) => `${prev}\n${data.title}`); // ← 改行追記
-        setBody((prev) => `${prev}\n\n${data.body}`);
-
-        setShowLangPicker(false);
-      } catch (e) {
-        console.error(e);
-        alert("翻訳に失敗しました。時間をおいて再度お試しください。");
-      } finally {
-        setTranslating(false);
-      }
+      const batch = writeBatch(db);
+      next.forEach((p, i) => batch.update(doc(colRef, p.id), { order: i }));
+      await batch.commit();
     },
-    [title, body]
+    [list, colRef]
   );
 
-  const saveProduct = async () => {
-    if (uploading) return;
-    if (!title.trim()) return alert("タイトル必須");
+  /* ファイル選択（動画は長さチェック） */
+  const onSelectFile = (f: File) => {
+    if (!f) return;
+    const isVideo = f.type.startsWith("video/");
+    if (!isVideo) {
+      setFile(f);
+      return;
+    }
+    const url = URL.createObjectURL(f);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.src = url;
+    v.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      if (v.duration > MAX_VIDEO_SEC) {
+        alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+        return;
+      }
+      setFile(f);
+    };
+  };
+
+  /* フォーム開閉 */
+  const openAdd = () => {
+    if (saving || progress !== null) return;
+    setEditing(null);
+    setTitleJa("");
+    setBodyJa("");
+    setPrice(0);
+    setFile(null);
+    setFormMode("add");
+  };
+
+  const openEdit = (p: ProductDoc) => {
+    if (saving || progress !== null) return;
+    setEditing(p);
+    setTitleJa(p.base.title);
+    setBodyJa(p.base.body);
+    setPrice(typeof p.price === "number" ? p.price : 0);
+    setFile(null);
+    setFormMode("edit");
+  };
+
+  const closeForm = useCallback(() => {
+    if (saving || progress !== null) return;
+    setFormMode(null);
+    setEditing(null);
+    setTitleJa("");
+    setBodyJa("");
+    setPrice(0);
+    setFile(null);
+  }, [saving, progress]);
+
+  /* 保存（全言語生成 → Firestore） */
+  const saveProduct = useCallback(async () => {
+    if (progress !== null || saving) return;
+    if (!titleJa.trim()) return alert("タイトル（原文）は必須です");
     if (formMode === "add" && !file) return alert("メディアを選択してください");
 
+    setSaving(true);
     try {
       const id = editing?.id ?? uuid();
       let mediaURL = editing?.mediaURL ?? "";
       let mediaType: MediaType = editing?.mediaType ?? "image";
+      let originalFileName = editing?.originalFileName;
 
-      if (formMode === "add" && !file)
-        return alert("メディアを選択してください");
-
+      // メディアアップロード
       if (file) {
         const isVideo = file.type.startsWith("video/");
         mediaType = isVideo ? "video" : "image";
@@ -257,8 +328,9 @@ export default function ProductsClient() {
         const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
         if (!isValidImage && !isValidVideo) {
           alert(
-            "対応形式：画像（JPEG, PNG, WEBP, GIF）／動画（MP4, MOV, WebM 他）"
+            "対応形式：画像（JPEG/PNG/WEBP/GIF）／動画（MP4/MOV/WebM など）"
           );
+          setSaving(false);
           return;
         }
 
@@ -278,60 +350,82 @@ export default function ProductsClient() {
               initialQuality: 0.8,
             });
 
-        const storageRef = ref(
+        const sref = storageRef(
           getStorage(),
           `products/public/${SITE_KEY}/${id}.${ext}`
         );
-        const task = uploadBytesResumable(storageRef, uploadFile, {
+        const task = uploadBytesResumable(sref, uploadFile, {
           contentType: isVideo ? file.type : "image/jpeg",
         });
 
         setProgress(0);
-        task.on("state_changed", (s) =>
-          setProgress(Math.round((s.bytesTransferred / s.totalBytes) * 100))
-        );
-        await task;
+        await new Promise<void>((resolve, reject) => {
+          task.on(
+            "state_changed",
+            (s) =>
+              setProgress(
+                Math.round((s.bytesTransferred / s.totalBytes) * 100)
+              ),
+            reject,
+            resolve
+          );
+        });
 
-        const downloadURL = await getDownloadURL(storageRef);
-        if (!downloadURL) throw new Error("画像URLの取得に失敗しました");
-
+        const downloadURL = await getDownloadURL(sref);
         mediaURL = `${downloadURL}?v=${uuid()}`;
+        originalFileName = file.name;
         setProgress(null);
 
+        // 旧拡張子を掃除（編集時）
         if (formMode === "edit" && editing) {
           const oldExt = editing.mediaType === "video" ? "mp4" : "jpg";
           if (oldExt !== ext) {
             await deleteObject(
-              ref(getStorage(), `products/public/${SITE_KEY}/${id}.${oldExt}`)
+              storageRef(
+                getStorage(),
+                `products/public/${SITE_KEY}/${id}.${oldExt}`
+              )
             ).catch(() => {});
           }
         }
       }
 
-      type ProductPayload = {
+      // 全言語翻訳
+      const t = await translateAll(titleJa.trim(), bodyJa.trim());
+
+      // ペイロード
+      const base: Base = { title: titleJa.trim(), body: bodyJa.trim() };
+      const payload: Partial<ProductDoc> & {
+        base: Base;
+        t: Tr[];
         title: string;
         body: string;
         mediaURL: string;
-        mediaType: "image" | "video";
-        originalFileName?: string;
+        mediaType: MediaType;
+        price: number;
+      } = {
+        base,
+        t,
+        title: base.title, // 互換
+        body: base.body, // 互換
+        mediaURL,
+        mediaType,
+        price: Number.isFinite(price) ? Number(price) : 0,
+        ...(originalFileName ? { originalFileName } : {}),
       };
 
-      const payload: ProductPayload = { title, body, mediaURL, mediaType };
-      const originalFileName = file?.name || editing?.originalFileName;
-      if (originalFileName) payload.originalFileName = originalFileName;
-
       if (formMode === "edit" && editing) {
-        await updateDoc(doc(colRef, id), payload);
+        await updateDoc(doc(colRef, id), {
+          ...payload,
+          updatedAt: serverTimestamp(),
+        });
       } else {
-        const q = query(colRef, orderBy("order"), limit(1));
-        const snap = await getDocs(q);
-        const first = snap.docs[0];
-        const minOrder = first?.data()?.order ?? 0;
-
+        // 末尾に追加
+        const tail = (list.at(-1)?.order ?? list.length - 1) + 1;
         await addDoc(colRef, {
           ...payload,
           createdAt: serverTimestamp(),
-          order: minOrder - 1,
+          order: tail,
         });
       }
 
@@ -340,69 +434,46 @@ export default function ProductsClient() {
       console.error(e);
       alert("保存に失敗しました。対応形式や容量をご確認ください。");
       setProgress(null);
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const openAdd = () => {
-    if (uploading) return;
-    resetFields();
-    setFormMode("add");
-  };
-
-  const closeForm = () => {
-    if (uploading) return;
-    setTimeout(() => {
-      resetFields();
-      setFormMode(null);
-    }, 100);
-  };
-
-  const resetFields = () => {
-    setEditing(null);
-    setTitle("");
-    setBody("");
-    setFile(null);
-    setKeywords([]);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = list.findIndex((item) => item.id === active.id);
-    const newIndex = list.findIndex((item) => item.id === over.id);
-    const newList = arrayMove(list, oldIndex, newIndex);
-    setList(newList);
-
-    const batch = writeBatch(db);
-    newList.forEach((item, index) => {
-      batch.update(doc(colRef, item.id), { order: index });
-    });
-    await batch.commit();
-  };
+  }, [
+    progress,
+    saving,
+    titleJa,
+    bodyJa,
+    price,
+    formMode,
+    file,
+    editing,
+    colRef,
+    list,
+    closeForm,
+  ]);
 
   if (!gradient) return null;
 
+  /* ===================== JSX ===================== */
   return (
     <main className="max-w-5xl mx-auto p-4 pt-20">
-      {uploading && (
+      {/* アップロード / 保存インジケータ */}
+      {(progress !== null || saving) && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-black/60 gap-4">
-          <p className="text-white">アップロード中… {progress}%</p>
-          <div className="w-64 h-2 bg-gray-700 rounded">
-            <div
-              className="h-full bg-green-500 rounded transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          <p className="text-white">
+            {saving ? "保存中…" : `アップロード中… ${progress}%`}
+          </p>
+          {!saving && (
+            <div className="w-64 h-2 bg-gray-700 rounded">
+              <div
+                className="h-full bg-green-500 rounded transition-all"
+                style={{ width: `${progress ?? 0}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
-      {loadingMore && (
-        <div className="text-center py-4 text-sm text-gray-500">
-          読み込み中...
-        </div>
-      )}
-
+      {/* 一覧 */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -412,247 +483,166 @@ export default function ProductsClient() {
           items={list.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
-            {list.map((p) => (
-              <SortableItem key={p.id} product={p}>
-                {({ listeners, attributes, isDragging }) => (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    transition={{ duration: 0.3 }}
-                    onClick={() => {
-                      if (isDragging) return;
-                      router.push(`/products/${p.id}`);
-                    }}
-                    className={clsx(
-                      "flex flex-col h-full border rounded-lg shadow-xl relative overflow-visible transition-colors duration-200",
-                      "bg-gradient-to-b",
-                      gradient,
-                      isDragging
-                        ? "bg-yellow-100"
-                        : isDark
-                        ? "bg-black/40 text-white"
-                        : "bg-white",
-                      "cursor-pointer",
-                      !isDragging && "hover:shadow-lg"
-                    )}
-                  >
-                    {auth.currentUser !== null && (
-                      <div
-                        {...attributes}
-                        {...listeners}
-                        // クリックだけ親に伝播させない（ドラッグは listeners に任せる）
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2
-               z-30 cursor-grab active:cursor-grabbing select-none"
-                      >
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch mt-4">
+            {list.map((p) => {
+              const loc = displayOf(p, uiLang);
+              return (
+                <SortableItem key={p.id} product={p}>
+                  {({ listeners, attributes, isDragging }) => (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      onClick={() => {
+                        if (isDragging) return;
+                        router.push(`/products/${p.id}`);
+                      }}
+                      className={clsx(
+                        "flex flex-col h-full border rounded-lg shadow-xl relative overflow-visible transition-colors duration-200 cursor-pointer",
+                        "bg-gradient-to-b",
+                        gradient,
+                        isDragging
+                          ? "bg-yellow-100"
+                          : isDark
+                          ? "bg-black/40 text-white"
+                          : "bg-white",
+                        !isDragging && "hover:shadow-lg"
+                      )}
+                    >
+                      {/* ドラッグハンドル（クリックは止める） */}
+                      {auth.currentUser !== null && (
                         <div
-                          className="w-10 h-10 rounded-full bg-white/95 border border-black/10
-                    text-gray-700 text-sm flex items-center justify-center shadow-lg"
+                          {...attributes}
+                          {...listeners}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none"
                         >
-                          ≡
+                          <div className="w-10 h-10 rounded-full bg-white/95 border border-black/10 text-gray-700 text-sm flex items-center justify-center shadow-lg">
+                            <Pin />
+                          </div>
                         </div>
+                      )}
+
+                      {/* メディア */}
+                      {p.mediaType === "image" ? (
+                        <div className="relative w-full aspect-square">
+                          <Image
+                            src={p.mediaURL}
+                            alt={loc.title}
+                            fill
+                            className="object-cover"
+                            sizes="100vw"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <video
+                          src={p.mediaURL}
+                          muted
+                          playsInline
+                          autoPlay
+                          loop
+                          preload="auto"
+                          className="w-full aspect-square object-cover"
+                        />
+                      )}
+
+                      <div className="p-3 space-y-1">
+                        <h2
+                          className={clsx(
+                            "text-sm font-bold whitespace-pre-wrap",
+                            isDark && "text-white"
+                          )}
+                        >
+                          {loc.title}
+                        </h2>
                       </div>
-                    )}
 
-                    <ProductMedia
-                      src={p.mediaURL}
-                      type={p.mediaType}
-                      className="shadow-lg"
-                    />
-
-                    {/* 商品情報 */}
-                    <div className="p-3 space-y-2">
-                      {/* ✅ 改行をそのまま表示 */}
-                      <h2
-                        className={clsx(
-                          "text-sm font-bold whitespace-pre-wrap",
-                          {
-                            "text-white": isDark,
-                          }
-                        )}
-                      >
-                        {p.title}
-                      </h2>
-                    </div>
-                  </motion.div>
-                )}
-              </SortableItem>
-            ))}
+                      {isAdmin && (
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(p);
+                            }}
+                            disabled={saving || progress !== null}
+                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded shadow disabled:opacity-50"
+                          >
+                            編集
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </SortableItem>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
 
+      {/* 追加 FAB */}
       {isAdmin && formMode === null && (
         <button
           onClick={openAdd}
           aria-label="新規追加"
-          disabled={uploading}
+          disabled={saving || progress !== null}
           className="fixed bottom-6 right-6 z-20 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
         >
           <Plus size={28} />
         </button>
       )}
 
+      {/* フォーム（原文のみ編集） */}
       {isAdmin && formMode && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "編集" : "新規追加"}
+              {formMode === "edit" ? "編集（原文）" : "新規追加（原文）"}
             </h2>
 
-            {/* ✅ タイトルは改行可能に */}
             <input
-              placeholder="タイトル（改行可）"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              placeholder="タイトル（日本語・改行可）"
+              value={titleJa}
+              onChange={(e) => setTitleJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
+              disabled={saving || progress !== null}
             />
 
             <textarea
-              placeholder="本文"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
+              placeholder="本文（日本語）"
+              value={bodyJa}
+              onChange={(e) => setBodyJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
-              rows={4}
-              disabled={uploading}
+              rows={6}
+              disabled={saving || progress !== null}
             />
 
-            {!showKeywordInput ? (
-              <button
-                onClick={() => setShowKeywordInput(true)}
-                className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                AIで本文を生成
-              </button>
-            ) : (
-              <>
-                {/* キーワード入力欄 */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">
-                    キーワード（1〜3個）
-                  </p>
-                  {[0, 1, 2].map((i) => (
-                    <input
-                      key={i}
-                      type="text"
-                      placeholder={`キーワード${i + 1}`}
-                      value={keywords[i] || ""}
-                      onChange={(e) => {
-                        const newKeywords = [...keywords];
-                        newKeywords[i] = e.target.value;
-                        setKeywords(newKeywords.filter((k) => k.trim() !== ""));
-                      }}
-                      className="w-full border px-3 py-1 rounded"
-                      disabled={uploading}
-                    />
-                  ))}
-                </div>
+            <div>
+              <label className="text-sm font-medium">価格（円）</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                className="mt-1 w-full border px-3 py-2 rounded"
+                disabled={saving || progress !== null}
+              />
+            </div>
 
-                <button
-                  onClick={async () => {
-                    if (!title.trim())
-                      return alert("タイトルを入力してください");
-                    const validKeywords = keywords.filter(
-                      (k) => k.trim() !== ""
-                    );
-                    if (validKeywords.length < 1)
-                      return alert("キーワードを1つ以上入力してください");
-
-                    setAiLoading(true);
-                    try {
-                      const res = await fetch("/api/generate-description", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          title,
-                          keywords: validKeywords,
-                        }),
-                      });
-                      const data = await res.json();
-                      if (data.body) {
-                        setBody(data.body);
-                        setKeywords([]);
-                      } else {
-                        alert("生成に失敗しました");
-                      }
-                    } catch {
-                      alert("エラーが発生しました");
-                    } finally {
-                      setAiLoading(false);
-                    }
-                  }}
-                  disabled={
-                    uploading ||
-                    aiLoading ||
-                    keywords.filter((k) => k.trim()).length < 1
-                  }
-                  className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {aiLoading ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                        />
-                      </svg>
-                      <span>生成中…</span>
-                    </>
-                  ) : (
-                    "生成する"
-                  )}
-                </button>
-              </>
-            )}
-
-            <label>画像 / 動画 (60秒以内)</label>
+            <label className="text-sm font-medium">
+              画像 / 動画 (60秒以内)
+            </label>
             <input
               type="file"
               accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (!f) return;
-
-                const isVideo = f.type.startsWith("video/");
-                if (!isVideo) {
-                  setFile(f);
-                  return;
-                }
-
-                const blobURL = URL.createObjectURL(f);
-                const vid = document.createElement("video");
-                vid.preload = "metadata";
-                vid.src = blobURL;
-
-                vid.onloadedmetadata = () => {
-                  URL.revokeObjectURL(blobURL);
-                  if (vid.duration > MAX_VIDEO_SEC) {
-                    alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
-                    (e.target as HTMLInputElement).value = "";
-                    return;
-                  }
-                  setFile(f);
-                };
+                if (f) onSelectFile(f);
               }}
               className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-              disabled={uploading}
+              disabled={saving || progress !== null}
             />
             {formMode === "edit" && editing?.originalFileName && (
               <p className="text-sm text-gray-600">
@@ -660,127 +650,21 @@ export default function ProductsClient() {
               </p>
             )}
 
-            {/* ✅ AIで多国語対応 */}
-            {title.trim() && body.trim() && (
-              <button
-                onClick={() => setShowLangPicker(true)}
-                className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50"
-                disabled={uploading || aiLoading || translating}
-              >
-                AIで多国語対応
-              </button>
-            )}
-
-            {/* ピッカー */}
-            {showLangPicker && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40"
-                onClick={() => !translating && setShowLangPicker(false)}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                  transition={{ duration: 0.18 }}
-                  className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* ガラス風カード */}
-                  <div className="rounded-2xl bg-white/90 backdrop-saturate-150 border border-white/50">
-                    <div className="p-5 border-b border-black/5 flex items-center justify-between">
-                      <h3 className="text-lg font-bold">言語を選択</h3>
-                      <button
-                        type="button"
-                        onClick={() => setShowLangPicker(false)}
-                        className="text-sm text-gray-500 hover:text-gray-800"
-                        disabled={translating}
-                      >
-                        閉じる
-                      </button>
-                    </div>
-
-                    {/* 検索 */}
-                    <div className="px-5 pt-4">
-                      <input
-                        type="text"
-                        value={langQuery}
-                        onChange={(e) => setLangQuery(e.target.value)}
-                        placeholder="言語名やコードで検索（例: フランス語 / fr）"
-                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-
-                    {/* グリッド */}
-                    <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {filteredLangs.map((lng) => (
-                        <button
-                          key={lng.key}
-                          type="button"
-                          onClick={() => translateAndAppend(lng.key)}
-                          disabled={translating}
-                          className={clsx(
-                            "group relative rounded-xl border p-3 text-left transition",
-                            "bg-white hover:shadow-lg hover:-translate-y-0.5",
-                            "focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                            "disabled:opacity-60"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">{lng.emoji}</span>
-                            <div className="min-w-0">
-                              <div className="font-semibold truncate">
-                                {lng.label}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                /{lng.key}
-                              </div>
-                            </div>
-                          </div>
-                          {/* 右上のアクセント */}
-                          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-indigo-400 opacity-0 group-hover:opacity-100 transition" />
-                        </button>
-                      ))}
-                      {filteredLangs.length === 0 && (
-                        <div className="col-span-full text-center text-sm text-gray-500 py-6">
-                          一致する言語が見つかりません
-                        </div>
-                      )}
-                    </div>
-
-                    {/* フッター */}
-                    <div className="px-5 pb-5">
-                      <button
-                        type="button"
-                        onClick={() => setShowLangPicker(false)}
-                        className="w-full rounded-lg px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700"
-                        disabled={translating}
-                      >
-                        キャンセル
-                      </button>
-                    </div>
-
-                    {/* ローディングバー（翻訳中のわかりやすい表示） */}
-                    {translating && (
-                      <div className="h-1 w-full overflow-hidden rounded-b-2xl">
-                        <div className="h-full w-1/2 animate-[progress_1.2s_ease-in-out_infinite] bg-indigo-500" />
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-
             <div className="flex gap-2 justify-center">
               <button
                 onClick={saveProduct}
-                disabled={uploading}
+                disabled={saving || progress !== null}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
               >
-                {formMode === "edit" ? "更新" : "追加"}
+                {saving
+                  ? "保存中…"
+                  : formMode === "edit"
+                  ? "更新（全言語へ保存）"
+                  : "追加（全言語へ保存）"}
               </button>
               <button
                 onClick={closeForm}
-                disabled={uploading}
+                disabled={saving || progress !== null}
                 className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
               >
                 閉じる
