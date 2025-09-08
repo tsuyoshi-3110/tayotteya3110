@@ -344,7 +344,7 @@ export default function Header({ className = "" }: { className?: string }) {
         href="/"
         className={clsx(
           "text-md font-bold flex items-center gap-2 py-2 hover:opacity-50",
-          isDark ? "text-white" : "text-black"
+          "text-white text-outline"
         )}
       >
         {logoUrl && logoUrl.trim() !== "" && (
@@ -353,7 +353,7 @@ export default function Header({ className = "" }: { className?: string }) {
             alt="ロゴ"
             width={48}
             height={48}
-            className="w-12 h-12 object-contain transition-opacity duration-200"
+            className="w-12 h-12 object-contain transition-opacity duration-200 "
             unoptimized
           />
         )}
