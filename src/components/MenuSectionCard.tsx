@@ -553,7 +553,7 @@ export default function MenuSectionCard({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-4">セクションを編集</h2>
-            <label className="text-sm font-medium">セクション名（原文）</label>
+            <label className="text-sm font-medium">セクション名</label>
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
@@ -637,7 +637,7 @@ export default function MenuSectionCard({
           itemModal.mode === "edit" && itemModal.target
             ? {
                 id: itemModal.target.id,
-                // 原文（base）を優先
+
                 name:
                   itemModal.target.base?.name ?? itemModal.target.name ?? "",
                 description:
@@ -1037,11 +1037,7 @@ function ItemModal({
             キャンセル
           </Button>
           <Button onClick={save} disabled={saving || genLoading}>
-            {saving
-              ? "保存中..."
-              : mode === "create"
-              ? "追加"
-              : "保存"}
+            {saving ? "保存中..." : mode === "create" ? "追加" : "保存"}
           </Button>
         </div>
       </div>

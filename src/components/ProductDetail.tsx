@@ -149,7 +149,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   // 本文AI生成
   const generateBodyWithAI = async () => {
     if (!titleJa.trim()) {
-      alert("タイトル（原文）を入力してください");
+      alert("タイトルを入力してください");
       return;
     }
     try {
@@ -176,7 +176,7 @@ export default function ProductDetail({ product }: { product: Product }) {
 
   // 保存：base に原文、t[] は全言語翻訳
   const handleSave = async () => {
-    if (!titleJa.trim()) return alert("タイトル（原文）は必須です");
+    if (!titleJa.trim()) return alert("タイトルは必須です");
     setSaving(true);
     try {
       const docRef = doc(db, "siteProducts", SITE_KEY, "items", product.id);
@@ -413,9 +413,7 @@ export default function ProductDetail({ product }: { product: Product }) {
       {isAdmin && showEdit && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
-            <h2 className="text-xl font-bold text-center">
-              商品を編集（原文）
-            </h2>
+            <h2 className="text-xl font-bold text-center">商品を編集</h2>
 
             <input
               placeholder="タイトル（日本語・改行可）"

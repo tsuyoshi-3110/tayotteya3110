@@ -81,10 +81,14 @@ type TrStore = {
   description?: string;
 };
 
+// ★ 位置情報（保存してリンクは座標優先で生成）
+type Geo = { lat: number; lng: number; placeId?: string };
+
 // Firestore ドキュメント（後方互換のため top-level も保持）
 type StoreDoc = Store & {
   base?: Base;
   t?: TrStore[];
+  geo?: Geo; // ★追加
 };
 
 /* ======================== 表示ユーティリティ ======================== */
@@ -95,7 +99,10 @@ const splitLines = (text: string) =>
     .map((l) => l.trim())
     .filter(Boolean);
 
-function pickLocalized(s: StoreDoc, ui: ReturnType<typeof useUILang>["uiLang"]): Required<Base> {
+function pickLocalized(
+  s: StoreDoc,
+  ui: ReturnType<typeof useUILang>["uiLang"]
+): Required<Base> {
   if (ui === "ja") {
     return {
       name: s.base?.name ?? s.name ?? "",
@@ -109,6 +116,22 @@ function pickLocalized(s: StoreDoc, ui: ReturnType<typeof useUILang>["uiLang"]):
     address: hit?.address ?? s.base?.address ?? s.address ?? "",
     description: hit?.description ?? s.base?.description ?? s.description ?? "",
   };
+}
+
+/** 座標優先で Google Maps リンクを生成（座標が無ければ原文住所を使う） */
+function buildMapsHref(s: StoreDoc) {
+  if (s.geo?.lat && s.geo?.lng) {
+    const q = `${s.geo.lat},${s.geo.lng}`;
+    const pid = s.geo.placeId
+      ? `&query_place_id=${encodeURIComponent(s.geo.placeId)}`
+      : "";
+    return `https://www.google.com/maps/search/?api=1&query=${q}${pid}`;
+    // または `https://www.google.com/maps/dir/?api=1&destination=${q}${pid}` でも可
+  }
+  const raw = s.base?.address ?? s.address ?? "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    raw
+  )}`;
 }
 
 /* ======================== 翻訳（保存時に一括） ======================== */
@@ -132,9 +155,16 @@ async function translateAllStore(
         ? fetch("/api/translate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: addressJa, body: " ", target: l.key }),
+            body: JSON.stringify({
+              title: addressJa,
+              body: " ",
+              target: l.key,
+            }),
           })
-        : Promise.resolve({ ok: true, json: async () => ({ title: "" }) } as any),
+        : Promise.resolve({
+            ok: true,
+            json: async () => ({ title: "" }),
+          } as any),
     ]);
 
     if (!res1.ok) throw new Error(`translate error(name/desc): ${l.key}`);
@@ -153,7 +183,9 @@ async function translateAllStore(
 
   const settled = await Promise.allSettled(jobs);
   return settled
-    .filter((r): r is PromiseFulfilledResult<TrStore> => r.status === "fulfilled")
+    .filter(
+      (r): r is PromiseFulfilledResult<TrStore> => r.status === "fulfilled"
+    )
     .map((r) => r.value);
 }
 
@@ -178,7 +210,7 @@ export default function StoresClient() {
   const uploading = progress !== null;
   const [submitFlag, setSubmitFlag] = useState(false);
 
-  // ✅ AI 紹介文モーダル（復活）
+  // AI 紹介文モーダル
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiKeyword, setAiKeyword] = useState("");
   const [aiFeature, setAiFeature] = useState("");
@@ -199,7 +231,9 @@ export default function StoresClient() {
   /* -------- DnD -------- */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    })
   );
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -210,7 +244,9 @@ export default function StoresClient() {
     const newList = arrayMove(stores, oldIndex, newIndex);
     setStores(newList);
     const batch = writeBatch(db);
-    newList.forEach((s, i) => batch.update(doc(db, STORE_COL, s.id), { order: i }));
+    newList.forEach((s, i) =>
+      batch.update(doc(db, STORE_COL, s.id), { order: i })
+    );
     await batch.commit();
   };
 
@@ -238,6 +274,15 @@ export default function StoresClient() {
             }))
           : [];
 
+        const geo: Geo | undefined =
+          typeof data.geo?.lat === "number" && typeof data.geo?.lng === "number"
+            ? {
+                lat: data.geo.lat,
+                lng: data.geo.lng,
+                ...(data.geo.placeId ? { placeId: data.geo.placeId } : {}),
+              }
+            : undefined;
+
         return {
           id: d.id,
           name: data.name ?? base.name,
@@ -250,6 +295,7 @@ export default function StoresClient() {
           updatedAt: data.updatedAt,
           base,
           t,
+          ...(geo ? { geo } : {}),
         } as StoreDoc;
       });
       docs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
@@ -287,7 +333,7 @@ export default function StoresClient() {
   const saveStore = async () => {
     if (uploading || submitFlag) return;
     if (!name.trim() || !address.trim()) {
-      return alert("店舗名（原文）と住所（原文）は必須です");
+      return alert("店舗名と住所は必須です");
     }
     try {
       setSubmitFlag(true);
@@ -301,7 +347,9 @@ export default function StoresClient() {
       let originalFileName = file?.name ?? editingStore?.originalFileName ?? "";
 
       if (file) {
-        const ext = (file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1] || "jpg").toLowerCase();
+        const ext = (
+          file.name.match(/\.([a-zA-Z0-9]+)$/)?.[1] || "jpg"
+        ).toLowerCase();
         const allowedExts = ["jpg", "jpeg", "png", "webp"];
         if (!allowedExts.includes(ext)) {
           alert("サポートされていない画像形式です（jpg/jpeg/png/webp）");
@@ -310,13 +358,18 @@ export default function StoresClient() {
         }
 
         const sref = storageRef(getStorage(), `${STORAGE_PATH}/${id}.${ext}`);
-        const task = uploadBytesResumable(sref, file, { contentType: file.type });
+        const task = uploadBytesResumable(sref, file, {
+          contentType: file.type,
+        });
         setProgress(0);
 
         await new Promise<void>((resolve, reject) => {
           task.on(
             "state_changed",
-            (s) => setProgress(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
+            (s) =>
+              setProgress(
+                Math.round((s.bytesTransferred / s.totalBytes) * 100)
+              ),
             (e) => {
               console.error(e);
               alert("画像アップロードに失敗しました");
@@ -333,10 +386,15 @@ export default function StoresClient() {
                 setProgress(null);
 
                 if (isEdit && editingStore) {
-                  const oldExt = editingStore.imageURL.match(/\.([a-zA-Z0-9]+)(\?|$)/)?.[1];
+                  const oldExt = editingStore.imageURL.match(
+                    /\.([a-zA-Z0-9]+)(\?|$)/
+                  )?.[1];
                   if (oldExt && oldExt.toLowerCase() !== ext) {
                     await deleteObject(
-                      storageRef(getStorage(), `${STORAGE_PATH}/${id}.${oldExt}`)
+                      storageRef(
+                        getStorage(),
+                        `${STORAGE_PATH}/${id}.${oldExt}`
+                      )
                     ).catch(() => {});
                   }
                 }
@@ -351,8 +409,12 @@ export default function StoresClient() {
         originalFileName = file.name;
       }
 
-      // ✅ 全言語翻訳（保存前に一括）
-      const t = await translateAllStore(name.trim(), address.trim(), (description ?? "").trim());
+      // 全言語翻訳（保存前に一括）
+      const t = await translateAllStore(
+        name.trim(),
+        address.trim(),
+        (description ?? "").trim()
+      );
 
       // Firestore へ保存（互換用 top-level も保持）
       const base: Base = {
@@ -360,6 +422,40 @@ export default function StoresClient() {
         address: address.trim(),
         ...(description.trim() && { description: description.trim() }),
       };
+
+      // ★ ジオコーディング：新規 or 住所変更時に実行。失敗時は既存 geo を維持
+      let geo: Geo | undefined = undefined;
+      const prevAddr =
+        editingStore?.base?.address ?? editingStore?.address ?? "";
+      const needsGeocode = !isEdit || prevAddr !== base.address;
+
+      if (needsGeocode) {
+        try {
+          const res = await fetch("/api/geocode", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address: base.address }),
+          });
+          if (res.ok) {
+            const g = (await res.json()) as {
+              lat?: number;
+              lng?: number;
+              placeId?: string;
+            };
+            if (typeof g.lat === "number" && typeof g.lng === "number") {
+              geo = {
+                lat: g.lat,
+                lng: g.lng,
+                ...(g.placeId ? { placeId: g.placeId } : {}),
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("ジオコーディング失敗:", e);
+        }
+      } else if (isEdit && editingStore?.geo) {
+        geo = editingStore.geo; // 住所に変更がない場合は既存を維持
+      }
 
       const payload: {
         base: Base;
@@ -370,6 +466,7 @@ export default function StoresClient() {
         imageURL: string;
         updatedAt: FieldValue;
         originalFileName?: string;
+        geo?: Geo;
       } = {
         base,
         t,
@@ -379,6 +476,7 @@ export default function StoresClient() {
         imageURL,
         updatedAt: serverTimestamp(),
         ...(originalFileName && { originalFileName }),
+        ...(geo ? { geo } : {}),
       };
 
       if (isEdit) {
@@ -407,12 +505,14 @@ export default function StoresClient() {
     try {
       await deleteDoc(doc(colRef, s.id));
       if (s.imageURL) {
-        const ext = s.imageURL.match(/\.([a-zA-Z0-9]+)(\?|$)/)?.[1]?.toLowerCase();
+        const ext = s.imageURL
+          .match(/\.([a-zA-Z0-9]+)(\?|$)/)?.[1]
+          ?.toLowerCase();
         const allowedExts = ["jpg", "jpeg", "png", "webp"];
         if (ext && allowedExts.includes(ext)) {
-          await deleteObject(storageRef(getStorage(), `${STORAGE_PATH}/${s.id}.${ext}`)).catch(
-            (err) => console.warn("画像の削除に失敗しました:", err)
-          );
+          await deleteObject(
+            storageRef(getStorage(), `${STORAGE_PATH}/${s.id}.${ext}`)
+          ).catch((err) => console.warn("画像の削除に失敗しました:", err));
         }
       }
     } catch (err) {
@@ -426,8 +526,15 @@ export default function StoresClient() {
   return (
     <main className="max-w-5xl mx-auto p-4 mt-20">
       {/* 並べ替え */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={stores.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={stores.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {stores.map((s) => {
               const loc = pickLocalized(s, uiLang);
@@ -471,7 +578,7 @@ export default function StoresClient() {
         <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
             <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "店舗を編集（原文）" : "店舗を追加（原文）"}
+              {formMode === "edit" ? "店舗を編集" : "店舗を追加"}
             </h2>
 
             {/* 店名（原文、日本語、改行可） */}
@@ -496,7 +603,9 @@ export default function StoresClient() {
 
             {/* 紹介文（任意） */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">（任意）紹介文（日本語）</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                （任意）紹介文（日本語）
+              </label>
               <textarea
                 placeholder="紹介文（日本語）"
                 value={description}
@@ -507,7 +616,7 @@ export default function StoresClient() {
               />
             </div>
 
-            {/* ✅ AIで紹介文を生成（モーダルを開く） */}
+            {/* AIで紹介文を生成（モーダルを開く） */}
             <button
               onClick={() => {
                 if (!name.trim() || !address.trim()) {
@@ -521,9 +630,24 @@ export default function StoresClient() {
             >
               {aiLoading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  <svg
+                    className="animate-spin h-5 w-5 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
                   </svg>
                   <span>生成中…</span>
                 </>
@@ -534,7 +658,9 @@ export default function StoresClient() {
 
             {/* （任意）画像 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">（任意）画像</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                （任意）画像
+              </label>
               <input
                 type="file"
                 accept="image/*"
@@ -547,18 +673,31 @@ export default function StoresClient() {
             {/* 進捗 */}
             {uploading && (
               <div className="space-y-2">
-                <p className="text-sm text-gray-500">アップロード中… {progress}%</p>
+                <p className="text-sm text-gray-500">
+                  アップロード中… {progress}%
+                </p>
                 <div className="w-full h-2 bg-gray-300 rounded">
-                  <div className="h-full bg-green-500 rounded transition-all" style={{ width: `${progress ?? 0}%` }} />
+                  <div
+                    className="h-full bg-green-500 rounded transition-all"
+                    style={{ width: `${progress ?? 0}%` }}
+                  />
                 </div>
               </div>
             )}
 
             <div className="flex justify-center gap-2">
-              <Button onClick={saveStore} disabled={submitFlag || uploading} className="px-4 py-2 bg-green-600 text-white rounded">
+              <Button
+                onClick={saveStore}
+                disabled={submitFlag || uploading}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
                 {submitFlag ? "保存中..." : "保存"}
               </Button>
-              <button onClick={closeForm} disabled={submitFlag || uploading} className="px-4 py-2 bg-gray-500 text-white rounded">
+              <button
+                onClick={closeForm}
+                disabled={submitFlag || uploading}
+                className="px-4 py-2 bg-gray-500 text-white rounded"
+              >
                 キャンセル
               </button>
             </div>
@@ -566,11 +705,13 @@ export default function StoresClient() {
         </div>
       )}
 
-      {/* ✅ AIモーダル（成功時に自動で閉じる） */}
+      {/* AIモーダル（成功時に自動で閉じる） */}
       {showAIModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-sm space-y-4">
-            <h3 className="text-lg font-semibold text-center">紹介文をAIで生成</h3>
+            <h3 className="text-lg font-semibold text-center">
+              紹介文をAIで生成
+            </h3>
 
             <input
               type="text"
@@ -607,9 +748,12 @@ export default function StoresClient() {
                       }),
                     });
                     const data = await res.json();
-                    if (!res.ok || !data?.description) throw new Error(data?.error || "生成に失敗");
+                    if (!res.ok || !data?.description)
+                      throw new Error(data?.error || "生成に失敗");
                     const out = String(data.description).trim();
-                    setDescription((prev) => (prev?.trim() ? `${prev}\n\n${out}` : out));
+                    setDescription((prev) =>
+                      prev?.trim() ? `${prev}\n\n${out}` : out
+                    );
                     // 生成成功 → 自動でモーダルを閉じる
                     setShowAIModal(false);
                     setAiKeyword("");
@@ -650,9 +794,20 @@ function SortableStoreItem({
   children,
 }: {
   store: StoreDoc;
-  children: (props: { attributes: any; listeners: any; isDragging: boolean }) => React.ReactNode;
+  children: (props: {
+    attributes: any;
+    listeners: any;
+    isDragging: boolean;
+  }) => React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: store.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: store.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
     <div ref={setNodeRef} style={style}>
@@ -708,7 +863,11 @@ function StoreCard({
         "rounded-lg shadow relative transition-colors overflow-visible mt-6",
         "bg-gradient-to-b",
         gradient,
-        isDragging ? "bg-yellow-100" : isDark ? "bg-black/40 text-white" : "bg-white"
+        isDragging
+          ? "bg-yellow-100"
+          : isDark
+          ? "bg-black/40 text-white"
+          : "bg-white"
       )}
     >
       {auth.currentUser !== null && (
@@ -726,7 +885,13 @@ function StoreCard({
 
       {s.imageURL && (
         <div className="relative w-full aspect-[1/1]">
-          <Image src={s.imageURL} alt={locName || s.name} fill className="object-cover rounded-t-lg" unoptimized />
+          <Image
+            src={s.imageURL}
+            alt={locName || s.name}
+            fill
+            className="object-cover rounded-t-lg"
+            unoptimized
+          />
         </div>
       )}
 
@@ -736,10 +901,15 @@ function StoreCard({
         <div className="text-sm">
           {primaryAddr && (
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(primaryAddr)}`}
+              href={buildMapsHref(s)} // ★ 座標優先リンク
               target="_blank"
               rel="noopener noreferrer"
-              className={clsx("underline", isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-700 hover:text-blue-900")}
+              className={clsx(
+                "underline",
+                isDark
+                  ? "text-blue-300 hover:text-blue-200"
+                  : "text-blue-700 hover:text-blue-900"
+              )}
             >
               {primaryAddr}
             </a>
@@ -751,15 +921,23 @@ function StoreCard({
           ))}
         </div>
 
-        {locDescription && <p className="text-sm whitespace-pre-wrap">{locDescription}</p>}
+        {locDescription && (
+          <p className="text-sm whitespace-pre-wrap">{locDescription}</p>
+        )}
       </div>
 
       {isAdmin && (
         <div className="absolute top-2 right-2 flex gap-2">
-          <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm" onClick={() => onEdit(s)}>
+          <button
+            className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+            onClick={() => onEdit(s)}
+          >
             編集
           </button>
-          <button className="px-2 py-1 bg-red-600 text-white rounded text-sm" onClick={() => onRemove(s)}>
+          <button
+            className="px-2 py-1 bg-red-600 text-white rounded text-sm"
+            onClick={() => onRemove(s)}
+          >
             削除
           </button>
         </div>

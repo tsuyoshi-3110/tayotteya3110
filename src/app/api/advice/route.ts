@@ -31,11 +31,15 @@ export async function POST(req: NextRequest) {
 ${content}
 
 ■ 最近の返信：
-${recentReplies.length > 0 ? recentReplies.join("\n") : "（返信はまだありません）"}
+${
+  recentReplies.length > 0
+    ? recentReplies.join("\n")
+    : "（返信はまだありません）"
+}
 `;
 
     const chat = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-5-chat-latest",
       messages: [{ role: "user", content: prompt }],
     });
 

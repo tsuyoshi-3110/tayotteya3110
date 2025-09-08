@@ -91,7 +91,10 @@ type StaffDoc = Product & {
 };
 
 /** 表示用：UI言語で値を取り出し（なければ原文フォールバック） */
-function displayOf(p: StaffDoc, ui: ReturnType<typeof useUILang>["uiLang"]): Base {
+function displayOf(
+  p: StaffDoc,
+  ui: ReturnType<typeof useUILang>["uiLang"]
+): Base {
   if (ui === "ja") {
     return {
       title: p.base?.title ?? p.title ?? "",
@@ -124,9 +127,7 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
 
   const settled = await Promise.allSettled(jobs);
   return settled
-    .filter(
-      (r): r is PromiseFulfilledResult<Tr> => r.status === "fulfilled"
-    )
+    .filter((r): r is PromiseFulfilledResult<Tr> => r.status === "fulfilled")
     .map((r) => r.value);
 }
 
@@ -309,7 +310,7 @@ export default function StaffClient() {
   /* 保存（全言語へ自動翻訳して保存） */
   const saveProduct = async () => {
     if (uploading || saving) return;
-    if (!titleJa.trim()) return alert("名前（原文）は必須です");
+    if (!titleJa.trim()) return alert("名前は必須です");
     if (formMode === "add" && !file) return alert("メディアを選択してください");
 
     setSaving(true);
@@ -405,7 +406,10 @@ export default function StaffClient() {
             (editing.mediaType === "video" ? "mp4" : "jpg");
           if (oldExt && oldExt !== ext) {
             await deleteObject(
-              storageRef(getStorage(), `products/public/${SITE_KEY}/${id}.${oldExt}`)
+              storageRef(
+                getStorage(),
+                `products/public/${SITE_KEY}/${id}.${oldExt}`
+              )
             ).catch(() => {});
           }
         }
@@ -529,8 +533,15 @@ export default function StaffClient() {
       )}
 
       {/* ====== 並べ替えリスト ====== */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={list.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={list.map((p) => p.id)}
+          strategy={verticalListSortingStrategy}
+        >
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-1 lg:grid-cols-1 items-stretch w-full max-w-2xl mx-auto">
             {list.map((p) => {
               const loc = displayOf(p, uiLang);
@@ -580,7 +591,9 @@ export default function StaffClient() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "スタッフプロフィールを編集（原文）" : "スタッフプロフィール追加（原文）"}
+              {formMode === "edit"
+                ? "スタッフプロフィールを編集"
+                : "スタッフプロフィール追加"}
             </h2>
 
             <textarea
@@ -638,7 +651,9 @@ export default function StaffClient() {
               )}
             </div>
 
-            <label className="text-sm font-medium">画像 / 動画（{MAX_VIDEO_SEC}秒以内）</label>
+            <label className="text-sm font-medium">
+              画像 / 動画（{MAX_VIDEO_SEC}秒以内）
+            </label>
             <input
               type="file"
               accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
@@ -647,7 +662,9 @@ export default function StaffClient() {
               disabled={uploading || saving}
             />
             {formMode === "edit" && editing?.originalFileName && (
-              <p className="text-sm text-gray-600">現在のファイル: {editing.originalFileName}</p>
+              <p className="text-sm text-gray-600">
+                現在のファイル: {editing.originalFileName}
+              </p>
             )}
 
             <div className="flex gap-2 justify-center">
@@ -677,9 +694,9 @@ export default function StaffClient() {
    カード
 ============================== */
 interface StaffCardProps {
-  product: StaffDoc;          // 並べ替え用に id 等が必要
-  locTitle: string;           // 表示言語に合わせたタイトル
-  locBody: string;            // 表示言語に合わせた本文
+  product: StaffDoc; // 並べ替え用に id 等が必要
+  locTitle: string; // 表示言語に合わせたタイトル
+  locBody: string; // 表示言語に合わせた本文
   isAdmin: boolean;
   isDragging: boolean;
   isLoaded: boolean;
@@ -718,7 +735,9 @@ export function StaffCard({
       layout={isDragging ? false : true}
       initial={{ opacity: 0, y: 40 }}
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-      transition={isDragging ? { duration: 0 } : { duration: 0.6, ease: "easeOut" }}
+      transition={
+        isDragging ? { duration: 0 } : { duration: 0.6, ease: "easeOut" }
+      }
       style={isDragging ? { transform: undefined } : undefined}
       className={clsx(
         "flex flex-col h-full border rounded-lg overflow-hidden shadow relative transition-colors duration-200",
@@ -766,9 +785,24 @@ export function StaffCard({
 
       {!isLoaded && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10">
-          <svg className="w-8 h-8 animate-spin text-pink-600" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          <svg
+            className="w-8 h-8 animate-spin text-pink-600"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            />
           </svg>
         </div>
       )}
@@ -801,11 +835,21 @@ export function StaffCard({
       )}
 
       <div className="p-3 space-y-2">
-        <h2 className={clsx("text-sm font-bold whitespace-pre-wrap", isDark && "text-white")}>
+        <h2
+          className={clsx(
+            "text-sm font-bold whitespace-pre-wrap",
+            isDark && "text-white"
+          )}
+        >
           {locTitle}
         </h2>
         {locBody && (
-          <p className={clsx("text-sm whitespace-pre-wrap", isDark && "text-white")}>
+          <p
+            className={clsx(
+              "text-sm whitespace-pre-wrap",
+              isDark && "text-white"
+            )}
+          >
             {locBody}
           </p>
         )}

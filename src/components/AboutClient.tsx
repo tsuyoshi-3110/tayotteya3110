@@ -244,7 +244,7 @@ export default function AboutClient() {
                 onClick={() => { setDraftText(readBase(docData)); setEditing(true); }}
                 className="bg-blue-600 hover:bg-blue-700 transition-colors shadow"
               >
-                編集する（原文/日本語）
+                編集する
               </Button>
             </motion.div>
           )}
@@ -262,7 +262,7 @@ export default function AboutClient() {
               initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
             >
-              {/* テキスト（原文=ja） */}
+              {/* テキスト */}
               <div className="space-y-2">
                 <div className="text-sm text-gray-700">
                   編集してください。

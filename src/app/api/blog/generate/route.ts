@@ -10,7 +10,10 @@ export async function POST(req: Request) {
 
     // 入力バリデーション（タイトルは使わない）
     const ks = Array.isArray(keywords)
-      ? keywords.map((k) => (k ?? "").trim()).filter(Boolean).slice(0, 3)
+      ? keywords
+          .map((k) => (k ?? "").trim())
+          .filter(Boolean)
+          .slice(0, 3)
       : [];
 
     if (ks.length === 0) {
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
     ].join("\n");
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-chat-latesto-mini",
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

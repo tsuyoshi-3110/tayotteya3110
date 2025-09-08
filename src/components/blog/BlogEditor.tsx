@@ -81,9 +81,7 @@ function blockHasKey(
 ): b is BlogBlock & Record<typeof key, string> {
   return typeof (b as Record<string, unknown>)[key] === "string";
 }
-function isMedia(
-  b: BlogBlock
-): b is BlogBlock & {
+function isMedia(b: BlogBlock): b is BlogBlock & {
   type: "image" | "video";
   path?: string;
   url?: string;
@@ -121,7 +119,9 @@ async function moveTempToPost(
     }
     emit(`メディア移動中… ${moved + 1}/${total}`);
     const oldRef = sref(storage, b.path);
-    const blob = await fetch(await getDownloadURL(oldRef)).then((r) => r.blob());
+    const blob = await fetch(await getDownloadURL(oldRef)).then((r) =>
+      r.blob()
+    );
     const newPath = b.path.replace("/posts/temp/", `/posts/${postId}/`);
     const newRef = sref(storage, newPath);
     await uploadBytes(newRef, blob, { contentType: blob.type });
@@ -129,7 +129,11 @@ async function moveTempToPost(
     try {
       await deleteObject(oldRef);
     } catch {}
-    result.push({ ...(b as Record<string, unknown>), path: newPath, url: newUrl } as BlogBlock);
+    result.push({
+      ...(b as Record<string, unknown>),
+      path: newPath,
+      url: newUrl,
+    } as BlogBlock);
     moved++;
     emit(`メディア移動中… ${moved}/${total}`);
   }
@@ -150,7 +154,10 @@ async function translatePost(
   // 線形化
   const SEP = "\n---\n";
   const items: Array<
-    { kind: "title" } | { kind: "text"; idx: number } | { kind: "caption"; idx: number } | { kind: "mediaTitle"; idx: number }
+    | { kind: "title" }
+    | { kind: "text"; idx: number }
+    | { kind: "caption"; idx: number }
+    | { kind: "mediaTitle"; idx: number }
   > = [];
   const payload: string[] = [];
 
@@ -262,10 +269,13 @@ export default function BlogEditor({ postId }: Props) {
       if (!baseBlocks || baseBlocks.length === 0) {
         const tmp: BlogBlock[] = [];
         const bodyText = String(d.body || "");
-        if (bodyText) tmp.push({ id: uuid(), type: "p", text: bodyText } as BlogBlock);
+        if (bodyText)
+          tmp.push({ id: uuid(), type: "p", text: bodyText } as BlogBlock);
         const medias = Array.isArray(d.media) ? (d.media as BlogBlock[]) : [];
-        for (const m of medias) tmp.push({ id: uuid(), ...(m as object) } as BlogBlock);
-        if (tmp.length === 0) tmp.push({ id: uuid(), type: "p", text: "" } as BlogBlock);
+        for (const m of medias)
+          tmp.push({ id: uuid(), ...(m as object) } as BlogBlock);
+        if (tmp.length === 0)
+          tmp.push({ id: uuid(), type: "p", text: "" } as BlogBlock);
         baseBlocks = tmp;
       }
 
@@ -365,7 +375,7 @@ export default function BlogEditor({ postId }: Props) {
           created,
           pruneUndefined({
             base: { title, blocks: moved },
-            t: tAll, 
+            t: tAll,
             title,
             body: plain,
             blocks: moved,
@@ -431,7 +441,7 @@ export default function BlogEditor({ postId }: Props) {
       <div className="p-5">
         {/* タイトル */}
         <div className="grid gap-2">
-          <label className="text-sm font-medium">タイトル（原文）</label>
+          <label className="text-sm font-medium">タイトル</label>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -453,7 +463,7 @@ export default function BlogEditor({ postId }: Props) {
           )}
         </div>
 
-        {/* 本文エディタ（原文） */}
+        {/* 本文エディタ */}
         <div className="grid gap-2">
           <label className="text-sm font-medium">本文（原文ブロック）</label>
           <BlockEditor
@@ -473,13 +483,13 @@ export default function BlogEditor({ postId }: Props) {
               isDark ? "bg-gray-900 text-white" : "bg-white text-black"
             )}
           >
-            <div className="mb-3 text-base font-semibold">
-              {progress.label}
-            </div>
+            <div className="mb-3 text-base font-semibold">{progress.label}</div>
             <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
               <div
                 className="h-2 rounded-full bg-green-500 transition-all"
-                style={{ width: `${Math.max(0, Math.min(100, progress.pct))}%` }}
+                style={{
+                  width: `${Math.max(0, Math.min(100, progress.pct))}%`,
+                }}
               />
             </div>
             <div

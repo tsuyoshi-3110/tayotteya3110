@@ -309,7 +309,7 @@ export default function ProductsClient() {
   /* 保存（全言語生成 → Firestore） */
   const saveProduct = useCallback(async () => {
     if (progress !== null || saving) return;
-    if (!titleJa.trim()) return alert("タイトル（原文）は必須です");
+    if (!titleJa.trim()) return alert("タイトルは必須です");
     if (formMode === "add" && !file) return alert("メディアを選択してください");
 
     setSaving(true);
@@ -598,7 +598,7 @@ export default function ProductsClient() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "編集（原文）" : "新規追加（原文）"}
+              {formMode === "edit" ? "編集" : "新規追加"}
             </h2>
 
             <input
@@ -656,11 +656,7 @@ export default function ProductsClient() {
                 disabled={saving || progress !== null}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
               >
-                {saving
-                  ? "保存中…"
-                  : formMode === "edit"
-                  ? "更新"
-                  : "追加"}
+                {saving ? "保存中…" : formMode === "edit" ? "更新" : "追加"}
               </button>
               <button
                 onClick={closeForm}

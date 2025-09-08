@@ -14,14 +14,17 @@ export async function POST(req: NextRequest) {
   }
 
   // 🔻 文章量の指示を追加（100文字以内など）
-  const prompt = `以下のキーワードを含めて、自己紹介を作成してください。自然で親しみやすい文章にしてください。文章は短く、最大でも200文字程度にしてください。\nキーワード: ${keywords.join(", ")}`;
+  const prompt = `以下のキーワードを含めて、自己紹介を作成してください。自然で親しみやすい文章にしてください。文章は短く、最大でも200文字程度にしてください。\nキーワード: ${keywords.join(
+    ", "
+  )}`;
 
   const chat = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-5-chat-latest",
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text = chat.choices[0].message.content?.trim() ?? "紹介文の生成に失敗しました";
+  const text =
+    chat.choices[0].message.content?.trim() ?? "紹介文の生成に失敗しました";
 
   return NextResponse.json({ text });
 }

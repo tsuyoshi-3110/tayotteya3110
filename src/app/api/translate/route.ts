@@ -13,13 +13,25 @@ You are a professional translator.
 `;
 
 type Target =
-  | "en" | "zh" | "zh-TW" | "ko"
-  | "fr" | "es" | "de" | "pt" | "it"
-  | "ru" | "th" | "vi" | "id" | "hi" | "ar";
+  | "en"
+  | "zh"
+  | "zh-TW"
+  | "ko"
+  | "fr"
+  | "es"
+  | "de"
+  | "pt"
+  | "it"
+  | "ru"
+  | "th"
+  | "vi"
+  | "id"
+  | "hi"
+  | "ar";
 
 type Req = {
-  title?: string;   // ← optional
-  body?: string;    // ← optional
+  title?: string; // ← optional
+  body?: string; // ← optional
   target: Target;
 };
 
@@ -45,20 +57,26 @@ export async function POST(req: NextRequest) {
   try {
     const json = (await req.json()) as Req;
     const title = (json.title ?? "").toString();
-    const body  = (json.body  ?? "").toString();
+    const body = (json.body ?? "").toString();
     const target = json.target;
 
     // ✅ target は必須、title と body はどちらか一方でも OK
     if (!target || (!title && !body)) {
       return NextResponse.json(
-        { error: "Bad Request: require `target` and at least one of `title` or `body`" },
+        {
+          error:
+            "Bad Request: require `target` and at least one of `title` or `body`",
+        },
         { status: 400 }
       );
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY not set" },
+        { status: 500 }
+      );
     }
 
     const openai = new OpenAI({ apiKey });
@@ -76,7 +94,7 @@ ${JSON.stringify({ title, body })}
     `.trim();
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-chat-latesto-mini",
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
@@ -94,8 +112,9 @@ ${JSON.stringify({ title, body })}
       parsed = {};
     }
 
-    const outTitle = typeof parsed.title === "string" ? parsed.title.trim() : "";
-    const outBody  = typeof parsed.body  === "string" ? parsed.body.trim()  : "";
+    const outTitle =
+      typeof parsed.title === "string" ? parsed.title.trim() : "";
+    const outBody = typeof parsed.body === "string" ? parsed.body.trim() : "";
 
     return NextResponse.json({ title: outTitle, body: outBody });
   } catch (e: any) {

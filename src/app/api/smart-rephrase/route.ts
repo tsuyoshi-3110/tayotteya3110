@@ -27,7 +27,7 @@ ${text}
 `;
 
     const chat = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-5-chat-latest",
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -35,6 +35,9 @@ ${text}
     return NextResponse.json({ result });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: "AI生成に失敗しました" }, { status: 500 });
+    return NextResponse.json(
+      { error: "AI生成に失敗しました" },
+      { status: 500 }
+    );
   }
 }
