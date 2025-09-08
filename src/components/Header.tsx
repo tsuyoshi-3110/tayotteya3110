@@ -55,7 +55,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     timeline: "タイムライン",
     community: "コミュニティ",
     analytics: "分析",
-    admin: "Administrator Login",
+    admin: "管理者ログイン",
   },
   en: {
     menuTitle: "Menu",

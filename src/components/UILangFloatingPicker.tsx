@@ -60,7 +60,7 @@ export default function UILangFloatingPicker() {
       <div
         className={clsx(
           "relative inline-flex items-center",
-          "rounded-xl border bg-white/70 backdrop-blur shadow-lg"
+          "rounded-xl border bg-transparent backdrop-blur shadow-lg"
         )}
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
@@ -71,7 +71,7 @@ export default function UILangFloatingPicker() {
           onClick={toggle}
           className={clsx(
             "flex items-center gap-2",
-            "rounded-lg border bg-white/90",
+            "rounded-lg border bg-transparent",
             "px-3 py-2",
             "text-[16px]",             // iOS ズーム抑止
             "min-h-[44px] min-w-[200px]",
