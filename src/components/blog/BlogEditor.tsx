@@ -294,7 +294,7 @@ export default function BlogEditor({ postId }: Props) {
         );
 
         // 全言語翻訳（常に再生成して上書き）
-        setProgress({ open: true, pct: 85, label: "全言語へ翻訳中…" });
+        setProgress({ open: true, pct: 85, label: "翻訳中…" });
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
             translatePost(title, moved, lang)
@@ -347,7 +347,7 @@ export default function BlogEditor({ postId }: Props) {
           })
         );
 
-        setProgress({ open: true, pct: 75, label: "全言語へ翻訳中…" });
+        setProgress({ open: true, pct: 75, label: "翻訳中…" });
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
             translatePost(title, moved, lang)
@@ -365,7 +365,7 @@ export default function BlogEditor({ postId }: Props) {
           created,
           pruneUndefined({
             base: { title, blocks: moved },
-            t: tAll, // ★ 全言語を保存
+            t: tAll, 
             title,
             body: plain,
             blocks: moved,
@@ -444,7 +444,7 @@ export default function BlogEditor({ postId }: Props) {
         {/* 操作 */}
         <div className="flex items-center gap-2 mt-5 mb-5">
           <Button onClick={save} disabled={busy}>
-            {postId ? "更新（全言語上書き）" : "公開（全言語作成）"}
+            {postId ? "更新" : "公開"}
           </Button>
           {postId && (
             <Button variant="destructive" onClick={remove} disabled={busy}>

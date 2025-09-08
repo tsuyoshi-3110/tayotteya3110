@@ -656,7 +656,7 @@ export default function StaffClient() {
                 disabled={uploading || saving}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
               >
-                {saving ? "保存中…" : formMode === "edit" ? "更新（全言語へ保存）" : "追加（全言語へ保存）"}
+                {saving ? "保存中…" : formMode === "edit" ? "更新" : "追加"}
               </button>
               <button
                 onClick={closeForm}

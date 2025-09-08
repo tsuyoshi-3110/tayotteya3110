@@ -556,7 +556,7 @@ export default function StoresClient() {
 
             <div className="flex justify-center gap-2">
               <Button onClick={saveStore} disabled={submitFlag || uploading} className="px-4 py-2 bg-green-600 text-white rounded">
-                {submitFlag ? "保存中..." : "保存（全言語へ反映）"}
+                {submitFlag ? "保存中..." : "保存"}
               </Button>
               <button onClick={closeForm} disabled={submitFlag || uploading} className="px-4 py-2 bg-gray-500 text-white rounded">
                 キャンセル

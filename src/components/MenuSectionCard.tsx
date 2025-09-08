@@ -622,7 +622,7 @@ export default function MenuSectionCard({
                 onClick={handleUpdateSectionTitle}
                 disabled={uploading || savingTitle}
               >
-                {savingTitle ? "保存中..." : "保存（全言語へ反映）"}
+                {savingTitle ? "保存中..." : "保存"}
               </Button>
             </div>
           </div>
@@ -1040,8 +1040,8 @@ function ItemModal({
             {saving
               ? "保存中..."
               : mode === "create"
-              ? "追加（全言語へ保存）"
-              : "保存（全言語へ反映）"}
+              ? "追加"
+              : "保存"}
           </Button>
         </div>
       </div>

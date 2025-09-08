@@ -659,8 +659,8 @@ export default function ProductsClient() {
                 {saving
                   ? "保存中…"
                   : formMode === "edit"
-                  ? "更新（全言語へ保存）"
-                  : "追加（全言語へ保存）"}
+                  ? "更新"
+                  : "追加"}
               </button>
               <button
                 onClick={closeForm}

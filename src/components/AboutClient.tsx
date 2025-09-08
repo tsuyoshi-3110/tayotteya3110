@@ -182,7 +182,7 @@ export default function AboutClient() {
       setDraftFile(null);
       setPreviewURL(null);
       setEditing(false);
-      alert("保存しました！（全言語を更新）");
+      alert("保存しました！");
     } catch (e) {
       console.error(e);
       alert("保存に失敗しました");
@@ -265,7 +265,7 @@ export default function AboutClient() {
               {/* テキスト（原文=ja） */}
               <div className="space-y-2">
                 <div className="text-sm text-gray-700">
-                  原文（日本語）を編集してください。<b>保存時は常に全言語の自動翻訳を上書き</b>します。
+                  編集してください。
                 </div>
                 <Textarea
                   rows={12}

@@ -535,7 +535,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                 disabled={uploading || saving}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
               >
-                {saving ? "保存中…" : "更新（全言語へ保存）"}
+                {saving ? "保存中…" : "更新"}
               </button>
               <button
                 onClick={() => !uploading && !saving && setShowEdit(false)}
