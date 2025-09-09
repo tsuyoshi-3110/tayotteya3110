@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Plus, Pin } from "lucide-react";
@@ -25,6 +24,9 @@ import {
   serverTimestamp,
   CollectionReference,
   DocumentData,
+  limit,
+  startAfter,
+  getDocs,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -35,6 +37,7 @@ import {
 } from "firebase/storage";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import ProductMedia from "./ProductMedia";
 
 // Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
@@ -177,6 +180,10 @@ export default function ProductsClient() {
   const canOpenBodyGen = Boolean(titleJa?.trim());
   const canGenerateBody = aiKeywords.some((k) => k.trim());
 
+  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const generateBodyWithAI = async () => {
     if (!titleJa.trim()) {
       alert("タイトルを入力してください");
@@ -218,16 +225,18 @@ export default function ProductsClient() {
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
   useEffect(() => {
-    const q = query(colRef, orderBy("order", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const rows: ProductDoc[] = snap.docs.map((d) => {
+    // 初回20件だけリアルタイム購読（X風）
+    const q = query(colRef, orderBy("order", "asc"), limit(20));
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const firstPage = snap.docs.map((d) => {
         const data = d.data() as any;
         const base: Base = data.base ?? {
           title: data.title ?? "",
           body: data.body ?? "",
         };
         const t: Tr[] = Array.isArray(data.t) ? data.t : [];
-        return {
+        const row: ProductDoc = {
           id: d.id,
           base,
           t,
@@ -241,12 +250,89 @@ export default function ProductsClient() {
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
+        return row;
       });
-      rows.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
-      setList(rows);
+
+      // 既存リストにマージ：初回20件に含まれるIDは差し替え、後続ページは温存
+      setList((prev) => {
+        const firstIds = new Set(firstPage.map((r) => r.id));
+        const others = prev.filter((r) => !firstIds.has(r.id)); // 追加ロード済みのページ
+        const merged = [...firstPage, ...others];
+        merged.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+        return merged;
+      });
+
+      setLastVisible(snap.docs.at(-1) ?? null);
+      setHasMore(snap.docs.length === 20); // 20件満たしていれば次ページあり
     });
-    return () => unsub();
+
+    return () => unsubscribe();
   }, [colRef]);
+
+  const loadMore = useCallback(async () => {
+    if (!lastVisible || loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+
+    const q = query(
+      colRef,
+      orderBy("order", "asc"),
+      startAfter(lastVisible),
+      limit(20)
+    );
+
+    const snap = await getDocs(q);
+
+    const existingIds = new Set(list.map((x) => x.id));
+    const nextPage = snap.docs
+      .map((d) => {
+        const data = d.data() as any;
+        const base: Base = data.base ?? {
+          title: data.title ?? "",
+          body: data.body ?? "",
+        };
+        const t: Tr[] = Array.isArray(data.t) ? data.t : [];
+        const row: ProductDoc = {
+          id: d.id,
+          base,
+          t,
+          title: data.title,
+          body: data.body,
+          mediaURL: data.mediaURL ?? "",
+          mediaType: (data.mediaType as MediaType) ?? "image",
+          price: typeof data.price === "number" ? data.price : 0,
+          order: data.order ?? 9999,
+          originalFileName: data.originalFileName,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        };
+        return row;
+      })
+      .filter((row) => !existingIds.has(row.id)); // ★ 重複除外
+
+    setList((prev) => {
+      const merged = [...prev, ...nextPage];
+      merged.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+      return merged;
+    });
+
+    setLastVisible(snap.docs.at(-1) ?? null);
+    setHasMore(snap.docs.length === 20);
+    setLoadingMore(false);
+  }, [colRef, lastVisible, loadingMore, hasMore, list]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const nearBottom =
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
+      if (nearBottom && !loadingMore && hasMore) {
+        loadMore();
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [loadMore, loadingMore, hasMore]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -437,67 +523,76 @@ export default function ProductsClient() {
           items={list.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-6 mt-4">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
             {list.map((p) => {
-              const loc = displayOf(p, uiLang);
+              const loc = displayOf(p, uiLang); // ← uiLang と displayOf を実際に使用
               return (
                 <SortableItem key={p.id} product={p}>
                   {({ listeners, attributes, isDragging }) => (
+                    // 外ラッパ：Pinがはみ出せるように overflowは付けない。高さ揃えのために h-full。
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9, y: 20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
                       transition={{ duration: 0.3 }}
                       onClick={() => {
                         if (isDragging) return;
                         router.push(`/products/${p.id}`);
                       }}
-                      className={clsx(
-                        "flex flex-col h-full border rounded-lg shadow-xl relative transition-colors cursor-pointer",
-                        gradient,
-                        isDragging
-                          ? "bg-yellow-100"
-                          : isDark
-                          ? "bg-black/40 text-white"
-                          : "bg-white"
-                      )}
+                      className="relative cursor-pointer h-full"
                     >
+                      {/* DnDハンドル（Pinをカード上部センターに） */}
                       {auth.currentUser && (
                         <div
                           {...attributes}
                           {...listeners}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute left-1/2 -top-4 -translate-x-1/2 z-30 cursor-grab active:cursor-grabbing"
+                          onContextMenu={(e) => e.preventDefault()} // 長押しメニュー抑止
+                          draggable={false} // ネイティブD&D抑止
+                          className="drag-handle absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3 touch-none"
+                          role="button"
+                          aria-label="並び替え"
                         >
-                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow">
+                          {/* 見た目の丸いピン */}
+                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
                             <Pin />
                           </div>
                         </div>
                       )}
 
-                      {p.mediaType === "image" ? (
-                        <div className="relative w-full aspect-square">
-                          <Image
-                            src={p.mediaURL}
-                            alt={loc.title}
-                            fill
-                            className="object-cover"
-                            sizes="100vw"
-                            unoptimized
-                          />
-                        </div>
-                      ) : (
-                        <video
+                      {/* 内側：カード本体（gradient背景・角丸・影・overflow-hidden） */}
+                      <div
+                        className={clsx(
+                          "flex h-full flex-col border rounded-lg overflow-hidden shadow-xl transition-colors duration-200",
+                          "bg-gradient-to-b",
+                          gradient,
+                          isDragging
+                            ? "bg-yellow-100"
+                            : isDark
+                            ? "bg-black/40 text-white"
+                            : "bg-white",
+                          !isDragging && "hover:shadow-lg"
+                        )}
+                      >
+                        {/* メディア */}
+                        <ProductMedia
                           src={p.mediaURL}
-                          muted
-                          playsInline
-                          autoPlay
-                          loop
-                          className="w-full aspect-square object-cover"
+                          type={p.mediaType}
+                          alt={loc.title || "product"}
+                          className="shadow-lg"
                         />
-                      )}
 
-                      <div className="p-3">
-                        <h2 className="text-sm font-bold">{loc.title}</h2>
+                        {/* 商品情報（高さ揃え：下部に余白が出てもカード全体は h-full で統一） */}
+                        <div className="p-3 space-y-2">
+                          <h2
+                            className={clsx("text-sm font-bold", {
+                              "text-white": isDark,
+                            })}
+                          >
+                            {loc.title || "（無題）"}
+                          </h2>
+                          {/* 必要なら本文の先頭だけ：<p className="text-xs opacity-80 line-clamp-2">{loc.body}</p> */}
+                        </div>
                       </div>
                     </motion.div>
                   )}
