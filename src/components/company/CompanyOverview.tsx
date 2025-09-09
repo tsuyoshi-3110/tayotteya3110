@@ -947,7 +947,7 @@ export default function CompanyOverview() {
                     キャンセル
                   </Button>
                   <Button onClick={saveEdit} disabled={saving} className="bg-blue-500 hover:bg-blue-400">
-                    保存
+                    保存（全言語上書き）
                   </Button>
                 </>
               )}

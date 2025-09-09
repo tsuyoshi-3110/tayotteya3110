@@ -28,33 +28,18 @@ import { THEMES, type ThemeKey } from "@/lib/themes";
 import clsx from "clsx";
 import BlockEditor from "./BlockEditor";
 import { v4 as uuid } from "uuid";
+import { BusyOverlay } from "@/components/BusyOverlay";
 
 /* ==========================
    テーマ（ダーク判定）
 ========================== */
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
 
+import { LANGS, type LangKey } from "@/lib/langs";
+
 /* ==========================
    多言語ターゲット（jaはbaseで保持）
 ========================== */
-const LANGS = [
-  { key: "en", label: "英語" },
-  { key: "zh", label: "中国語(簡体)" },
-  { key: "zh-TW", label: "中国語(繁体)" },
-  { key: "ko", label: "韓国語" },
-  { key: "fr", label: "フランス語" },
-  { key: "es", label: "スペイン語" },
-  { key: "de", label: "ドイツ語" },
-  { key: "pt", label: "ポルトガル語" },
-  { key: "it", label: "イタリア語" },
-  { key: "ru", label: "ロシア語" },
-  { key: "th", label: "タイ語" },
-  { key: "vi", label: "ベトナム語" },
-  { key: "id", label: "インドネシア語" },
-  { key: "hi", label: "ヒンディー語" },
-  { key: "ar", label: "アラビア語" },
-] as const;
-type LangKey = (typeof LANGS)[number]["key"];
 
 /* ==========================
    Firestore 保存用ユーティリティ
@@ -142,7 +127,7 @@ async function moveTempToPost(
 }
 
 /* ==========================
-   翻訳：原文→指定言語（ブロック構造を維持して上書き生成）
+   翻訳：原文→指定言語（ブロック構造維持）
 ========================== */
 type TranslatedPost = { lang: LangKey; title: string; blocks: BlogBlock[] };
 
@@ -151,7 +136,6 @@ async function translatePost(
   baseBlocks: BlogBlock[],
   target: LangKey
 ): Promise<TranslatedPost> {
-  // 線形化
   const SEP = "\n---\n";
   const items: Array<
     | { kind: "title" }
@@ -194,7 +178,6 @@ async function translatePost(
   const data = (await res.json()) as { body?: string };
   const parts = String(data.body ?? "").split(SEP);
 
-  // 再構築（上書き）
   let p = 0;
   let tTitle = baseTitle;
   const outBlocks: BlogBlock[] = baseBlocks.map((b) => ({ ...b }));
@@ -230,15 +213,11 @@ export default function BlogEditor({ postId }: Props) {
   const [title, setTitle] = useState<string>("");
   const [blocks, setBlocks] = useState<BlogBlock[]>([]);
 
-  // 保存/削除 進捗
+  // BusyOverlay 制御
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{
-    open: boolean;
-    pct: number;
-    label: string;
-  }>({ open: false, pct: 0, label: "" });
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
 
-  // テーマ（進捗モーダルの見栄えに使用）
+  // テーマ（見栄え用）
   const gradient = useThemeGradient();
   const isDark = useMemo(() => {
     if (!gradient) return false;
@@ -283,6 +262,7 @@ export default function BlogEditor({ postId }: Props) {
       setBlocks(baseBlocks);
     })();
   }, [postId]);
+  
 
   /* ========== 保存（新規/更新） ========== */
   const save = async () => {
@@ -291,20 +271,19 @@ export default function BlogEditor({ postId }: Props) {
       return;
     }
     setBusy(true);
-    setProgress({ open: true, pct: 5, label: "準備中…" });
+    setUploadPercent(5); // 準備中
     try {
       if (postId) {
-        // 既存更新：まずメディアを temp → posts/{id} へ
-        const moved = await moveTempToPost(postId, blocks, (pct, label) =>
-          setProgress({
-            open: true,
-            pct: Math.max(10, Math.min(80, pct)),
-            label,
-          })
-        );
+        // メディア移動
+        const moved = await moveTempToPost(postId, blocks, (pct) => {
+          // 10〜80%のレンジで反映
+          const scaled =
+            10 + Math.round((Math.max(0, Math.min(100, pct)) / 100) * 70);
+          setUploadPercent(scaled);
+        });
 
-        // 全言語翻訳（常に再生成して上書き）
-        setProgress({ open: true, pct: 85, label: "翻訳中…" });
+        // 翻訳
+        setUploadPercent(85);
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
             translatePost(title, moved, lang)
@@ -318,12 +297,13 @@ export default function BlogEditor({ postId }: Props) {
           .join("\n\n")
           .trim();
 
-        setProgress({ open: true, pct: 95, label: "保存中…" });
+        // 保存
+        setUploadPercent(95);
         await updateDoc(
           doc(db, "siteBlogs", SITE_KEY, "posts", postId),
           pruneUndefined({
             base: { title, blocks: moved }, // ja は base
-            t: tAll, // ★ すべて上書き
+            t: tAll, // 全言語上書き
             // 互換フィールド
             title,
             body: plain,
@@ -332,10 +312,10 @@ export default function BlogEditor({ postId }: Props) {
           })
         );
 
-        setProgress({ open: true, pct: 100, label: "完了" });
+        setUploadPercent(100);
       } else {
         // 新規作成
-        setProgress({ open: true, pct: 10, label: "記事を作成中…" });
+        setUploadPercent(10);
         const created = await addDoc(
           collection(db, "siteBlogs", SITE_KEY, "posts"),
           {
@@ -349,28 +329,30 @@ export default function BlogEditor({ postId }: Props) {
           }
         );
 
-        const moved = await moveTempToPost(created.id, blocks, (pct, label) =>
-          setProgress({
-            open: true,
-            pct: 10 + Math.round((pct / 100) * 60),
-            label,
-          })
-        );
+        // メディア移動
+        const moved = await moveTempToPost(created.id, blocks, (pct) => {
+          const scaled =
+            15 + Math.round((Math.max(0, Math.min(100, pct)) / 100) * 60);
+          setUploadPercent(scaled);
+        });
 
-        setProgress({ open: true, pct: 75, label: "翻訳中…" });
+        // 翻訳
+        setUploadPercent(80);
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
             translatePost(title, moved, lang)
           )
         );
 
+        // 互換 body
         const plain = moved
           .filter((b) => blockHasKey(b, "text"))
           .map((b) => (b as { text: string }).text || "")
           .join("\n\n")
           .trim();
 
-        setProgress({ open: true, pct: 95, label: "保存中…" });
+        // 保存
+        setUploadPercent(95);
         await updateDoc(
           created,
           pruneUndefined({
@@ -383,18 +365,19 @@ export default function BlogEditor({ postId }: Props) {
           })
         );
 
-        setProgress({ open: true, pct: 100, label: "完了" });
+        setUploadPercent(100);
       }
 
+      // 完了後遷移
       setTimeout(() => {
-        setProgress({ open: false, pct: 0, label: "" });
+        setUploadPercent(null);
+        setBusy(false);
         router.push("/blog");
-      }, 400);
+      }, 300);
     } catch (e) {
       console.error(e);
       alert("保存に失敗しました。");
-      setProgress({ open: false, pct: 0, label: "" });
-    } finally {
+      setUploadPercent(null);
       setBusy(false);
     }
   };
@@ -404,7 +387,7 @@ export default function BlogEditor({ postId }: Props) {
     if (!postId) return;
     if (!confirm("この記事を削除しますか？（メディアも削除されます）")) return;
     setBusy(true);
-    setProgress({ open: true, pct: 20, label: "削除中…" });
+    setUploadPercent(20);
     try {
       for (const b of blocks) {
         if (isMedia(b) && b.path) {
@@ -413,20 +396,25 @@ export default function BlogEditor({ postId }: Props) {
           } catch {}
         }
       }
+      setUploadPercent(85);
       await deleteDoc(doc(db, "siteBlogs", SITE_KEY, "posts", postId));
-      setProgress({ open: true, pct: 100, label: "完了" });
+      setUploadPercent(100);
       setTimeout(() => {
-        setProgress({ open: false, pct: 0, label: "" });
+        setUploadPercent(null);
+        setBusy(false);
         router.push("/blog");
-      }, 300);
+      }, 250);
     } catch (e) {
       console.error(e);
       alert("削除に失敗しました。");
-      setProgress({ open: false, pct: 0, label: "" });
-    } finally {
+      setUploadPercent(null);
       setBusy(false);
     }
   };
+
+
+
+
 
   /* ==========================
      UI
@@ -438,6 +426,9 @@ export default function BlogEditor({ postId }: Props) {
         isDark ? "text-white" : "text-black"
       )}
     >
+      {/* ✅ 共通 BusyOverlay */}
+      <BusyOverlay uploadingPercent={uploadPercent} saving={busy} />
+
       <div className="p-5">
         {/* タイトル */}
         <div className="grid gap-2">
@@ -465,7 +456,7 @@ export default function BlogEditor({ postId }: Props) {
 
         {/* 本文エディタ */}
         <div className="grid gap-2">
-          <label className="text-sm font-medium">本文（原文ブロック）</label>
+          <label className="text-sm font-medium">本文</label>
           <BlockEditor
             value={blocks}
             onChange={setBlocks}
@@ -473,39 +464,6 @@ export default function BlogEditor({ postId }: Props) {
           />
         </div>
       </div>
-
-      {/* 保存/削除 進捗モーダル */}
-      {progress.open && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50">
-          <div
-            className={clsx(
-              "w-[92%] max-w-md rounded-2xl p-5 shadow-xl",
-              isDark ? "bg-gray-900 text-white" : "bg-white text-black"
-            )}
-          >
-            <div className="mb-3 text-base font-semibold">{progress.label}</div>
-            <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-2 rounded-full bg-green-500 transition-all"
-                style={{
-                  width: `${Math.max(0, Math.min(100, progress.pct))}%`,
-                }}
-              />
-            </div>
-            <div
-              className={clsx(
-                "text-right text-xs tabular-nums",
-                isDark ? "text-white/70" : "text-gray-500"
-              )}
-            >
-              {Math.max(0, Math.min(100, progress.pct))}%
-            </div>
-            <div className="mt-2 text-xs opacity-70">
-              画面を閉じずにお待ちください…
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

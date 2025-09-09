@@ -7,7 +7,12 @@ import clsx from "clsx";
 import { Plus, Pin } from "lucide-react";
 import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
+import { motion } from "framer-motion";
 
+// ✅ 共通UI
+import { BusyOverlay } from "./BusyOverlay";
+
+// Firebase
 import {
   collection,
   doc,
@@ -31,10 +36,12 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
+// Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { ThemeKey, THEMES } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
+// DnD
 import {
   DndContext,
   closestCenter,
@@ -51,10 +58,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { motion } from "framer-motion";
 
+// Lang
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+
+// ✅ 共通ファイル形式ユーティリティ
+import {
+  IMAGE_MIME_TYPES,
+  VIDEO_MIME_TYPES,
+  extFromMime,
+} from "@/lib/fileTypes";
 
 /* ===================== 型 ===================== */
 type MediaType = "image" | "video";
@@ -64,13 +78,13 @@ type Tr = { lang: LangKey; title?: string; body?: string };
 
 type ProductDoc = {
   id: string;
-  base: Base; // 原文（日本語）
-  t: Tr[]; // 全言語翻訳
-  title?: string; // 互換（原文コピー）
-  body?: string; // 互換（原文コピー）
+  base: Base;
+  t: Tr[];
+  title?: string;
+  body?: string;
   mediaURL: string;
   mediaType: MediaType;
-  price: number; // 外部型互換のため必須（無ければ 0）
+  price: number;
   order?: number;
   originalFileName?: string;
   createdAt?: any;
@@ -80,25 +94,6 @@ type ProductDoc = {
 /* ===================== 定数 ===================== */
 const COL_PATH = `siteProducts/${SITE_KEY}/items`;
 const MAX_VIDEO_SEC = 60;
-
-const VIDEO_MIME_TYPES: string[] = [
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-  "video/ogg",
-  "video/x-m4v",
-  "video/x-msvideo",
-  "video/x-ms-wmv",
-  "video/mpeg",
-  "video/3gpp",
-  "video/3gpp2",
-];
-const IMAGE_MIME_TYPES: string[] = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
 
 /* ===================== ユーティリティ ===================== */
 function displayOf(p: ProductDoc, lang: UILang): Base {
@@ -110,7 +105,6 @@ function displayOf(p: ProductDoc, lang: UILang): Base {
   };
 }
 
-// 保存時：全言語を一括翻訳
 async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
   const tasks = LANGS.map(async (l) => {
     const res = await fetch("/api/translate", {
@@ -163,24 +157,52 @@ export default function ProductsClient() {
   const [list, setList] = useState<ProductDoc[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // グローバル表示言語（ルートのピッカーで制御）
   const { uiLang } = useUILang();
 
-  // フォーム
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editing, setEditing] = useState<ProductDoc | null>(null);
 
-  // 原文（日本語）の編集フィールド
   const [titleJa, setTitleJa] = useState("");
   const [bodyJa, setBodyJa] = useState("");
   const [price, setPrice] = useState<number>(0);
 
-  // メディア
   const [file, setFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState<number | null>(null); // null で非表示
-
-  // 保存インジケータ
+  const [progress, setProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // AI 本文生成
+  const [showBodyGen, setShowBodyGen] = useState(false);
+  const [aiKeywords, setAiKeywords] = useState<string[]>(["", "", ""]);
+  const [aiGenLoading, setAiGenLoading] = useState(false);
+  const canOpenBodyGen = Boolean(titleJa?.trim());
+  const canGenerateBody = aiKeywords.some((k) => k.trim());
+
+  const generateBodyWithAI = async () => {
+    if (!titleJa.trim()) {
+      alert("タイトルを入力してください");
+      return;
+    }
+    try {
+      setAiGenLoading(true);
+      const keywords = aiKeywords.filter((k) => k.trim());
+      const res = await fetch("/api/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: titleJa, keywords }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "生成に失敗しました");
+      const newBody = (data?.body ?? "").trim();
+      if (!newBody) return alert("有効な本文が返りませんでした。");
+      setBodyJa(newBody);
+      setShowBodyGen(false);
+      setAiKeywords(["", "", ""]);
+    } catch {
+      alert("本文生成に失敗しました");
+    } finally {
+      setAiGenLoading(false);
+    }
+  };
 
   const gradient = useThemeGradient();
   const isDark = useMemo(() => {
@@ -193,10 +215,8 @@ export default function ProductsClient() {
     []
   );
 
-  /* 権限 */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
-  /* 購読（order昇順） */
   useEffect(() => {
     const q = query(colRef, orderBy("order", "asc"));
     const unsub = onSnapshot(q, (snap) => {
@@ -228,7 +248,6 @@ export default function ProductsClient() {
     return () => unsub();
   }, [colRef]);
 
-  /* 並べ替え */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -240,7 +259,6 @@ export default function ProductsClient() {
     async (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-
       const oldIndex = list.findIndex((x) => x.id === active.id);
       const newIndex = list.findIndex((x) => x.id === over.id);
       const next = arrayMove(list, oldIndex, newIndex);
@@ -275,38 +293,7 @@ export default function ProductsClient() {
     };
   };
 
-  /* フォーム開閉 */
-  const openAdd = () => {
-    if (saving || progress !== null) return;
-    setEditing(null);
-    setTitleJa("");
-    setBodyJa("");
-    setPrice(0);
-    setFile(null);
-    setFormMode("add");
-  };
-
-  const openEdit = (p: ProductDoc) => {
-    if (saving || progress !== null) return;
-    setEditing(p);
-    setTitleJa(p.base.title);
-    setBodyJa(p.base.body);
-    setPrice(typeof p.price === "number" ? p.price : 0);
-    setFile(null);
-    setFormMode("edit");
-  };
-
-  const closeForm = useCallback(() => {
-    if (saving || progress !== null) return;
-    setFormMode(null);
-    setEditing(null);
-    setTitleJa("");
-    setBodyJa("");
-    setPrice(0);
-    setFile(null);
-  }, [saving, progress]);
-
-  /* 保存（全言語生成 → Firestore） */
+  /* 保存処理 */
   const saveProduct = useCallback(async () => {
     if (progress !== null || saving) return;
     if (!titleJa.trim()) return alert("タイトルは必須です");
@@ -319,7 +306,6 @@ export default function ProductsClient() {
       let mediaType: MediaType = editing?.mediaType ?? "image";
       let originalFileName = editing?.originalFileName;
 
-      // メディアアップロード
       if (file) {
         const isVideo = file.type.startsWith("video/");
         mediaType = isVideo ? "video" : "image";
@@ -327,18 +313,12 @@ export default function ProductsClient() {
         const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
         const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
         if (!isValidImage && !isValidVideo) {
-          alert(
-            "対応形式：画像（JPEG/PNG/WEBP/GIF）／動画（MP4/MOV/WebM など）"
-          );
+          alert("対応形式ではありません");
           setSaving(false);
           return;
         }
 
-        const ext = isVideo
-          ? file.type === "video/quicktime"
-            ? "mov"
-            : "mp4"
-          : "jpg";
+        const ext = extFromMime(file.type);
 
         const uploadFile = isVideo
           ? file
@@ -376,9 +356,10 @@ export default function ProductsClient() {
         originalFileName = file.name;
         setProgress(null);
 
-        // 旧拡張子を掃除（編集時）
         if (formMode === "edit" && editing) {
-          const oldExt = editing.mediaType === "video" ? "mp4" : "jpg";
+          const oldExt = extFromMime(
+            editing.mediaType === "video" ? "video/mp4" : "image/jpeg"
+          );
           if (oldExt !== ext) {
             await deleteObject(
               storageRef(
@@ -390,24 +371,14 @@ export default function ProductsClient() {
         }
       }
 
-      // 全言語翻訳
       const t = await translateAll(titleJa.trim(), bodyJa.trim());
-
-      // ペイロード
       const base: Base = { title: titleJa.trim(), body: bodyJa.trim() };
-      const payload: Partial<ProductDoc> & {
-        base: Base;
-        t: Tr[];
-        title: string;
-        body: string;
-        mediaURL: string;
-        mediaType: MediaType;
-        price: number;
-      } = {
+
+      const payload = {
         base,
         t,
-        title: base.title, // 互換
-        body: base.body, // 互換
+        title: base.title,
+        body: base.body,
         mediaURL,
         mediaType,
         price: Number.isFinite(price) ? Number(price) : 0,
@@ -420,7 +391,6 @@ export default function ProductsClient() {
           updatedAt: serverTimestamp(),
         });
       } else {
-        // 末尾に追加
         const tail = (list.at(-1)?.order ?? list.length - 1) + 1;
         await addDoc(colRef, {
           ...payload,
@@ -429,10 +399,10 @@ export default function ProductsClient() {
         });
       }
 
-      closeForm();
+      setFormMode(null);
     } catch (e) {
       console.error(e);
-      alert("保存に失敗しました。対応形式や容量をご確認ください。");
+      alert("保存に失敗しました");
       setProgress(null);
     } finally {
       setSaving(false);
@@ -448,7 +418,6 @@ export default function ProductsClient() {
     editing,
     colRef,
     list,
-    closeForm,
   ]);
 
   if (!gradient) return null;
@@ -456,22 +425,7 @@ export default function ProductsClient() {
   /* ===================== JSX ===================== */
   return (
     <main className="max-w-5xl mx-auto p-4 pt-20">
-      {/* アップロード / 保存インジケータ */}
-      {(progress !== null || saving) && (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-black/60 gap-4">
-          <p className="text-white">
-            {saving ? "保存中…" : `アップロード中… ${progress}%`}
-          </p>
-          {!saving && (
-            <div className="w-64 h-2 bg-gray-700 rounded">
-              <div
-                className="h-full bg-green-500 rounded transition-all"
-                style={{ width: `${progress ?? 0}%` }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      <BusyOverlay uploadingPercent={progress} saving={saving} />
 
       {/* 一覧 */}
       <DndContext
@@ -483,7 +437,7 @@ export default function ProductsClient() {
           items={list.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch mt-4">
+          <div className="grid grid-cols-2 gap-6 mt-4">
             {list.map((p) => {
               const loc = displayOf(p, uiLang);
               return (
@@ -498,32 +452,28 @@ export default function ProductsClient() {
                         router.push(`/products/${p.id}`);
                       }}
                       className={clsx(
-                        "flex flex-col h-full border rounded-lg shadow-xl relative overflow-visible transition-colors duration-200 cursor-pointer",
-                        "bg-gradient-to-b",
+                        "flex flex-col h-full border rounded-lg shadow-xl relative transition-colors cursor-pointer",
                         gradient,
                         isDragging
                           ? "bg-yellow-100"
                           : isDark
                           ? "bg-black/40 text-white"
-                          : "bg-white",
-                        !isDragging && "hover:shadow-lg"
+                          : "bg-white"
                       )}
                     >
-                      {/* ドラッグハンドル（クリックは止める） */}
-                      {auth.currentUser !== null && (
+                      {auth.currentUser && (
                         <div
                           {...attributes}
                           {...listeners}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none"
+                          className="absolute left-1/2 -top-4 -translate-x-1/2 z-30 cursor-grab active:cursor-grabbing"
                         >
-                          <div className="w-10 h-10 rounded-full bg-white/95 border border-black/10 text-gray-700 text-sm flex items-center justify-center shadow-lg">
+                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow">
                             <Pin />
                           </div>
                         </div>
                       )}
 
-                      {/* メディア */}
                       {p.mediaType === "image" ? (
                         <div className="relative w-full aspect-square">
                           <Image
@@ -542,36 +492,13 @@ export default function ProductsClient() {
                           playsInline
                           autoPlay
                           loop
-                          preload="auto"
                           className="w-full aspect-square object-cover"
                         />
                       )}
 
-                      <div className="p-3 space-y-1">
-                        <h2
-                          className={clsx(
-                            "text-sm font-bold whitespace-pre-wrap",
-                            isDark && "text-white"
-                          )}
-                        >
-                          {loc.title}
-                        </h2>
+                      <div className="p-3">
+                        <h2 className="text-sm font-bold">{loc.title}</h2>
                       </div>
-
-                      {isAdmin && (
-                        <div className="absolute top-2 right-2 flex gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEdit(p);
-                            }}
-                            disabled={saving || progress !== null}
-                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded shadow disabled:opacity-50"
-                          >
-                            編集
-                          </button>
-                        </div>
-                      )}
                     </motion.div>
                   )}
                 </SortableItem>
@@ -582,18 +509,23 @@ export default function ProductsClient() {
       </DndContext>
 
       {/* 追加 FAB */}
-      {isAdmin && formMode === null && (
+      {isAdmin && !formMode && (
         <button
-          onClick={openAdd}
-          aria-label="新規追加"
-          disabled={saving || progress !== null}
-          className="fixed bottom-6 right-6 z-20 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+          onClick={() => {
+            setEditing(null);
+            setTitleJa("");
+            setBodyJa("");
+            setPrice(0);
+            setFile(null);
+            setFormMode("add");
+          }}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"
         >
           <Plus size={28} />
         </button>
       )}
 
-      {/* フォーム（原文のみ編集） */}
+      {/* フォーム */}
       {isAdmin && formMode && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
@@ -602,38 +534,78 @@ export default function ProductsClient() {
             </h2>
 
             <input
-              placeholder="タイトル（日本語・改行可）"
+              placeholder="タイトル"
               value={titleJa}
               onChange={(e) => setTitleJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
-              disabled={saving || progress !== null}
             />
 
             <textarea
-              placeholder="本文（日本語）"
+              placeholder="本文"
               value={bodyJa}
               onChange={(e) => setBodyJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
               rows={6}
-              disabled={saving || progress !== null}
             />
 
-            <div>
-              <label className="text-sm font-medium">価格（円）</label>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                className="mt-1 w-full border px-3 py-2 rounded"
-                disabled={saving || progress !== null}
-              />
-            </div>
+            {/* AI 本文生成 */}
+            <button
+              type="button"
+              onClick={() => setShowBodyGen(true)}
+              className={clsx(
+                "w-full px-4 py-2 rounded text-white",
+                canOpenBodyGen ? "bg-indigo-600" : "bg-gray-400"
+              )}
+              disabled={!canOpenBodyGen || saving}
+            >
+              AIで本文生成
+            </button>
 
-            <label className="text-sm font-medium">
-              画像 / 動画 (60秒以内)
-            </label>
+            {/* 生成モーダル */}
+            {showBodyGen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full max-w-md bg-white rounded-lg p-6 space-y-4"
+                >
+                  <h3 className="text-lg font-bold">AIで本文生成</h3>
+                  {aiKeywords.map((k, i) => (
+                    <input
+                      key={i}
+                      value={k}
+                      onChange={(e) => {
+                        const next = [...aiKeywords];
+                        next[i] = e.target.value;
+                        setAiKeywords(next);
+                      }}
+                      placeholder={`キーワード${i + 1}`}
+                      className="w-full border rounded px-3 py-2 text-sm"
+                    />
+                  ))}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowBodyGen(false)}
+                      className="flex-1 bg-gray-200 py-2 rounded"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={generateBodyWithAI}
+                      className={clsx(
+                        "flex-1 py-2 rounded text-white",
+                        canGenerateBody ? "bg-indigo-600" : "bg-gray-400"
+                      )}
+                      disabled={!canGenerateBody || aiGenLoading}
+                    >
+                      {aiGenLoading ? "生成中…" : "生成する"}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
             <input
               type="file"
               accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
@@ -642,26 +614,19 @@ export default function ProductsClient() {
                 if (f) onSelectFile(f);
               }}
               className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-              disabled={saving || progress !== null}
             />
-            {formMode === "edit" && editing?.originalFileName && (
-              <p className="text-sm text-gray-600">
-                現在のファイル: {editing.originalFileName}
-              </p>
-            )}
 
             <div className="flex gap-2 justify-center">
               <button
                 onClick={saveProduct}
-                disabled={saving || progress !== null}
-                className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+                disabled={saving}
+                className="px-4 py-2 bg-green-600 text-white rounded"
               >
                 {saving ? "保存中…" : formMode === "edit" ? "更新" : "追加"}
               </button>
               <button
-                onClick={closeForm}
-                disabled={saving || progress !== null}
-                className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
+                onClick={() => setFormMode(null)}
+                className="px-4 py-2 bg-gray-500 text-white rounded"
               >
                 閉じる
               </button>

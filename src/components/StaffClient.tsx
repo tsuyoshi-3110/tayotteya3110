@@ -56,26 +56,23 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 
+// ✅ 共通ユーティリティ（ファイルタイプ）
+import {
+  IMAGE_MIME_TYPES,
+  VIDEO_MIME_TYPES,
+  extFromMime,
+} from "@/lib/fileTypes";
+
+// ✅ 共通 UI（オーバーレイ）
+import { BusyOverlay } from "./BusyOverlay";
+import { Input } from "./ui/input";
+
 /* ==============================
    設定
 ============================== */
 type MediaType = "image" | "video";
 
-const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const VIDEO_MIME_TYPES = [
-  "video/mp4",
-  "video/webm",
-  "video/ogg",
-  "video/quicktime",
-  "video/x-m4v",
-  "video/x-msvideo",
-  "video/x-ms-wmv",
-  "video/mpeg",
-  "video/3gpp",
-  "video/3gpp2",
-];
 const MAX_VIDEO_SEC = 30;
-
 const COL_PATH = `siteStaffs/${SITE_KEY}/items`;
 
 /* ==============================
@@ -277,7 +274,7 @@ export default function StaffClient() {
     }, 100);
   };
 
-  /* 紹介文 AI 生成 */
+  /* 紹介文 AI 生成（機能は残します） */
   const generateBodyWithAI = async () => {
     const validKeywords = keywords.filter((k) => k.trim() !== "");
     if (!titleJa || validKeywords.length < 1) {
@@ -333,33 +330,8 @@ export default function StaffClient() {
 
         mediaType = isVideo ? "video" : "image";
 
-        const ext = (() => {
-          if (isVideo) {
-            switch (file.type) {
-              case "video/quicktime":
-                return "mov";
-              case "video/webm":
-                return "webm";
-              case "video/ogg":
-                return "ogv";
-              case "video/x-m4v":
-                return "m4v";
-              case "video/x-msvideo":
-                return "avi";
-              case "video/x-ms-wmv":
-                return "wmv";
-              case "video/mpeg":
-                return "mpg";
-              case "video/3gpp":
-                return "3gp";
-              case "video/3gpp2":
-                return "3g2";
-              default:
-                return "mp4";
-            }
-          }
-          return "jpg";
-        })();
+        // 画像はJPEG圧縮で保存するため拡張子はjpg固定、動画はMIMEから拡張子を決定
+        const ext = isVideo ? extFromMime(file.type) : "jpg";
 
         const uploadFile = isVideo
           ? file
@@ -400,7 +372,7 @@ export default function StaffClient() {
         setProgress(null);
 
         if (formMode === "edit" && editing) {
-          // 旧拡張子掃除（編集時のみ。元の拡張子が別だった可能性に対応）
+          // 旧拡張子掃除（編集時のみ）
           const oldExt =
             editing.originalFileName?.split(".").pop()?.toLowerCase() ??
             (editing.mediaType === "video" ? "mp4" : "jpg");
@@ -511,26 +483,10 @@ export default function StaffClient() {
     };
   };
 
-  if (!gradient) return null;
-
   return (
     <main className="max-w-5xl mx-auto p-4 pt-20">
-      {/* ====== アップロード/保存インジケーター ====== */}
-      {(uploading || saving) && (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-black/60 gap-4">
-          <p className="text-white">
-            {saving ? "保存中…" : `アップロード中… ${progress}%`}
-          </p>
-          {!saving && (
-            <div className="w-64 h-2 bg-gray-700 rounded">
-              <div
-                className="h-full bg-green-500 rounded transition-all"
-                style={{ width: `${progress ?? 0}%` }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
+      <BusyOverlay uploadingPercent={progress} saving={saving} />
 
       {/* ====== 並べ替えリスト ====== */}
       <DndContext
@@ -555,6 +511,7 @@ export default function StaffClient() {
                       isAdmin={isAdmin}
                       isDragging={isDragging}
                       isLoaded={loadedIds.has(p.id)}
+                      // ✅ ここで props 経由
                       isDark={isDark}
                       gradient={gradient!}
                       listeners={listeners}
@@ -596,12 +553,11 @@ export default function StaffClient() {
                 : "スタッフプロフィール追加"}
             </h2>
 
-            <textarea
+            <Input
               placeholder="名前（日本語。改行可）"
               value={titleJa}
               onChange={(e) => setTitleJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
-              rows={2}
               disabled={uploading || saving}
             />
 
@@ -614,7 +570,7 @@ export default function StaffClient() {
               disabled={uploading || saving}
             />
 
-            {/* AIで紹介文生成（任意） */}
+            {/* ✅ AIで紹介文生成（機能維持） */}
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowKeywordInput(!showKeywordInput)}
@@ -740,7 +696,7 @@ export function StaffCard({
       }
       style={isDragging ? { transform: undefined } : undefined}
       className={clsx(
-        "flex flex-col h-full border rounded-lg overflow-hidden shadow relative transition-colors duration-200",
+        "flex flex-col h-full border rounded-lg shadow relative transition-colors duration-200",
         "bg-gradient-to-b",
         gradient,
         isDragging
@@ -748,17 +704,23 @@ export function StaffCard({
           : isDark
           ? "bg-black/40 text-white"
           : "bg-white",
-        "cursor-default"
+        "cursor-default",
+        "overflow-visible" // ← ここで外にはみ出したピンを隠さない
       )}
     >
+      {/* 🔽 ピンを上部中央に配置 */}
       {auth.currentUser !== null && (
         <div
           {...attributes}
           {...listeners}
           onTouchStart={(e) => e.preventDefault()}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 cursor-grab active:cursor-grabbing touch-none select-none"
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
+                     z-20 cursor-grab active:cursor-grabbing touch-none select-none"
         >
-          <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
+          <div
+            className="w-10 h-10 bg-white/95 border border-black/10
+                          text-gray-700 rounded-full flex items-center justify-center shadow-lg"
+          >
             <Pin />
           </div>
         </div>

@@ -94,7 +94,7 @@ ${JSON.stringify({ title, body })}
     `.trim();
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5-chat-latesto-mini",
+      model: "gpt-5-chat-latest",
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [

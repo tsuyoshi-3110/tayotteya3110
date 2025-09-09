@@ -19,6 +19,7 @@ import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { Pin } from "lucide-react";
+import { BusyOverlay } from "@/components/BusyOverlay";
 
 // dnd-kit
 import {
@@ -47,6 +48,7 @@ type Props = {
 };
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
+const FILE_TYPES = "image/*,video/*";
 
 /* ========== Sortable 子コンポーネント ========== */
 function SortableBlockCard({
@@ -91,7 +93,7 @@ function SortableBlockCard({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "relative overflow-visible rounded-2xl border p-4 pt-8", // ← 追加
+        "relative overflow-visible rounded-2xl border p-4 pt-8",
         isDark ? "border-white/15 bg-black/10" : "border-black/10 bg-white",
         isDragging && "shadow-xl ring-2 ring-blue-400/40"
       )}
@@ -100,12 +102,12 @@ function SortableBlockCard({
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="absolute left-1/2 -top-3 -translate-x-1/2 z-20">
           <button
-            ref={setActivatorNodeRef} // ★ 追加
+            ref={setActivatorNodeRef}
             type="button"
             aria-label="ドラッグして並び替え"
             className={clsx(
               "h-8 w-8 rounded-full border shadow flex items-center justify-center",
-              "cursor-grab active:cursor-grabbing select-none touch-none", // ★ 追加: touch-none
+              "cursor-grab active:cursor-grabbing select-none touch-none",
               isDark
                 ? "bg-white/90 border-white/30"
                 : "bg-white/90 border-black/10"
@@ -587,19 +589,36 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
 
   // ==== レンダリング ====
   return (
-    // 親も overflow-visible にして、はみ出した画鋲が隠れないように
     <div className={clsx("space-y-4 relative overflow-visible", textClass)}>
+      {/* ✅ BusyOverlay：アップロード中に表示。saving は upload 中だけ true に */}
+      <BusyOverlay uploadingPercent={uploadPct ?? undefined} saving={uploadPct !== null} />
+
+      {/* アップロード中のキャンセル（BusyOverlayはUIだけなので別ボタンで対応） */}
+      {uploadPct !== null && (
+        <div className="fixed bottom-6 left-0 right-0 z-[10000] flex justify-center">
+          <Button variant="secondary" size="sm" onClick={cancelUpload}>
+            キャンセル（{uploadingName || "アップロード"}）
+          </Button>
+        </div>
+      )}
+
+      {/* エラーはシンプルにトースト風で表示 */}
+      {errorMsg && (
+        <div className="fixed top-6 left-0 right-0 z-[10000] mx-auto w-[92%] max-w-md rounded-md bg-red-50 p-3 text-xs text-red-700 shadow">
+          {errorMsg}
+        </div>
+      )}
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis]} // 親要素制限は外す
+        modifiers={[restrictToVerticalAxis]}
         onDragEnd={onDragEnd}
       >
         <SortableContext
           items={value.map((b) => b.id)}
           strategy={verticalListSortingStrategy}
         >
-          {/* リスト側も overflow-visible。pt を少し入れて最上段の画鋲に余白を確保 */}
           <div className="space-y-6 relative overflow-visible pt-3">
             {value.length === 0 && (
               <div
@@ -752,7 +771,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept={FILE_TYPES}
         className="hidden"
         onChange={onFileChange}
         onClick={(e) => {
@@ -760,73 +779,6 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
           (e.currentTarget as HTMLInputElement).value = "";
         }}
       />
-
-      {/* アップロード進捗オーバーレイ */}
-      {(uploadPct !== null || errorMsg) && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
-          <div
-            className={clsx(
-              "w-[92%] max-w-md rounded-2xl p-5 shadow-xl",
-              isDark ? "bg-gray-900 text-white" : "bg-white text-black"
-            )}
-          >
-            <div className="mb-2 text-base font-semibold">
-              {uploadPct !== null ? "アップロード中" : "お知らせ"}
-            </div>
-            {uploadingName && (
-              <div className={clsx("mb-3 text-sm", subTextClass)}>
-                {uploadingName}
-              </div>
-            )}
-
-            {uploadPct !== null && (
-              <>
-                <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-2 rounded-full bg-blue-500 transition-all"
-                    style={{ width: `${uploadPct}%` }}
-                  />
-                </div>
-                <div
-                  className={clsx(
-                    "mb-2 text-right text-xs tabular-nums",
-                    subTextClass
-                  )}
-                >
-                  {uploadPct}%
-                </div>
-              </>
-            )}
-
-            {errorMsg && (
-              <div className="mb-3 rounded-md bg-red-50 p-2 text-xs text-red-700">
-                {errorMsg}
-              </div>
-            )}
-
-            <div className="mt-2 flex items-center justify-end gap-2">
-              {uploadPct !== null && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={cancelUpload}
-                >
-                  キャンセル
-                </Button>
-              )}
-              {errorMsg && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setErrorMsg(null)}
-                >
-                  閉じる
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 校正プレビューモーダル（テキストカード） */}
       {proof && (
@@ -846,8 +798,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
               AIで校正（本文カード）
             </div>
             <div className={clsx("mb-2 text-xs", subTextClass)}>
-              対象範囲：{proof.start} 〜 {proof.end}{" "}
-              文字（選択がなければブロック全体）
+              対象範囲：{proof.start} 〜 {proof.end} 文字（選択がなければブロック全体）
             </div>
 
             {proof.loading ? (
@@ -910,8 +861,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 AIで本文作成（本文カード）
               </div>
               <div className={clsx("mt-1 text-xs", subTextClass)}>
-                タイトルは使用しません。キーワードを 1〜3
-                個入力してください。生成結果は
+                タイトルは使用しません。キーワードを 1〜3 個入力してください。生成結果は
                 <strong>このカードに上書き</strong>されます。
               </div>
             </div>
