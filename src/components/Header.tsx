@@ -449,12 +449,7 @@ export default function Header({ className = "" }: { className?: string }) {
             dir={rtl ? "rtl" : "ltr"}
           >
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle
-                className={clsx(
-                  "text-center text-xl",
-                  isDark ? "text-white" : "text-black"
-                )}
-              >
+              <SheetTitle className="text-center text-xl !text-white text-outline">
                 {t.menuTitle}
               </SheetTitle>
             </SheetHeader>
@@ -479,10 +474,7 @@ export default function Header({ className = "" }: { className?: string }) {
                   key={href}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={clsx(
-                    "text-lg",
-                    isDark ? "text-white" : "text-black"
-                  )}
+                  className={clsx("text-lg", "text-white text-outline")}
                 >
                   {label}
                 </Link>
@@ -497,7 +489,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     onClick={() => setOpen(false)}
                     className={clsx(
                       "block text-center text-lg",
-                      isDark ? "text-white" : "text-black"
+                      "text-white text-outline"
                     )}
                   >
                     {t.timeline}
@@ -507,7 +499,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     onClick={() => setOpen(false)}
                     className={clsx(
                       "block text-center text-lg",
-                      isDark ? "text-white" : "text-black"
+                      "text-white text-outline"
                     )}
                   >
                     {t.community}
@@ -517,7 +509,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     onClick={() => setOpen(false)}
                     className={clsx(
                       "block text-center text-lg",
-                      isDark ? "text-white" : "text-black"
+                      "text-white text-outline"
                     )}
                   >
                     {t.analytics}
@@ -530,7 +522,7 @@ export default function Header({ className = "" }: { className?: string }) {
                 onClick={() => setOpen(false)}
                 className={clsx(
                   "block text-center text-lg",
-                  isDark ? "text-white" : "text-black"
+                  "text-white text-outline"
                 )}
               >
                 {t.admin}

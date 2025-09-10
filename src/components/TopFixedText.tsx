@@ -62,10 +62,10 @@ export default function TopFixedText() {
         className="max-w-4xl mx-auto text-center space-y-4 px-4 mt-20"
         suppressHydrationWarning /* ★ 追加 point ① */
       >
-        <p className="text-3xl font-bold text-white whitespace-pre-wrap">
+        <p className="text-3xl font-bold text-white text-outline whitespace-pre-wrap">
           {msg.title || "\u00A0" /* ★ NBSP point ② */}
         </p>
-        <p className="text-2xl text-white whitespace-pre-wrap">
+        <p className="text-2xl text-white text-outline whitespace-pre-wrap">
           {msg.body || "\u00A0" /* ★ NBSP point ② */}
         </p>
       </div>
