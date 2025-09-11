@@ -373,7 +373,8 @@ export default function CommunityPage() {
   }, [owners, myIndustryName]);
 
   /* ===== カード個別：AIが協業案 ===== */
-  const proposeLocal = (partner: SiteOwner) => {
+ const proposeLocal = useCallback(
+  (partner: SiteOwner) => {
     const myGroup = groupOf({ key: "", name: myIndustryName });
     const pg = groupOf(partner.industry);
     const distTxt =
@@ -404,49 +405,50 @@ export default function CommunityPage() {
       reason: `距離は${distTxt}、${relation}。`,
       ideas: ideas.slice(0, 5),
     };
-  };
+  },
+  [myIndustryName] // ← myIndustryNameに依存
+);
 
-  const handleProposeForCard = useCallback(
-    async (partner: SiteOwner) => {
-      setGeneratingCardId(partner.id);
-      try {
-        const res = await fetch("/api/collab-ideas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            my: { industry: myIndustryName || "未設定" },
-            partner: {
-              id: partner.id,
-              siteName: partner.siteName,
-              industry: partner.industry?.name ?? "未設定",
-              distanceKm: partner.distanceKm ?? null,
-            },
-          }),
-        });
-
-        if (!res.ok) throw new Error(await res.text());
-        const j = await res.json();
-
-        setCardProposals((prev) => ({
-          ...prev,
-          [partner.id]: {
-            reason: typeof j.reason === "string" ? j.reason : "",
-            ideas: Array.isArray(j.ideas) ? j.ideas.slice(0, 5) : [],
+const handleProposeForCard = useCallback(
+  async (partner: SiteOwner) => {
+    setGeneratingCardId(partner.id);
+    try {
+      const res = await fetch("/api/collab-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          my: { industry: myIndustryName || "未設定" },
+          partner: {
+            id: partner.id,
+            siteName: partner.siteName,
+            industry: partner.industry?.name ?? "未設定",
+            distanceKm: partner.distanceKm ?? null,
           },
-        }));
-        // ★ 提案を表示状態に（閉じるボタンが出る）
-        setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
-      } catch {
-        const fb = proposeLocal(partner);
-        setCardProposals((prev) => ({ ...prev, [partner.id]: fb }));
-        // ★ フォールバック時も開く
-        setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
-      } finally {
-        setGeneratingCardId(null);
-      }
-    },
-    [myIndustryName]
-  );
+        }),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const j = await res.json();
+
+      setCardProposals((prev) => ({
+        ...prev,
+        [partner.id]: {
+          reason: typeof j.reason === "string" ? j.reason : "",
+          ideas: Array.isArray(j.ideas) ? j.ideas.slice(0, 5) : [],
+        },
+      }));
+      setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
+    } catch {
+      const fb = proposeLocal(partner);
+      setCardProposals((prev) => ({ ...prev, [partner.id]: fb }));
+      setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
+    } finally {
+      setGeneratingCardId(null);
+    }
+  },
+  [myIndustryName, proposeLocal] // ← proposeLocalがuseCallback化されてるのでOK
+);
+
 
   return (
     <main className="mx-auto max-w-3xl p-4 pt-20">
@@ -519,7 +521,7 @@ export default function CommunityPage() {
                     href={`/community/message/${best.id}`}
                     onClick={() => setPartnerSiteKey(best.id)}
                     className={clsx(
-                      "inline-flex items-center justify-center text-center px-3 h-9 rounded text-white text-sm font-medium transition",
+                      "inline-flex items-center justify-center text-center px-3 h-9 rounded-md text-white text-sm font-medium transition",
                       gradient
                         ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
                         : "bg-blue-600 hover:bg-blue-700"
