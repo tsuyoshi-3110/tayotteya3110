@@ -32,6 +32,7 @@ import { LANGS as TARGET_LANGS } from "@/lib/langs";
 import {
   IMAGE_MIME_TYPES,
   VIDEO_MIME_TYPES,
+  extFromMime,
 } from "@/lib/fileTypes";
 
 // ✅ 共通 BusyOverlay
@@ -49,16 +50,24 @@ type AboutDoc = {
   text?: string; // 互換
   base?: { text?: string };
   t?: Array<{ lang: string; text?: string }>;
-  mediaUrl?: string;
-  mediaType?: MediaType;
-  fileName?: string;
+  mediaUrl?: string | null;
+  mediaType?: MediaType | null;
+  fileName?: string | null;
 };
 
 /* ───────── ユーティリティ ───────── */
+const omitUndefined = <T extends Record<string, any>>(obj: T) =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as T;
+
 function readBase(d: AboutDoc | null | undefined): string {
   return (d?.base?.text ?? d?.text ?? "").toString();
 }
-function pickLocalized(d: AboutDoc | null | undefined, uiLang: LangKey): string {
+function pickLocalized(
+  d: AboutDoc | null | undefined,
+  uiLang: LangKey
+): string {
   const base = readBase(d);
   if (uiLang === "ja" || !d?.t) return base;
   return (d.t.find((x) => x.lang === uiLang)?.text ?? base).toString();
@@ -107,7 +116,6 @@ export default function AboutClient() {
   const [previewURL, setPreviewURL] = useState<string | null>(null);
   const [draftFile, setDraftFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-    useState<ReturnType<typeof uploadBytesResumable> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   /* 認証 */
@@ -124,9 +132,9 @@ export default function AboutClient() {
             text: raw.text,
             base: raw.base,
             t: Array.isArray(raw.t) ? raw.t : undefined,
-            mediaUrl: raw.mediaUrl,
-            mediaType: raw.mediaType,
-            fileName: raw.fileName,
+            mediaUrl: raw.mediaUrl ?? null,
+            mediaType: raw.mediaType ?? null,
+            fileName: raw.fileName ?? null,
           };
           setDocData(parsed);
           setDraftText(readBase(parsed));
@@ -143,17 +151,22 @@ export default function AboutClient() {
   /* ファイル選択 */
   const handleSelectFile = (file: File) => {
     const okType = [...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].includes(
-      file.type as any
+      file.type
     );
-    if (!okType) return alert("対応していない形式です");
+    if (!okType) {
+      alert("対応していない形式です");
+      return;
+    }
 
-    if (VIDEO_MIME_TYPES.includes(file.type as any)) {
+    if (VIDEO_MIME_TYPES.includes(file.type)) {
       const v = document.createElement("video");
       v.preload = "metadata";
       v.onloadedmetadata = () => {
         URL.revokeObjectURL(v.src);
-        if ((v.duration || 0) > MAX_VIDEO_SEC)
-          return alert(`動画は${MAX_VIDEO_SEC}秒以内にしてください`);
+        if ((v.duration || 0) > MAX_VIDEO_SEC) {
+          alert(`動画は${MAX_VIDEO_SEC}秒以内にしてください`);
+          return;
+        }
         setDraftFile(file);
         setPreviewURL(URL.createObjectURL(file));
       };
@@ -171,19 +184,22 @@ export default function AboutClient() {
     setSaving(true);
     try {
       // メディア差し替え
-      let mediaUrl = docData.mediaUrl;
-      let mediaType = docData.mediaType;
-      let fileName = docData.fileName;
+      let nextMediaUrl: string | null | undefined = docData.mediaUrl ?? null;
+      let nextMediaType: MediaType | null = docData.mediaType ?? null;
+      let nextFileName: string | null | undefined = docData.fileName ?? null;
 
       if (draftFile) {
-        if (mediaUrl) {
+        // 旧ファイル（URL）を消す試み（失敗しても続行）
+        if (docData.mediaUrl) {
           try {
-            await deleteObject(ref(getStorage(), mediaUrl));
+            await deleteObject(ref(getStorage(), docData.mediaUrl));
           } catch {}
         }
+
+        const ext = extFromMime(draftFile.type);
         const storageRef = ref(
           getStorage(),
-          `${STORAGE_PATH}/${Date.now()}_${draftFile.name}`
+          `${STORAGE_PATH}/${Date.now()}.${ext}`
         );
         const task = uploadBytesResumable(storageRef, draftFile, {
           contentType: draftFile.type,
@@ -191,7 +207,7 @@ export default function AboutClient() {
 
         setUploadProgress(0);
 
-        mediaUrl = await new Promise<string>((resolve, reject) => {
+        nextMediaUrl = await new Promise<string>((resolve, reject) => {
           task.on(
             "state_changed",
             (snap) =>
@@ -202,27 +218,33 @@ export default function AboutClient() {
             async () => resolve(await getDownloadURL(task.snapshot.ref))
           );
         });
-        mediaType = VIDEO_MIME_TYPES.includes(draftFile.type as any)
+
+        nextMediaType = VIDEO_MIME_TYPES.includes(draftFile.type)
           ? "video"
           : "image";
-        fileName = draftFile.name;
+        nextFileName = draftFile.name;
       }
 
       // ★ 全言語を必ず再翻訳
       const baseText = draftText;
       const nextT = await buildAllTranslations(baseText);
 
-      const payload: AboutDoc = {
+      // Firestore へ undefined を書かない
+      const payload = omitUndefined<AboutDoc>({
         base: { text: baseText },
         t: nextT,
         text: baseText, // 後方互換
-        mediaUrl,
-        mediaType,
-        fileName,
-      };
+        mediaUrl: nextMediaUrl ?? null,
+        mediaType: nextMediaType ?? null,
+        fileName: nextFileName ?? null,
+      });
+
       await setDoc(docRef, payload, { merge: true });
 
-      setDocData(payload);
+      setDocData((prev) => ({
+        ...(prev ?? {}),
+        ...payload,
+      }));
       setDraftFile(null);
       setPreviewURL(null);
       setEditing(false);
@@ -233,7 +255,6 @@ export default function AboutClient() {
     } finally {
       setSaving(false);
       setUploadProgress(null);
-  
     }
   }, [docData, draftText, draftFile, docRef]);
 
@@ -323,20 +344,19 @@ export default function AboutClient() {
             <motion.div
               role="dialog"
               aria-modal="true"
-              className="relative w-full max-w-2xl mx-4 rounded-2xl bg-white/30 shadow-2xl backdrop-blur-lg p-6 space-y-6"
+              className="relative w-full max-w-2xl mx-4 rounded-2xl bg-white/30 shadow-2xl backdrop-blur-lg p-6 space-y-6 max-h-[90vh] overflow-y-auto"
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 260, damping: 22 }}
             >
-              {/* テキスト */}
+              {/* テキスト（伸びない・スクロール可能） */}
               <div className="space-y-2">
                 <div className="text-sm text-gray-700">編集してください。</div>
                 <Textarea
-                  rows={12}
                   value={draftText}
                   onChange={(e) => setDraftText(e.target.value)}
-                  className="min-h-40 bg-white/30 border-gray-200 text-black placeholder-gray-400 focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="min-h-40 max-h-[60vh] resize-y overflow-auto bg-white/70 border-gray-200 text-black placeholder-gray-400 focus-visible:ring-2 focus-visible:ring-indigo-500"
                   placeholder="ここに文章を入力..."
                 />
                 <div className="text-right text-xs text-gray-600">
@@ -380,16 +400,20 @@ export default function AboutClient() {
                     className="w-full"
                     onClick={async () => {
                       try {
-                        await deleteObject(ref(getStorage(), docData.mediaUrl!));
+                        // URL指定の削除は失敗することもあるため、失敗は握りつぶす
+                        await deleteObject(
+                          ref(getStorage(), docData.mediaUrl!)
+                        ).catch(() => {});
                         await updateDoc(docRef, {
-                          mediaUrl: "",
-                          mediaType: "",
+                          mediaUrl: null,
+                          mediaType: null,
+                          fileName: null,
                         });
                         setDocData({
                           ...docData,
-                          mediaUrl: undefined,
-                          mediaType: undefined,
-                          fileName: undefined,
+                          mediaUrl: null,
+                          mediaType: null,
+                          fileName: null,
                         });
                         setDraftFile(null);
                         setPreviewURL(null);
@@ -470,9 +494,7 @@ function AIWriter({ onApply }: { onApply: (text: string) => void }) {
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 260, damping: 22 }}
             >
-              <h2 className="text-xl font-bold text-center">
-                AIで文章を生成
-              </h2>
+              <h2 className="text-xl font-bold text-center">AIで文章を生成</h2>
               <p className="text-sm text-gray-500 text-center">
                 最低1個以上のキーワードを入力してください
               </p>

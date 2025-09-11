@@ -21,6 +21,13 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { Pin } from "lucide-react";
 import { BusyOverlay } from "@/components/BusyOverlay";
 
+/* ✅ 共通ファイル形式ユーティリティ */
+import {
+  IMAGE_MIME_TYPES,
+  VIDEO_MIME_TYPES,
+  extFromMime,
+} from "@/lib/fileTypes";
+
 // dnd-kit
 import {
   DndContext,
@@ -48,7 +55,7 @@ type Props = {
 };
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
-const FILE_TYPES = "image/*,video/*";
+const MAX_VIDEO_SEC = 60;
 
 /* ========== Sortable 子コンポーネント ========== */
 function SortableBlockCard({
@@ -57,7 +64,9 @@ function SortableBlockCard({
   children,
   onMoveUp,
   onMoveDown,
-  onEditMedia, // ★ 追加：メディア差し替え
+  onAddTextBelow,
+  onAddMediaBelow,
+  onEditMedia,
   onDelete,
   disableUp,
   disableDown,
@@ -80,7 +89,7 @@ function SortableBlockCard({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef, // ★ 追加
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -93,32 +102,35 @@ function SortableBlockCard({
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "relative overflow-visible rounded-2xl border p-4 pt-8",
+        "relative overflow-visible rounded-2xl border p-4 pt-10",
         isDark ? "border-white/15 bg-black/10" : "border-black/10 bg-white",
         isDragging && "shadow-xl ring-2 ring-blue-400/40"
       )}
     >
-      {/* 操作列 */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="absolute left-1/2 -top-3 -translate-x-1/2 z-20">
-          <button
-            ref={setActivatorNodeRef}
-            type="button"
-            aria-label="ドラッグして並び替え"
-            className={clsx(
-              "h-8 w-8 rounded-full border shadow flex items-center justify-center",
-              "cursor-grab active:cursor-grabbing select-none touch-none",
-              isDark
-                ? "bg-white/90 border-white/30"
-                : "bg-white/90 border-black/10"
-            )}
-            {...attributes}
-            {...listeners}
-          >
-            <Pin className="h-4 w-4 text-gray-700" />
-          </button>
-        </div>
+      {/* ドラッグハンドル（カード上端中央・白丸） */}
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-20">
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          aria-label="ドラッグして並び替え"
+          className={clsx(
+            "h-10 w-10 rounded-full border shadow flex items-center justify-center",
+            "cursor-grab active:cursor-grabbing select-none touch-none",
+            isDark
+              ? "bg-white/95 border-white/30"
+              : "bg-white/95 border-black/10"
+          )}
+          {...attributes}
+          {...listeners}
+          // 右クリックやタップ長押しによる予期せぬ挙動を抑止
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <Pin className="h-5 w-5 text-gray-700" />
+        </button>
+      </div>
 
+      {/* 操作列 */}
+      <div className="mb-3 mt-1 flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
@@ -136,6 +148,13 @@ function SortableBlockCard({
           disabled={disableDown}
         >
           ↓
+        </Button>
+
+        <Button type="button" size="sm" onClick={onAddTextBelow}>
+          ＋テキスト
+        </Button>
+        <Button type="button" size="sm" onClick={onAddMediaBelow}>
+          ＋画像/動画
         </Button>
 
         {isMedia && onEditMedia && (
@@ -204,7 +223,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     useSensor(KeyboardSensor)
   );
 
-  // ==== テキストエリア参照（校正時に選択範囲を使う） ====
+  // ==== テキストエリア参照 ====
   const textRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const setTextRef = (id: string) => (el: HTMLTextAreaElement | null) => {
     textRefs.current[id] = el;
@@ -247,7 +266,6 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     (idx: number, patch: Partial<BlogBlock> | BlogBlock) => {
       onChange((prev) => {
         const next = prev.slice();
-        // patch が完全オブジェクトなら置換、部分ならマージ
         next[idx] =
           "id" in patch
             ? (patch as BlogBlock)
@@ -295,7 +313,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     onChange((prev) => arrayMove(prev, oldIndex, newIndex));
   };
 
-  // ==== メディア追加 ====
+  // ==== メディア追加（下に挿入） ====
   const handleAddMediaBelow = (idx: number) => {
     setInsertMode(Math.max(0, idx + 1));
     fileInputRef.current?.click();
@@ -312,8 +330,14 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     e.currentTarget.value = "";
     if (!file) return;
 
+    const isImage = IMAGE_MIME_TYPES.includes(file.type);
+    const isVideo = VIDEO_MIME_TYPES.includes(file.type);
+    if (!isImage && !isVideo) {
+      setErrorMsg("対応していない形式です。");
+      return;
+    }
+
     // 動画は60秒制限
-    const isVideo = file.type.startsWith("video/");
     if (isVideo) {
       const objectUrl = URL.createObjectURL(file);
       const ok = await new Promise<boolean>((resolve) => {
@@ -322,8 +346,8 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         v.onloadedmetadata = () => {
           const dur = v.duration || 0;
           URL.revokeObjectURL(objectUrl);
-          if (dur > 60) {
-            setErrorMsg("動画は60秒以内にしてください。");
+          if (dur > MAX_VIDEO_SEC) {
+            setErrorMsg(`動画は${MAX_VIDEO_SEC}秒以内にしてください。`);
             resolve(false);
           } else {
             resolve(true);
@@ -354,9 +378,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     const replaceIndex = (fileInputRef.current as any).__replaceIndex ?? -1;
 
     const safePostId = postIdForPath || "temp";
-    const ext = (
-      file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")
-    ).toLowerCase();
+    const ext = extFromMime(file.type) || (isVideo ? "mp4" : "jpg");
     const fileId = uuid();
     const path = `siteBlogs/${SITE_KEY}/posts/${safePostId}/${fileId}.${ext}`;
     const ref = sRef(storage, path);
@@ -517,6 +539,9 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
     }
 
     const src = String((value[idxNow] as any).text || "");
+    theBefore: {
+      /* label to avoid shadow complaints – no-op block */
+    }
     const before = src.slice(0, start);
     const after = src.slice(end);
     const replaced = before + result + after;
@@ -553,7 +578,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       const res = await fetch("/api/blog/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: ks }), // タイトルは送らない
+        body: JSON.stringify({ keywords: ks }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -590,8 +615,11 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
   // ==== レンダリング ====
   return (
     <div className={clsx("space-y-4 relative overflow-visible", textClass)}>
-      {/* ✅ BusyOverlay：アップロード中に表示。saving は upload 中だけ true に */}
-      <BusyOverlay uploadingPercent={uploadPct ?? undefined} saving={uploadPct !== null} />
+      {/* ✅ BusyOverlay：アップロード中に表示（保存テキストは未使用） */}
+      <BusyOverlay
+        uploadingPercent={uploadPct ?? undefined}
+        saving={uploadPct !== null}
+      />
 
       {/* アップロード中のキャンセル（BusyOverlayはUIだけなので別ボタンで対応） */}
       {uploadPct !== null && (
@@ -713,7 +741,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                       )}
                     </div>
 
-                    {/* 画像/動画 共通：タイトル（1つだけ） */}
+                    {/* 画像/動画 共通：タイトル（任意） */}
                     <input
                       className={clsx(
                         "w-full rounded-md border p-2 text-sm",
@@ -757,10 +785,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
         </Button>
         <Button
           type="button"
-          onClick={() => {
-            setInsertMode(value.length);
-            fileInputRef.current?.click();
-          }}
+          onClick={() => handleAddMediaBelow(value.length - 1)}
         >
           画像/動画を追加
         </Button>
@@ -771,7 +796,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept={FILE_TYPES}
+        accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
         className="hidden"
         onChange={onFileChange}
         onClick={(e) => {
@@ -813,7 +838,7 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                 onChange={(e) => setProof({ ...proof, result: e.target.value })}
                 rows={14}
                 className={clsx(
-                  "w-full resize-y rounded-md border p-2",
+                  "w-full resize-y rounded-md border p-2 overflow-auto",
                   isDark
                     ? "bg-black/20 border-white/15 text-white placeholder:text-white/40"
                     : "bg-white border-black/10 text-black placeholder:text-black/40"

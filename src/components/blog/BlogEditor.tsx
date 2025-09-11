@@ -29,17 +29,12 @@ import clsx from "clsx";
 import BlockEditor from "./BlockEditor";
 import { v4 as uuid } from "uuid";
 import { BusyOverlay } from "@/components/BusyOverlay";
+import { LANGS, type LangKey } from "@/lib/langs";
 
 /* ==========================
    テーマ（ダーク判定）
 ========================== */
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
-
-import { LANGS, type LangKey } from "@/lib/langs";
-
-/* ==========================
-   多言語ターゲット（jaはbaseで保持）
-========================== */
 
 /* ==========================
    Firestore 保存用ユーティリティ
@@ -85,10 +80,7 @@ async function moveTempToPost(
   onProgress?: (pct: number, label: string) => void
 ): Promise<BlogBlock[]> {
   const targets = blocks.filter(
-    (b: BlogBlock) =>
-      isMedia(b) &&
-      typeof b.path === "string" &&
-      b.path.includes("/posts/temp/")
+    (b) => isMedia(b) && typeof b.path === "string" && b.path.includes("/posts/temp/")
   );
   let moved = 0;
   const total = targets.length;
@@ -103,22 +95,26 @@ async function moveTempToPost(
       continue;
     }
     emit(`メディア移動中… ${moved + 1}/${total}`);
+
     const oldRef = sref(storage, b.path);
-    const blob = await fetch(await getDownloadURL(oldRef)).then((r) =>
-      r.blob()
-    );
+    const blob = await fetch(await getDownloadURL(oldRef)).then((r) => r.blob());
     const newPath = b.path.replace("/posts/temp/", `/posts/${postId}/`);
     const newRef = sref(storage, newPath);
     await uploadBytes(newRef, blob, { contentType: blob.type });
     const newUrl = await getDownloadURL(newRef);
+
     try {
       await deleteObject(oldRef);
-    } catch {}
+    } catch {
+      /* noop */
+    }
+
     result.push({
       ...(b as Record<string, unknown>),
       path: newPath,
       url: newUrl,
     } as BlogBlock);
+
     moved++;
     emit(`メディア移動中… ${moved}/${total}`);
   }
@@ -262,7 +258,6 @@ export default function BlogEditor({ postId }: Props) {
       setBlocks(baseBlocks);
     })();
   }, [postId]);
-  
 
   /* ========== 保存（新規/更新） ========== */
   const save = async () => {
@@ -282,7 +277,7 @@ export default function BlogEditor({ postId }: Props) {
           setUploadPercent(scaled);
         });
 
-        // 翻訳
+        // 翻訳（✅ 毎回・全言語で上書き）
         setUploadPercent(85);
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
@@ -336,7 +331,7 @@ export default function BlogEditor({ postId }: Props) {
           setUploadPercent(scaled);
         });
 
-        // 翻訳
+        // 翻訳（✅ 毎回・全言語で上書き）
         setUploadPercent(80);
         const tAll: TranslatedPost[] = await Promise.all(
           (LANGS.map((l) => l.key) as LangKey[]).map((lang) =>
@@ -393,7 +388,9 @@ export default function BlogEditor({ postId }: Props) {
         if (isMedia(b) && b.path) {
           try {
             await deleteObject(sref(storage, b.path));
-          } catch {}
+          } catch {
+            /* noop */
+          }
         }
       }
       setUploadPercent(85);
@@ -411,10 +408,6 @@ export default function BlogEditor({ postId }: Props) {
       setBusy(false);
     }
   };
-
-
-
-
 
   /* ==========================
      UI
