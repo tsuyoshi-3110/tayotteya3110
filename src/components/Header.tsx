@@ -45,7 +45,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     staffs: "スタッフ",
     pricing: "料金",
     areas: "対応エリア",
-    story: "当店の思い",
+    story: "私たちの思い",
     blog: "ブログ",
     company: "会社概要",
     reserve: "ご予約はこちら",

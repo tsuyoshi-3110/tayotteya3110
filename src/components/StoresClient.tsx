@@ -535,7 +535,7 @@ export default function StoresClient() {
           items={stores.map((s) => s.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-1">
             {stores.map((s) => {
               const loc = pickLocalized(s, uiLang);
               return (
