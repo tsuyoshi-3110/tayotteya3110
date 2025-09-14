@@ -770,7 +770,7 @@ export function StaffCard({
       )}
 
       {p.mediaType === "image" ? (
-        <div className="relative w-full aspect-[1/1] sm:aspect-square">
+        <div className="relative w-full aspect-[1/1] sm:aspect-square overflow-hidden rounded-t-md">
           <Image
             src={p.mediaURL}
             alt={locTitle || p.title}
@@ -782,7 +782,7 @@ export function StaffCard({
           />
         </div>
       ) : (
-        <div className="relative w-full aspect-[1/1] sm:aspect-square">
+        <div className="relative w-full aspect-[1/1] sm:aspect-square overflow-hidden rounded-t-md">
           <video
             src={p.mediaURL}
             muted
