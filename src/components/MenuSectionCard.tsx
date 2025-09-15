@@ -26,8 +26,8 @@ import {
 } from "firebase/storage";
 
 import clsx from "clsx";
-import { ThemeKey, THEMES } from "@/lib/themes";
-import { useThemeGradient } from "@/lib/useThemeGradient";
+// import { ThemeKey, THEMES } from "@/lib/themes";
+// import { useThemeGradient } from "@/lib/useThemeGradient";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ProductMedia from "@/components/ProductMedia";
 
@@ -219,13 +219,13 @@ export default function MenuSectionCard({
     target?: MenuItem | null;
   }>({ open: false, mode: "create", target: null });
 
-  const gradient = useThemeGradient();
-  const isDark = useMemo(() => {
-    if (!gradient) return false;
-    return (["brandG", "brandH", "brandI"] as ThemeKey[]).some(
-      (k) => gradient === THEMES[k]
-    );
-  }, [gradient]);
+  // const gradient = useThemeGradient();
+  // const isDark = useMemo(() => {
+  //   if (!gradient) return false;
+  //   return (["brandG", "brandH", "brandI"] as ThemeKey[]).some(
+  //     (k) => gradient === THEMES[k]
+  //   );
+  // }, [gradient]);
 
   /* ===== セクション／アイテム取得 ===== */
   useEffect(
@@ -480,7 +480,7 @@ export default function MenuSectionCard({
   /* ===== 画面 ===== */
   return (
     <>
-      <div className="bg-white/30 backdrop-blur-sm shadow-md p-4 rounded mb-6">
+      <div className="bg-white/50 backdrop-blur-sm shadow-md p-4 rounded mb-6">
         {isLoggedIn && (
           <div className="flex gap-2 flex-wrap mt-6 mb-6">
             <Button
@@ -503,7 +503,7 @@ export default function MenuSectionCard({
         <h2
           className={clsx(
             "text-xl font-semibold mb-4 whitespace-pre-wrap",
-            isDark ? "text-white" : "text-gray-900"
+            "text-black"
           )}
         >
           {section.title}

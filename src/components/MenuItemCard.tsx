@@ -72,12 +72,12 @@ export default function MenuItemCard({
             isDark ? "text-white border-white/20" : "text-black border-gray-200"
           )}
         >
-          <p className={clsx("font-semibold whitespace-pre-wrap", isDark && "text-white")}>
+          <p className={clsx("font-semibold whitespace-pre-wrap text-black")}>
             {item.name}
           </p>
 
           {item.price != null && (
-            <p className={clsx("text-sm", isDark ? "text-white/80" : "text-gray-700")}>
+            <p className={clsx("text-sm", "text-black")}>
               ¥{yen(item.price)}
               {typeof item.isTaxIncluded === "boolean"
                 ? `（${item.isTaxIncluded ? "税込" : "税別"}）`
@@ -86,7 +86,7 @@ export default function MenuItemCard({
           )}
 
           {item.description && (
-            <p className={clsx("whitespace-pre-wrap text-sm", isDark ? "text-white/70" : "text-gray-600")}>
+            <p className={clsx("whitespace-pre-wrap text-sm", "text-black")}>
               {item.description}
             </p>
           )}
