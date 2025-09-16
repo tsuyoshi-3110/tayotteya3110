@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
 import TopFixedText from "@/components/TopFixedText";
+import ScrollUpCTA from "@/components/ScrollUpCTA";
 
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜家事代行",
@@ -50,6 +51,13 @@ export default function HomePage() {
           キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。
           ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。
         </p>
+
+        {/* 👇 スクロールアップで出現するCTA */}
+        <ScrollUpCTA
+          href="/apply" // 例: 連絡ページ。セクションに飛ばすなら "#contact"
+          label="無料相談・お問い合わせ"
+          className="mt-5"
+        />
       </section>
 
       {/* ③ JSON-LD（構造化データ） */}
