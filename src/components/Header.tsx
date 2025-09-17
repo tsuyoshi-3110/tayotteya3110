@@ -16,10 +16,12 @@ import Image from "next/image";
 import clsx from "clsx";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { useHeaderLogoUrl } from "../hooks/useHeaderLogoUrl";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { THEMES, ThemeKey } from "@/lib/themes";
 import UILangFloatingPicker from "./UILangFloatingPicker";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { doc, onSnapshot } from "firebase/firestore";
 
 /* ===== 多言語辞書（略） ===== */
 type Keys =
@@ -297,12 +299,22 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
 };
 
-
 const HEADER_H = "3rem";
-
-// ★ 3タップ検出の閾値
-const TRIPLE_TAP_INTERVAL_MS = 500; // タップ間の最大間隔
+const TRIPLE_TAP_INTERVAL_MS = 500;
 const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
+
+// ===== メニュー定義 =====
+const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
+  { key: "products", href: "/products" },
+  { key: "staffs", href: "/staffs" },
+  { key: "pricing", href: "/menu" },
+  { key: "areas", href: "/stores" },
+  { key: "story", href: "/about" },
+  { key: "blog", href: "/blog" },
+  { key: "company", href: "/company" },
+  { key: "reserve", href: "/apply" },
+  { key: "partners", href: "/jobApp" },
+];
 
 export default function Header({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
@@ -311,6 +323,33 @@ export default function Header({ className = "" }: { className?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { uiLang } = useUILang();
 
+  // Firestore: 表示対象メニュー
+  const [visibleMenuKeys, setVisibleMenuKeys] = useState<string[]>(
+    MENU_ITEMS.map((m) => m.key)
+  );
+
+  useEffect(() => {
+    const ref = doc(db, "siteSettingsEditable", SITE_KEY);
+
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as { visibleMenuKeys?: string[] };
+          if (Array.isArray(data.visibleMenuKeys)) {
+            setVisibleMenuKeys(data.visibleMenuKeys);
+          }
+        }
+      },
+      (error) => {
+        console.error("メニュー設定購読エラー:", error);
+      }
+    );
+
+    return () => unsubscribe(); // コンポーネント unmount 時に購読解除
+  }, []);
+
+  // ログイン状態
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsLoggedIn(!!user);
@@ -322,7 +361,6 @@ export default function Header({ className = "" }: { className?: string }) {
     ? `bg-gradient-to-b ${gradient}`
     : "bg-gray-100";
 
-  // ダーク判定（brandH, brandG, brandI）
   const darkKeys: ThemeKey[] = ["brandH", "brandG", "brandI"];
   const currentKey = (Object.entries(THEMES).find(
     ([, v]) => v === gradient
@@ -332,12 +370,11 @@ export default function Header({ className = "" }: { className?: string }) {
   const t = T[uiLang] ?? T.ja;
   const rtl = uiLang === "ar";
 
-  // ★ 3タップで表示する管理者リンクのフラグとカウンタ
+  // 管理者リンクの3タップ検出
   const [showAdminLink, setShowAdminLink] = useState(false);
   const tapCountRef = useRef(0);
   const lastTapAtRef = useRef(0);
 
-  // ★ Sheet を閉じたらリセット
   useEffect(() => {
     if (!open) {
       setShowAdminLink(false);
@@ -346,18 +383,13 @@ export default function Header({ className = "" }: { className?: string }) {
     }
   }, [open]);
 
-  // ★ シート領域の3タップ検出
   const handleSecretTap = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-
-    // 入力・リンクなどの上は無視（誤作動防止）
     if (target.closest(IGNORE_SELECTOR)) return;
-
     const now = Date.now();
     const last = lastTapAtRef.current;
 
     if (now - last > TRIPLE_TAP_INTERVAL_MS) {
-      // 間隔が空きすぎ → カウントをリセットして1から
       tapCountRef.current = 1;
       lastTapAtRef.current = now;
       return;
@@ -368,7 +400,7 @@ export default function Header({ className = "" }: { className?: string }) {
 
     if (tapCountRef.current >= 3) {
       setShowAdminLink(true);
-      tapCountRef.current = 0; // 連打で何度も切り替えない
+      tapCountRef.current = 0;
       lastTapAtRef.current = 0;
     }
   };
@@ -397,7 +429,7 @@ export default function Header({ className = "" }: { className?: string }) {
             alt="ロゴ"
             width={48}
             height={48}
-            className="w-12 h-12 object-contain transition-opacity duration-200 "
+            className="w-12 h-12 object-contain transition-opacity duration-200"
             unoptimized
           />
         )}
@@ -405,41 +437,76 @@ export default function Header({ className = "" }: { className?: string }) {
       </Link>
 
       {/* SNS */}
-      <nav className={clsx("flex gap-2 ml-auto mr-2", rtl && "flex-row-reverse")}>
+      <nav
+        className={clsx("flex gap-2 ml-auto mr-2", rtl && "flex-row-reverse")}
+      >
         <a
-          href="https://www.instagram.com/yuki.tayotte2017?igsh=MWY2b2RxMDM5M3dmdw%3D%3D&utm_source=qr"
+          href="https://www.instagram.com/yuki.tayotte2017"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/instagram-logo.png" alt="Instagram" width={32} height={32} className="object-contain" unoptimized />
+          <Image
+            src="/instagram-logo.png"
+            alt="Instagram"
+            width={32}
+            height={32}
+            className="object-contain"
+            unoptimized
+          />
         </a>
         <a
           href="https://lin.ee/YcKAJja"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/line-logo.png" alt="LINE" width={32} height={32} className="object-contain" unoptimized />
+          <Image
+            src="/line-logo.png"
+            alt="LINE"
+            width={32}
+            height={32}
+            className="object-contain"
+            unoptimized
+          />
         </a>
         <a
           href="https://tayotteya.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className={clsx(isDark ? "text-white" : "text-black", "hover:text-pink-600 transition")}
+          className={clsx(
+            isDark ? "text-white" : "text-black",
+            "hover:text-pink-600 transition"
+          )}
         >
-          <Image src="/tayotteya_circle_image.png" alt="Home" width={32} height={32} className="object-contain" unoptimized />
+          <Image
+            src="/tayotteya_circle_image.png"
+            alt="Home"
+            width={32}
+            height={32}
+            className="object-contain"
+            unoptimized
+          />
         </a>
       </nav>
 
-      {/* ハンバーガー */}
+      {/* ハンバーガーメニュー */}
       <div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className={clsx("w-7 h-7 border-2", isDark ? "text-white border-white" : "text-black border-black")}
+              className={clsx(
+                "w-7 h-7 border-2",
+                isDark ? "text-white border-white" : "text-black border-black"
+              )}
               aria-label={t.menuTitle}
             >
               <Menu size={26} />
@@ -448,11 +515,18 @@ export default function Header({ className = "" }: { className?: string }) {
 
           <SheetContent
             side="right"
-            className={clsx("flex flex-col", "bg-gray-100", gradient && "bg-gradient-to-b", gradient)}
+            className={clsx(
+              "flex flex-col",
+              "bg-gray-100",
+              gradient && "bg-gradient-to-b",
+              gradient
+            )}
             dir={rtl ? "rtl" : "ltr"}
           >
-            {/* ★ 内側ラッパーで pointer を拾う */}
-            <div className="flex flex-col h-full" onPointerDown={handleSecretTap}>
+            <div
+              className="flex flex-col h-full"
+              onPointerDown={handleSecretTap}
+            >
               <SheetHeader className="pt-4 px-4">
                 <SheetTitle className="text-center text-xl !text-white text-outline">
                   {t.menuTitle}
@@ -461,24 +535,16 @@ export default function Header({ className = "" }: { className?: string }) {
 
               {/* メインメニュー */}
               <div className="flex-1 flex flex-col justify-center items-center space-y-2 text-center">
-                {[
-                  { href: "/products", label: t.products },
-                  { href: "/staffs", label: t.staffs },
-                  { href: "/menu", label: t.pricing },
-                  { href: "/stores", label: t.areas },
-                  { href: "/about", label: t.story },
-                  { href: "/blog", label: t.blog },
-                  { href: "/company", label: t.company },
-                  { href: "/apply", label: t.reserve },
-                  { href: "/jobApp", label: t.partners },
-                ].map(({ href, label }) => (
+                {MENU_ITEMS.filter((item) =>
+                  visibleMenuKeys.includes(item.key)
+                ).map(({ key, href }) => (
                   <Link
-                    key={href}
+                    key={key}
                     href={href}
                     onClick={() => setOpen(false)}
                     className={clsx("text-lg", "text-white text-outline")}
                   >
-                    {label}
+                    {t[key]}
                   </Link>
                 ))}
               </div>
@@ -486,28 +552,37 @@ export default function Header({ className = "" }: { className?: string }) {
               {/* 言語ピッカー */}
               <UILangFloatingPicker />
 
-              {/* フッターリンク（ログイン済 or 3タップ後のみ表示） */}
+              {/* フッターリンク */}
               <div className="p-4 space-y-2">
                 {isLoggedIn && (
                   <>
                     <Link
                       href="/postList"
                       onClick={() => setOpen(false)}
-                      className={clsx("block text-center text-lg", "text-white text-outline")}
+                      className={clsx(
+                        "block text-center text-lg",
+                        "text-white text-outline"
+                      )}
                     >
                       {t.timeline}
                     </Link>
                     <Link
                       href="/community"
                       onClick={() => setOpen(false)}
-                      className={clsx("block text-center text-lg", "text-white text-outline")}
+                      className={clsx(
+                        "block text-center text-lg",
+                        "text-white text-outline"
+                      )}
                     >
                       {t.community}
                     </Link>
                     <Link
                       href="/analytics"
                       onClick={() => setOpen(false)}
-                      className={clsx("block text-center text-lg", "text-white text-outline")}
+                      className={clsx(
+                        "block text-center text-lg",
+                        "text-white text-outline"
+                      )}
                     >
                       {t.analytics}
                     </Link>
@@ -518,7 +593,10 @@ export default function Header({ className = "" }: { className?: string }) {
                   <Link
                     href="/login"
                     onClick={() => setOpen(false)}
-                    className={clsx("block text-center text-lg", "text-white text-outline")}
+                    className={clsx(
+                      "block text-center text-lg",
+                      "text-white text-outline"
+                    )}
                   >
                     {t.admin}
                   </Link>

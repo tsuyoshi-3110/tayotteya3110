@@ -27,42 +27,57 @@ import ImageLogoControls from "@/components/ImageLogoControls";
 
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
-type MediaType = "video" | "image";
-
 type MetaDoc = {
-  url?: string;
-  type?: MediaType;
   themeGradient?: ThemeKey;
-  imageUrls?: string[];
+  visibleMenuKeys?: string[];
 };
 
+const MENU_ITEMS: { key: string; label: string }[] = [
+  { key: "products", label: "施工実績" },
+  { key: "staffs", label: "スタッフ" },
+  { key: "pricing", label: "料金" },
+  { key: "areas", label: "対応エリア" },
+  { key: "story", label: "私たちの思い" },
+  { key: "blog", label: "ブログ" },
+  { key: "company", label: "会社概要" },
+  { key: "reserve", label: "ご予約はこちら" },
+  { key: "partners", label: "協力業者募集！" },
+];
+
 export default function LoginPage() {
-  // 共通state
   const [theme, setTheme] = useState<ThemeKey>("brandA");
+  const [visibleKeys, setVisibleKeys] = useState<string[]>(
+    MENU_ITEMS.map((m) => m.key)
+  );
   const [user, setUser] = useState<User | null>(null);
 
-  // 未ログインUI用
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // モーダル類（排他表示）
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showForgotEmail, setShowForgotEmail] = useState(false);
 
-  // 初期テーマ読み込み
+  // Firestore 初期読み込み
   useEffect(() => {
     (async () => {
-      const snap = await getDoc(META_REF);
-      if (!snap.exists()) return;
-      const data = snap.data() as MetaDoc;
-      if (data.themeGradient) setTheme(data.themeGradient);
-    })().catch((err) => console.error("背景データ取得失敗:", err));
+      try {
+        const snap = await getDoc(META_REF);
+        if (!snap.exists()) return;
+        const data = snap.data() as MetaDoc;
+        if (data.themeGradient) setTheme(data.themeGradient);
+        if (Array.isArray(data.visibleMenuKeys)) {
+          setVisibleKeys(data.visibleMenuKeys);
+        }
+      } catch (e) {
+        console.error("初期データ取得失敗:", e);
+      }
+    })();
   }, []);
 
-  // 認証状態 + ownerId権限チェック
+  // 認証状態チェック
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -97,7 +112,6 @@ export default function LoginPage() {
     setError("");
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged 内で ownerId チェックが走る
     } catch (err) {
       if (err instanceof FirebaseError) {
         switch (err.code) {
@@ -109,9 +123,6 @@ export default function LoginPage() {
             break;
           case "auth/wrong-password":
             setError("パスワードが間違っています。");
-            break;
-          case "auth/invalid-credential":
-            setError("認証情報が正しくありません。");
             break;
           default:
             setError("ログインに失敗しました。");
@@ -133,22 +144,23 @@ export default function LoginPage() {
     await setDoc(META_REF, { themeGradient: newTheme }, { merge: true });
   };
 
-  // ====== レンダリング =====================================================
+  const handleVisibleKeysChange = async (newKeys: string[]) => {
+    setVisibleKeys(newKeys);
+    await setDoc(META_REF, { visibleMenuKeys: newKeys }, { merge: true });
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      {/* ログイン後ビュー */}
       {user ? (
         <>
           {showChangePassword ? (
-            // パスワード変更は単独ビュー（重なり防止）
             <div className="w-full max-w-md">
               <ChangePassword onClose={() => setShowChangePassword(false)} />
             </div>
           ) : (
             <div className="w-full max-w-lg space-y-6">
-              {/* 設定カード（ThemeSelector/FontSwitcher） */}
-              <Card className="shadow-xl bg-transparent">
+              {/* 表示設定 */}
+              <Card className="shadow-xl bg-white/50">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold">
                     表示設定
@@ -156,7 +168,7 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ImageLogoControls
-                    siteKey={SITE_KEY} // ← ここだけ指定
+                    siteKey={SITE_KEY}
                     onProgress={(p) => console.log(p)}
                     onDone={(type, url) => console.log("done:", type, url)}
                   />
@@ -171,11 +183,31 @@ export default function LoginPage() {
                     <p className="text-sm mb-2">フォント</p>
                     <FontSwitcher />
                   </div>
+                  <div>
+                    <p className="text-sm mb-2">メニュー表示設定</p>
+                    <div className="space-y-1">
+                      {MENU_ITEMS.map((item) => (
+                        <label key={item.key} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={visibleKeys.includes(item.key)}
+                            onChange={(e) => {
+                              const newKeys = e.target.checked
+                                ? [...visibleKeys, item.key]
+                                : visibleKeys.filter((k) => k !== item.key);
+                              handleVisibleKeysChange(newKeys);
+                            }}
+                          />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* アカウント操作カード */}
-              <Card className="shadow-xl">
+              {/* アカウント操作 */}
+              <Card className="shadow-xl bg-white/50">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                     <LogOut size={20} /> ログアウト
@@ -214,7 +246,6 @@ export default function LoginPage() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-
               <Input
                 type="email"
                 placeholder="メールアドレス"
@@ -225,7 +256,6 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-
               <div className="flex items-center justify-between text-sm">
                 <button
                   onClick={() => {
@@ -246,7 +276,6 @@ export default function LoginPage() {
                   メールアドレスを忘れた方
                 </button>
               </div>
-
               <Button
                 onClick={handleLogin}
                 disabled={loading}
@@ -257,7 +286,7 @@ export default function LoginPage() {
             </CardContent>
           </Card>
 
-          {/* モーダル類：同時に1つだけ開く */}
+          {/* モーダル類 */}
           {showForgotPassword && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -265,14 +294,13 @@ export default function LoginPage() {
               </div>
             </div>
           )}
-
           {showForgotEmail && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <ForgotEmail
                   onClose={() => setShowForgotEmail(false)}
                   onEmailFound={(found) => {
-                    setEmail(found); // 自動入力
+                    setEmail(found);
                     setShowForgotEmail(false);
                   }}
                 />

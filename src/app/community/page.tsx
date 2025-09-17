@@ -184,6 +184,19 @@ function scorePartner(
   return 0.6 * industry + 0.4 * dist;
 }
 
+// ② ユーティリティを追加（ファイル先頭の関数群のそばに置くと見通し良いです）
+const normalizeJa = (s: string) =>
+  (s || "")
+    .toString()
+    .normalize("NFKC") // 全角→半角など正規化
+    .toLowerCase()
+    .trim();
+
+const toTokens = (q: string) =>
+  normalizeJa(q)
+    .split(/\s+/) // スペース/改行で区切り
+    .filter(Boolean); // 空要素除去
+
 /* ----------  Component ---------- */
 export default function CommunityPage() {
   const [owners, setOwners] = useState<SiteOwner[]>([]);
@@ -285,12 +298,24 @@ export default function CommunityPage() {
   }, []);
 
   const filteredOwners = useMemo(() => {
-    if (!query.trim()) return owners;
-    const q = query.trim().toLowerCase();
-    return owners.filter((o) => o.siteName.toLowerCase().includes(q));
+    const tokens = toTokens(query);
+    if (tokens.length === 0) return owners;
+
+    return owners.filter((o) => {
+      const haystack = [
+        o.siteName ?? "",
+        o.ownerName ?? "",
+        o.industry?.name ?? "",
+        o.industry?.key ?? "",
+      ]
+        .map((s) => normalizeJa(s)) // ← string のみが渡るのでOK
+        .join(" ");
+
+      return tokens.every((t) => haystack.includes(t));
+    });
   }, [owners, query]);
 
-  const handleChange = useCallback(
+   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value),
     []
   );
@@ -454,16 +479,14 @@ const handleProposeForCard = useCallback(
     <main className="mx-auto max-w-3xl p-4 pt-20">
       {/* ヘッダ行：検索＋AI選択ボタン */}
       <div className="mb-4 flex gap-2 items-center">
-        <input
+         <input
           type="text"
-          placeholder="店舗名で検索…"
+          placeholder="店舗名/業種で検索…" // ← 変更
           value={query}
           onChange={handleChange}
           className={clsx(
             "flex-1 bg-white/50 rounded border px-3 py-2 text-sm focus:outline-none",
-            isDark
-              ? "text-white placeholder-gray-300 border-gray-600"
-              : "text-black"
+
           )}
         />
         <button

@@ -22,7 +22,7 @@ export default function FontSwitcher() {
   /* 現在選択中のフォント */
   const [selected, setSelected] = useState<string>("kosugi");
   /* 保存完了のフラグ（✅アイコン表示用） */
-  const [saved, setSaved] = useState(false);
+  // const [saved, setSaved] = useState(false);
   /* 二重クリック防止用 */
   const [saving, setSaving] = useState(false);
 
@@ -65,8 +65,8 @@ export default function FontSwitcher() {
     );
 
     /* 3) ✅Saved アイコンを 2 秒だけ表示 */
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    // setSaved(true);
+    // setTimeout(() => setSaved(false), 2000);
     setSaving(false);
   };
 
@@ -92,7 +92,7 @@ export default function FontSwitcher() {
       ))}
 
       {/* ✅ 保存完了シール */}
-      {saved && (
+      {/* {saved && (
         <span
           className="absolute -top-2 right-2 flex items-center gap-1
                          bg-emerald-500 text-white text-xs font-semibold
@@ -100,7 +100,7 @@ export default function FontSwitcher() {
         >
           ✅ Saved
         </span>
-      )}
+      )} */}
     </div>
   );
 }
