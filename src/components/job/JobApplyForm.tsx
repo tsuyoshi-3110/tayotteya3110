@@ -19,8 +19,22 @@ import { useUILang } from "@/lib/atoms/uiLangAtom";
    言語キー
 ================================ */
 type LangKey =
-  | "ja" | "en" | "zh" | "zh-TW" | "ko" | "fr" | "es" | "de"
-  | "pt" | "it" | "ru" | "th" | "vi" | "id" | "hi" | "ar";
+  | "ja"
+  | "en"
+  | "zh"
+  | "zh-TW"
+  | "ko"
+  | "fr"
+  | "es"
+  | "de"
+  | "pt"
+  | "it"
+  | "ru"
+  | "th"
+  | "vi"
+  | "id"
+  | "hi"
+  | "ar";
 
 const DARK_KEYS: ThemeKey[] = ["brandH", "brandG", "brandI"];
 
@@ -31,11 +45,15 @@ const genTimes = (start = "09:00", end = "18:00") => {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
   const arr: string[] = [];
-  let h = sh, m = sm;
+  let h = sh,
+    m = sm;
   while (h < eh || (h === eh && m <= em)) {
     arr.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     m += 30;
-    if (m >= 60) { h += 1; m = 0; }
+    if (m >= 60) {
+      h += 1;
+      m = 0;
+    }
   }
   return arr;
 };
@@ -44,7 +62,10 @@ const TIME_SLOTS = genTimes("09:00", "18:00");
 /* ===============================
    連絡方法（UIは多言語、送信メッセージは既定の日本語のまま）
 ================================ */
-const CONTACT_LABELS: Record<LangKey, Record<"phone"|"email"|"line", string>> = {
+const CONTACT_LABELS: Record<
+  LangKey,
+  Record<"phone" | "email" | "line", string>
+> = {
   ja: { phone: "電話", email: "メール", line: "LINE" },
   en: { phone: "Phone", email: "Email", line: "LINE" },
   zh: { phone: "电话", email: "邮箱", line: "LINE" },
@@ -125,7 +146,8 @@ type Strings = {
 const JA: Strings = {
   ui: {
     sectionTitle: "ご依頼内容",
-    sectionHelp: "全ての項目をご入力ください。担当者より折り返しご連絡いたします。",
+    sectionHelp:
+      "全ての項目をご入力ください。担当者より折り返しご連絡いたします。",
     name: "お名前",
     phone: "電話番号",
     email: "メールアドレス",
@@ -331,7 +353,8 @@ const KO: Strings = {
 const FR: Strings = {
   ui: {
     sectionTitle: "Détails de la demande",
-    sectionHelp: "Veuillez remplir tous les champs. Nous vous contacterons rapidement.",
+    sectionHelp:
+      "Veuillez remplir tous les champs. Nous vous contacterons rapidement.",
     name: "Nom",
     phone: "Téléphone",
     email: "E-mail",
@@ -818,7 +841,9 @@ export default function JobApplyForm() {
   const isDark =
     !!gradient &&
     DARK_KEYS.includes(
-      (Object.keys(THEMES).find((k) => THEMES[k as ThemeKey] === gradient) as ThemeKey) ?? "brandA"
+      (Object.keys(THEMES).find(
+        (k) => THEMES[k as ThemeKey] === gradient
+      ) as ThemeKey) ?? "brandA"
     );
 
   // ★ Jotai の UI 言語で文言を切替（未知キーは ja にフォールバック）
@@ -829,7 +854,10 @@ export default function JobApplyForm() {
   }, [uiLang]);
 
   const strings = useMemo(() => STRINGS[lang], [lang]);
-  const contactLabels = useMemo(() => CONTACT_LABELS[lang] ?? CONTACT_LABELS.ja, [lang]);
+  const contactLabels = useMemo(
+    () => CONTACT_LABELS[lang] ?? CONTACT_LABELS.ja,
+    [lang]
+  );
 
   // バリデーション（言語ごとに再構築）
   const schema = useMemo(
@@ -851,7 +879,10 @@ export default function JobApplyForm() {
           .regex(/^\d{4}-\d{2}-\d{2}$/, strings.errors.dateFormat),
         time: z.string().min(1, strings.errors.time),
         address: z.string().min(1, strings.errors.address),
-        notes: z.string().min(1, strings.errors.notes).max(1000, strings.errors.notesMax),
+        notes: z
+          .string()
+          .min(1, strings.errors.notes)
+          .max(1000, strings.errors.notesMax),
       }),
     [strings.errors]
   );
@@ -946,16 +977,30 @@ export default function JobApplyForm() {
         <div
           className={clsx(
             "px-5 pt-5 pb-3 border-b rounded-t-2xl",
-            isDark ? "bg-black/20 border-white/10" : "bg-white/60 border-black/10"
+            isDark
+              ? "bg-black/20 border-white/10"
+              : "bg-white/60 border-black/10"
           )}
         >
           <div className="flex items-center gap-2">
-            <MessageSquareMore className={clsx("h-5 w-5", isDark ? "text-white" : "text-black")} />
-            <h2 className={clsx("text-base font-semibold", isDark ? "text-white" : "text-black")}>
+            <MessageSquareMore
+              className={clsx("h-5 w-5", isDark ? "text-white" : "text-black")}
+            />
+            <h2
+              className={clsx(
+                "text-base font-semibold",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.sectionTitle}
             </h2>
           </div>
-          <p className={clsx("mt-1 text-xs", isDark ? "text-white/70" : "text-black/70")}>
+          <p
+            className={clsx(
+              "mt-1 text-xs",
+              isDark ? "text-white/70" : "text-black/70"
+            )}
+          >
             {strings.ui.sectionHelp}
           </p>
         </div>
@@ -964,7 +1009,12 @@ export default function JobApplyForm() {
         <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-6">
           {/* お名前 */}
           <div className="grid gap-2">
-            <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+            <label
+              className={clsx(
+                "text-sm font-medium",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.name}
             </label>
             <Input
@@ -974,12 +1024,19 @@ export default function JobApplyForm() {
               aria-required={true}
               required
             />
-            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+            {errors.name && (
+              <p className="text-xs text-red-500">{errors.name.message}</p>
+            )}
           </div>
 
           {/* 電話番号 */}
           <div className="grid gap-2">
-            <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+            <label
+              className={clsx(
+                "text-sm font-medium",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.phone}
             </label>
             <Input
@@ -990,12 +1047,19 @@ export default function JobApplyForm() {
               aria-required={true}
               required
             />
-            {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
+            {errors.phone && (
+              <p className="text-xs text-red-500">{errors.phone.message}</p>
+            )}
           </div>
 
           {/* メールアドレス */}
           <div className="grid gap-2">
-            <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+            <label
+              className={clsx(
+                "text-sm font-medium",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.email}
             </label>
             <Input
@@ -1007,50 +1071,65 @@ export default function JobApplyForm() {
               aria-required={true}
               required
             />
-            {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+            {errors.email && (
+              <p className="text-xs text-red-500">{errors.email.message}</p>
+            )}
           </div>
 
           {/* 希望日・希望時間 */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
-                {strings.ui.date}
-              </label>
-              <Input
-                type="date"
-                min={minDate}
-                {...register("date")}
-                className={isDark ? "text-black bg-white" : "text-black"}
-                aria-required={true}
-                required
-              />
-              {errors.date && <p className="text-xs text-red-500">{errors.date.message}</p>}
-            </div>
+         {/* 希望日・希望時間 */}
+<div className="grid gap-4 sm:grid-cols-2">
+  {/* 日付 */}
+  <div className="grid gap-2 min-w-0">
+    <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+      {strings.ui.date}
+    </label>
+    <Input
+      type="date"
+      min={minDate}
+      {...register("date")}
+      className={clsx(
+        // shadcnの `flex` を殺すために `block` を先に置く
+        "block min-w-0 w-full max-w-full appearance-none",
+        isDark ? "text-black bg-white" : "text-black"
+      )}
+      aria-required={true}
+      required
+    />
+    {errors.date && <p className="text-xs text-red-500">{errors.date.message}</p>}
+  </div>
 
-            <div className="grid gap-2">
-              <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
-                {strings.ui.time}
-              </label>
-              <select
-                {...register("time")}
-                className={clsx("h-10 w-full rounded-md border px-3", "bg-white text-black")}
-                aria-required={true}
-                required
-              >
-                <option value="">{strings.ui.timeSelectPlaceholder}</option>
-                {TIME_SLOTS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-              {errors.time && <p className="text-xs text-red-500">{errors.time.message}</p>}
-            </div>
-          </div>
+  {/* 時間 */}
+  <div className="grid gap-2 min-w-0">
+    <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+      {strings.ui.time}
+    </label>
+    <select
+      {...register("time")}
+      className={clsx(
+        "block h-10 min-w-0 w-full max-w-full rounded-md border px-3 bg-white text-black"
+      )}
+      aria-required={true}
+      required
+    >
+      <option value="">{strings.ui.timeSelectPlaceholder}</option>
+      {TIME_SLOTS.map((t) => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
+    {errors.time && <p className="text-xs text-red-500">{errors.time.message}</p>}
+  </div>
+</div>
+
 
           {/* ご住所 */}
           <div className="grid gap-2">
-            <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+            <label
+              className={clsx(
+                "text-sm font-medium",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.address}
             </label>
             <Input
@@ -1060,12 +1139,19 @@ export default function JobApplyForm() {
               aria-required={true}
               required
             />
-            {errors.address && <p className="text-xs text-red-500">{errors.address.message}</p>}
+            {errors.address && (
+              <p className="text-xs text-red-500">{errors.address.message}</p>
+            )}
           </div>
 
           {/* ご要望 */}
           <div className="grid gap-2">
-            <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
+            <label
+              className={clsx(
+                "text-sm font-medium",
+                isDark ? "text-white" : "text-black"
+              )}
+            >
               {strings.ui.notes}
             </label>
             <Textarea
@@ -1076,12 +1162,16 @@ export default function JobApplyForm() {
               aria-required={true}
               required
             />
-            {errors.notes && <p className="text-xs text-red-500">{errors.notes.message}</p>}
+            {errors.notes && (
+              <p className="text-xs text-red-500">{errors.notes.message}</p>
+            )}
           </div>
 
           {/* 送信エラー */}
           {errorMsg && (
-            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700">{errorMsg}</div>
+            <div className="rounded-md bg-red-50 p-2 text-sm text-red-700">
+              {errorMsg}
+            </div>
           )}
 
           {/* 送信ボタン */}
@@ -1097,14 +1187,18 @@ export default function JobApplyForm() {
       {doneModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
           <div className="w-[92%] max-w-md rounded-2xl bg-white p-6 shadow-xl text-black">
-            <div className="text-base font-semibold mb-2">{strings.modal.doneTitle}</div>
+            <div className="text-base font-semibold mb-2">
+              {strings.modal.doneTitle}
+            </div>
             <p className="text-sm mb-4">
               {strings.modal.doneLine1(doneModal.name)}
               <br />
               {strings.modal.doneLine2}
             </p>
             <div className="text-right">
-              <Button onClick={() => setDoneModal(null)}>{strings.modal.close}</Button>
+              <Button onClick={() => setDoneModal(null)}>
+                {strings.modal.close}
+              </Button>
             </div>
           </div>
         </div>

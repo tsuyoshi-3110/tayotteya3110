@@ -33,6 +33,7 @@ type MetaDoc = {
 };
 
 const MENU_ITEMS: { key: string; label: string }[] = [
+  { key: "home", label: "ホーム" },
   { key: "products", label: "施工実績" },
   { key: "staffs", label: "スタッフ" },
   { key: "pricing", label: "料金" },

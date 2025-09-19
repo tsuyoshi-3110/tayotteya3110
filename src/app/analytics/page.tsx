@@ -38,6 +38,7 @@ import {
   fetchWeekdayByPeriod,
 } from "@/lib/logAnalytics";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import Link from "next/link";
 
 Chart.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -320,6 +321,10 @@ export default function AnalyticsPage() {
             </Button>
           );
         })}
+
+         <Button asChild className="fixed top-15 right-5 z-50 w-10 h-10 rounded-full bg-blue-600 text-white text-2xl leading-none flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95">
+          <Link href="/analytics-guide" className="text-md">?</Link>
+        </Button>
       </div>
 
       {/* AI改善提案 */}

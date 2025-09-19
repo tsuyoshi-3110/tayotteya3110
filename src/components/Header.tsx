@@ -25,6 +25,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 /* ===== 多言語辞書（略） ===== */
 type Keys =
+  | "home"
   | "menuTitle"
   | "products"
   | "staffs"
@@ -43,6 +44,7 @@ type Keys =
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
     menuTitle: "メニュー",
+    home: "ホーム",
     products: "施工実績",
     staffs: "スタッフ",
     pricing: "料金",
@@ -59,6 +61,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   en: {
     menuTitle: "Menu",
+    home: "Home",
     products: "Projects",
     staffs: "Staff",
     pricing: "Pricing",
@@ -75,6 +78,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   zh: {
     menuTitle: "菜单",
+    home: "首页",
     products: "施工案例",
     staffs: "员工",
     pricing: "价格",
@@ -91,6 +95,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   "zh-TW": {
     menuTitle: "選單",
+    home: "首頁",
     products: "施工案例",
     staffs: "員工",
     pricing: "價格",
@@ -107,6 +112,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   ko: {
     menuTitle: "메뉴",
+    home: "홈",
     products: "시공 사례",
     staffs: "스태프",
     pricing: "요금",
@@ -123,6 +129,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   fr: {
     menuTitle: "Menu",
+    home: "Accueil",
     products: "Réalisations",
     staffs: "Équipe",
     pricing: "Tarifs",
@@ -139,6 +146,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   es: {
     menuTitle: "Menú",
+    home: "Inicio",
     products: "Proyectos",
     staffs: "Equipo",
     pricing: "Precios",
@@ -155,6 +163,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   de: {
     menuTitle: "Menü",
+    home: "Startseite",
     products: "Referenzen",
     staffs: "Team",
     pricing: "Preise",
@@ -171,6 +180,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   pt: {
     menuTitle: "Menu",
+    home: "Início",
     products: "Projetos",
     staffs: "Equipe",
     pricing: "Preços",
@@ -187,6 +197,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   it: {
     menuTitle: "Menu",
+    home: "Home",
     products: "Progetti",
     staffs: "Staff",
     pricing: "Prezzi",
@@ -203,6 +214,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   ru: {
     menuTitle: "Меню",
+    home: "Главная",
     products: "Наши работы",
     staffs: "Сотрудники",
     pricing: "Цены",
@@ -219,6 +231,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   th: {
     menuTitle: "เมนู",
+    home: "หน้าแรก",
     products: "ผลงาน",
     staffs: "ทีมงาน",
     pricing: "ราคา",
@@ -235,6 +248,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   vi: {
     menuTitle: "Menu",
+    home: "Trang chủ",
     products: "Dự án đã làm",
     staffs: "Nhân viên",
     pricing: "Bảng giá",
@@ -251,6 +265,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   id: {
     menuTitle: "Menu",
+    home: "Beranda",
     products: "Portofolio",
     staffs: "Staf",
     pricing: "Harga",
@@ -267,6 +282,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   hi: {
     menuTitle: "मेनू",
+    home: "होम",
     products: "परियोजनाएँ",
     staffs: "स्टाफ़",
     pricing: "मूल्य",
@@ -283,6 +299,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
   ar: {
     menuTitle: "القائمة",
+    home: "الصفحة الرئيسية",
     products: "المشاريع المنجزة",
     staffs: "الفريق",
     pricing: "الأسعار",
@@ -305,6 +322,7 @@ const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 
 // ===== メニュー定義 =====
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
+  { key: "home", href: "/" },
   { key: "products", href: "/products" },
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
