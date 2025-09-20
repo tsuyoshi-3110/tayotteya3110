@@ -41,6 +41,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "story", label: "私たちの思い" },
   { key: "blog", label: "ブログ" },
   { key: "company", label: "会社概要" },
+  { key: "contact", label: "無料相談・お問合せ" },
   { key: "reserve", label: "ご予約はこちら" },
   { key: "partners", label: "協力業者募集！" },
 ];
@@ -188,7 +189,10 @@ export default function LoginPage() {
                     <p className="text-sm mb-2">メニュー表示設定</p>
                     <div className="space-y-1">
                       {MENU_ITEMS.map((item) => (
-                        <label key={item.key} className="flex items-center gap-2">
+                        <label
+                          key={item.key}
+                          className="flex items-center gap-2"
+                        >
                           <input
                             type="checkbox"
                             checked={visibleKeys.includes(item.key)}

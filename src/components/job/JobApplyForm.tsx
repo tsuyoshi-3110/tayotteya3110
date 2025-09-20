@@ -1020,7 +1020,11 @@ export default function JobApplyForm() {
             <Input
               placeholder={strings.ui.namePh}
               {...register("name")}
-              className={isDark ? "text-black bg-white" : "text-black"}
+              className={
+                isDark
+                  ? "text-white placeholder:text-white/70"
+                  : "text-black placeholder:text-black"
+              }
               aria-required={true}
               required
             />
@@ -1042,7 +1046,11 @@ export default function JobApplyForm() {
             <Input
               placeholder={strings.ui.phonePh}
               {...register("phone")}
-              className={isDark ? "text-black bg-white" : "text-black"}
+              className={
+                isDark
+                  ? "text-white placeholder:text-white/70"
+                  : "text-black placeholder:text-black"
+              }
               inputMode="tel"
               aria-required={true}
               required
@@ -1066,7 +1074,11 @@ export default function JobApplyForm() {
               type="email"
               placeholder={strings.ui.emailPh}
               {...register("email")}
-              className={isDark ? "text-black bg-white" : "text-black"}
+              className={
+                isDark
+                  ? "text-white placeholder:text-white/70"
+                  : "text-black placeholder:text-black"
+              }
               inputMode="email"
               aria-required={true}
               required
@@ -1077,50 +1089,66 @@ export default function JobApplyForm() {
           </div>
 
           {/* 希望日・希望時間 */}
-         {/* 希望日・希望時間 */}
-<div className="grid gap-4 sm:grid-cols-2">
-  {/* 日付 */}
-  <div className="grid gap-2 min-w-0">
-    <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
-      {strings.ui.date}
-    </label>
-    <Input
-      type="date"
-      min={minDate}
-      {...register("date")}
-      className={clsx(
-        // shadcnの `flex` を殺すために `block` を先に置く
-        "block min-w-0 w-full max-w-full appearance-none",
-        isDark ? "text-black bg-white" : "text-black"
-      )}
-      aria-required={true}
-      required
-    />
-    {errors.date && <p className="text-xs text-red-500">{errors.date.message}</p>}
-  </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* 日付 */}
+            <div className="grid gap-2 min-w-0">
+              <label
+                className={clsx(
+                  "text-sm font-medium  ",
+                  isDark ? "text-white" : "text-black"
+                )}
+              >
+                {strings.ui.date}
+              </label>
+              <Input
+                type="date"
+                min={minDate}
+                {...register("date")}
+                className={clsx(
+                  "block min-w-0 w-full max-w-full appearance-none",
+                  isDark
+                    ? "text-white placeholder:text-white placeholder:opacity-70 [color-scheme:dark]"
+                    : "text-black placeholder:text-black placeholder:opacity-70 [color-scheme:light]"
+                )}
+                aria-required={true}
+                required
+              />
+              {errors.date && (
+                <p className="text-xs text-red-500">{errors.date.message}</p>
+              )}
+            </div>
 
-  {/* 時間 */}
-  <div className="grid gap-2 min-w-0">
-    <label className={clsx("text-sm font-medium", isDark ? "text-white" : "text-black")}>
-      {strings.ui.time}
-    </label>
-    <select
-      {...register("time")}
-      className={clsx(
-        "block h-10 min-w-0 w-full max-w-full rounded-md border px-3 bg-white text-black"
-      )}
-      aria-required={true}
-      required
-    >
-      <option value="">{strings.ui.timeSelectPlaceholder}</option>
-      {TIME_SLOTS.map((t) => (
-        <option key={t} value={t}>{t}</option>
-      ))}
-    </select>
-    {errors.time && <p className="text-xs text-red-500">{errors.time.message}</p>}
-  </div>
-</div>
-
+            {/* 時間 */}
+            <div className="grid gap-2 min-w-0">
+              <label
+                className={clsx(
+                  "text-sm font-medium",
+                  isDark ? "text-white" : "text-black"
+                )}
+              >
+                {strings.ui.time}
+              </label>
+              <select
+                {...register("time")}
+                className={clsx(
+                  "block h-10 min-w-0 w-full max-w-full rounded-md border px-3 text-black",
+                  isDark ? "text-white" : "text-black"
+                )}
+                aria-required={true}
+                required
+              >
+                <option value="">{strings.ui.timeSelectPlaceholder}</option>
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              {errors.time && (
+                <p className="text-xs text-red-500">{errors.time.message}</p>
+              )}
+            </div>
+          </div>
 
           {/* ご住所 */}
           <div className="grid gap-2">
@@ -1135,7 +1163,11 @@ export default function JobApplyForm() {
             <Input
               placeholder={strings.ui.addressPh}
               {...register("address")}
-              className={isDark ? "text-black bg-white" : "text-black"}
+              className={
+                isDark
+                  ? "text-white placeholder:text-white/70"
+                  : "text-black placeholder:text-black"
+              }
               aria-required={true}
               required
             />
@@ -1158,7 +1190,11 @@ export default function JobApplyForm() {
               rows={6}
               placeholder={strings.ui.notesPh}
               {...register("notes")}
-              className={isDark ? "text-black bg-white" : "text-black"}
+              className={
+                isDark
+                  ? "text-white placeholder:text-white/70"
+                  : "text-black placeholder:text-black"
+              }
               aria-required={true}
               required
             />

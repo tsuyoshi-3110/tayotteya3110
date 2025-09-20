@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import OpenAI from "openai";
 
 // ✅ Node ランタイム（Edge では nodemailer が動きません）
 export const runtime = "nodejs";
@@ -15,7 +16,8 @@ const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REFRESH_TOKEN,
-  SENDER_EMAIL, // ★ 追加：サーバー側で参照するサイトキー
+  SENDER_EMAIL,
+  OPENAI_API_KEY,
 } = process.env;
 
 // OAuth Playground でリフレッシュトークンを発行している前提
@@ -37,15 +39,10 @@ function escapeHtml(s: string) {
     .replaceAll("'", "&#039;");
 }
 
-/** Firestore から ownerEmail を取得。
- *  1) siteSettings/{SITE_KEY_SERVER}
- *  2) 見つからなければ siteSettingsEditable/{SITE_KEY_SERVER}
- *  3) それでもダメなら null
- */
+/** Firestore から ownerEmail を取得。 */
 async function resolveOwnerEmail(): Promise<string | null> {
   if (!SITE_KEY) return null;
 
-  // 1) siteSettings
   try {
     const ref1 = doc(db, "siteSettings", SITE_KEY);
     const snap1 = await getDoc(ref1);
@@ -55,7 +52,6 @@ async function resolveOwnerEmail(): Promise<string | null> {
     }
   } catch {}
 
-  // 2) siteSettingsEditable
   try {
     const ref2 = doc(db, "siteSettingsEditable", SITE_KEY);
     const snap2 = await getDoc(ref2);
@@ -65,8 +61,61 @@ async function resolveOwnerEmail(): Promise<string | null> {
     }
   } catch {}
 
-  // 3) 取得失敗
   return null;
+}
+
+/** 本文テキストを日本語に翻訳（日本語らしければそのまま / 失敗時は null） */
+async function translateBodyToJaIfNeeded(body: string): Promise<string | null> {
+  const text = (body || "").trim();
+  if (!text) return null;
+
+  // かんたんな日本語検出（ひらがな/カタカナ/漢字が一定割合あれば日本語とみなす）
+  const jpChars = (text.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g) || []).length;
+  if (jpChars / Math.max(text.length, 1) > 0.2) {
+    return null; // すでに日本語っぽい
+  }
+
+  if (!OPENAI_API_KEY) return null;
+
+  try {
+    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+    const SYSTEM_PROMPT = `
+You are a professional Japanese translator.
+- Output concise, natural Japanese.
+- Do not add content; keep meaning and tone.
+- Return a strict JSON object with key "body".
+- Preserve line breaks.
+`.trim();
+
+    const userPrompt = `
+Translate the following text into Japanese. Keep line breaks.
+
+Input:
+${JSON.stringify({ body: text })}
+`.trim();
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const content = completion.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content);
+    const translated: string =
+      typeof parsed.body === "string" ? parsed.body.trim() : "";
+
+    if (!translated || translated === text) return null;
+    return translated;
+  } catch (e) {
+    console.warn("[job/apply] translateBodyToJaIfNeeded failed:", (e as any)?.message || e);
+    return null;
+  }
 }
 
 /* ----------------------------- handler ----------------------------- */
@@ -78,7 +127,6 @@ export async function POST(req: NextRequest) {
     name?: string;
     email?: string;
     phone?: string;
-    contactMethod?: "phone" | "email" | "line";
     date?: string; // YYYY-MM-DD
     time?: string; // HH:mm
     address?: string;
@@ -101,11 +149,6 @@ export async function POST(req: NextRequest) {
   const name = (payload.name || "").trim();
   const email = (payload.email || "").trim();
   const phone = (payload.phone || "").trim();
-  const contactMethod = (payload.contactMethod || "").trim() as
-    | "phone"
-    | "email"
-    | "line"
-    | "";
   const date = (payload.date || "").trim();
   const time = (payload.time || "").trim();
   const address = (payload.address || "").trim();
@@ -163,7 +206,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4) env チェック
+  // 4) env チェック（メール送信に必要なもの）
   if (
     !GOOGLE_CLIENT_ID ||
     !GOOGLE_CLIENT_SECRET ||
@@ -177,10 +220,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 5) 送信先 ownerEmail 解決（siteKey を受け取らずにサーバー側で判定）
+    // 5) 送信先 ownerEmail 解決
     let ownerEmail = await resolveOwnerEmail();
-
-    // 最後のフォールバック：ownerEmail がどうしても取れない場合は SENDER_EMAIL に送る
     if (!ownerEmail) {
       console.warn(
         "[job/apply] ownerEmail を Firestore から取得できませんでした。SENDER_EMAIL を宛先に使用します。"
@@ -223,7 +264,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 8) メール本文の構築（新仕様優先、旧仕様フォールバック）
+    // 8) 翻訳（必要な場合のみ）
+    const originalBody = isNewForm ? notes : messageRaw;
+    const translatedJa = await translateBodyToJaIfNeeded(originalBody);
+
+    // 9) メール本文の構築
     const subjectNew = `【ご依頼】${name} 様よりお問い合わせ`;
     const subjectOld = `【ご依頼】${name} 様よりメッセージ`;
 
@@ -233,12 +278,12 @@ export async function POST(req: NextRequest) {
       `■ お名前: ${name}`,
       `■ メール: ${email}`,
       `■ 電話: ${phone}`,
-      `■ 連絡方法: ${contactMethod || "（未指定）"}`,
       `■ ご希望日時: ${date} ${time}`,
       `■ ご住所: ${address}`,
       "",
-      "■ ご要望・相談内容:",
+      "■ ご要望・相談内容（原文）:",
       notes,
+      ...(translatedJa ? ["", "■ 日本語訳（自動）:", translatedJa] : []),
       "",
       `※このメールに返信すると、お客様（${email}）へ返信できます。`,
     ].join("\n");
@@ -256,9 +301,6 @@ export async function POST(req: NextRequest) {
           <tr><td style="padding:2px 8px 2px 0"><strong>電話</strong></td><td>${escapeHtml(
             phone
           )}</td></tr>
-          <tr><td style="padding:2px 8px 2px 0"><strong>連絡方法</strong></td><td>${escapeHtml(
-            contactMethod || "（未指定）"
-          )}</td></tr>
           <tr><td style="padding:2px 8px 2px 0"><strong>ご希望日時</strong></td><td>${escapeHtml(
             `${date} ${time}`
           )}</td></tr>
@@ -267,10 +309,19 @@ export async function POST(req: NextRequest) {
           )}</td></tr>
         </table>
 
-        <h3 style="margin:16px 0 8px">ご要望・相談内容</h3>
+        <h3 style="margin:16px 0 8px">ご要望・相談内容（原文）</h3>
         <pre style="white-space:pre-wrap;background:#f7f7f7;padding:12px;border-radius:8px">${escapeHtml(
           notes
         )}</pre>
+
+        ${
+          translatedJa
+            ? `<h3 style="margin:16px 0 8px">日本語訳（自動）</h3>
+        <pre style="white-space:pre-wrap;background:#f0f7ff;padding:12px;border-radius:8px">${escapeHtml(
+          translatedJa
+        )}</pre>`
+            : ""
+        }
 
         <p style="margin-top:16px;color:#666">
           このメールに返信すると、お客様（${escapeHtml(email)}）へ返信できます。
@@ -284,8 +335,9 @@ export async function POST(req: NextRequest) {
       `■ お名前: ${name}`,
       `■ メール: ${email}`,
       "",
-      "■ メッセージ:",
+      "■ メッセージ（原文）:",
       messageRaw,
+      ...(translatedJa ? ["", "■ 日本語訳（自動）:", translatedJa] : []),
       "",
       `※このメールに返信すると、お客様（${email}）へ返信できます。`,
     ].join("\n");
@@ -302,10 +354,19 @@ export async function POST(req: NextRequest) {
           )}</td></tr>
         </table>
 
-        <h3 style="margin:16px 0 8px">メッセージ</h3>
+        <h3 style="margin:16px 0 8px">メッセージ（原文）</h3>
         <pre style="white-space:pre-wrap;background:#f7f7f7;padding:12px;border-radius:8px">${escapeHtml(
           messageRaw
         )}</pre>
+
+        ${
+          translatedJa
+            ? `<h3 style="margin:16px 0 8px">日本語訳（自動）</h3>
+        <pre style="white-space:pre-wrap;background:#f0f7ff;padding:12px;border-radius:8px">${escapeHtml(
+          translatedJa
+        )}</pre>`
+            : ""
+        }
 
         <p style="margin-top:16px;color:#666">
           このメールに返信すると、お客様（${escapeHtml(email)}）へ返信できます。
@@ -315,7 +376,7 @@ export async function POST(req: NextRequest) {
 
     const useNew = isNewForm;
 
-    // 9) 送信
+    // 10) 送信
     await transport.sendMail({
       from: `ご依頼フォーム <${SENDER_EMAIL}>`,
       to: ownerEmail,

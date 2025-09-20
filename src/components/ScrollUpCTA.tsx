@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default function ScrollUpCTA({
-  href = "/apply",
+  href = "/contact",
   label = "無料相談・お問い合わせ",
   className,
 }: Props) {
