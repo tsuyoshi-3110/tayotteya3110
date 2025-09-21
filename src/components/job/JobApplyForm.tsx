@@ -966,8 +966,8 @@ export default function JobApplyForm() {
 
   const textClass = isDark ? "text-white" : "text-black";
   const cardClass = clsx(
-    "rounded-2xl border shadow-sm backdrop-blur",
-    isDark ? "bg-white/10 border-white/20" : "bg-white/80"
+    "rounded-2xl border shadow-sm backdrop-blur bg-white/10",
+
   );
 
   return (
@@ -978,8 +978,8 @@ export default function JobApplyForm() {
           className={clsx(
             "px-5 pt-5 pb-3 border-b rounded-t-2xl",
             isDark
-              ? "bg-black/20 border-white/10"
-              : "bg-white/60 border-black/10"
+              ? " border-white/10"
+              : " border-black/10"
           )}
         >
           <div className="flex items-center gap-2">

@@ -453,7 +453,7 @@ export default function MinimalInquiryForm() {
   const cardClass = clsx(
     "rounded-2xl border shadow-sm backdrop-blur-md",
     isDark
-      ? "bg-black/30 border-white/20 text-white"
+      ? " border-white/20 text-white"
       : "bg-white/10 border-black/10 text-black"
   );
   const headerBorder = isDark ? "border-white/15" : "border-black/10";
@@ -465,10 +465,8 @@ export default function MinimalInquiryForm() {
         <Link
           href="apply"
           className={clsx(
-            "inline-flex items-center rounded-xl border px-4 py-2 text-sm shadow-sm backdrop-blur-sm transition-colors",
-            isDark
-              ? "bg-white/10 border-white/30 text-white hover:bg-white/15"
-              : "bg-white/70 border-black/10 text-black hover:bg-white/90"
+            "inline-flex items-center rounded-xl px-4 py-2 text-sm shadow-sm backdrop-blur-sm transition-colors bg-black hover:bg-black/90 text-white",
+
           )}
         >
           {t.reserveBtn}
@@ -570,7 +568,7 @@ export default function MinimalInquiryForm() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className={isDark ? "bg-white/10 text-white hover:bg-white/20" : ""}
+              className={"bg-black text-white hover:bg-black/90"}
             >
               {isSubmitting ? t.sending : t.submit}
             </Button>
