@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import NextImage from "next/image";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -335,7 +335,7 @@ function InlineMediaViewer({
     <div className="px-6 md:px-8 pb-2">
       <div
         className="relative w-full overflow-hidden rounded border bg-black/5"
-        style={{ aspectRatio: "21 / 9" }}
+        style={{ aspectRatio: "1 / 1" }}
       >
         {type === "video" ? (
           <video
@@ -346,7 +346,7 @@ function InlineMediaViewer({
             playsInline
           />
         ) : (
-          <NextImage
+          <Image
             src={url ?? ""}
             alt="company-hero"
             fill
@@ -374,10 +374,6 @@ function InlineMediaEditor({
   const [isOver, setIsOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-
-  // 追加：クロッパー制御
-  const [cropOpen, setCropOpen] = useState(false);
-  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
 
   // 60秒以内チェック
   const getVideoDuration = (file: File) =>
@@ -475,21 +471,13 @@ function InlineMediaEditor({
     }
   };
 
-  // FileList → 配列化
+  // FileList → 配列化（イベント解放後も安全）
   const onFilesArray = async (files: File[]) => {
     if (!files.length) return;
     const file = files[0];
     const kind = await validateFile(file);
     if (!kind) return;
-
-    if (kind === "image") {
-      // 画像はクロップモーダルを開く
-      setPendingImageFile(file);
-      setCropOpen(true);
-      return;
-    }
-    // 動画はそのままアップロード
-    await doUpload(file, "video");
+    await doUpload(file, kind);
   };
 
   const onDrop: React.DragEventHandler<HTMLDivElement> = async (e) => {
@@ -531,43 +519,14 @@ function InlineMediaEditor({
     }
   };
 
-  // クロップ確定時：Blob → File にしてアップロード
-  const handleCropped = async (blob: Blob) => {
-    if (!pendingImageFile) return;
-    setCropOpen(false);
-    const ext = pendingImageFile.name.split(".").pop() || "jpg";
-    const name =
-      pendingImageFile.name.replace(/\.[^.]+$/, "") + "_cropped." + ext;
-    const file = new File([blob], name, {
-      type: pendingImageFile.type || "image/jpeg",
-    });
-    setPendingImageFile(null);
-    await doUpload(file, "image");
-  };
-
   return (
-    <div className="px-6 md:px-8 pb-2">
-      {/* クロップモーダル */}
-      {pendingImageFile && (
-        <ImageCropperModal
-          file={pendingImageFile}
-          open={cropOpen}
-          aspect={21 / 9}
-          onCancel={() => {
-            setCropOpen(false);
-            setPendingImageFile(null);
-          }}
-          onCropped={handleCropped}
-          title="画像のトリミング（21:9）"
-        />
-      )}
-
+    <div className="px-6 md:px-8 pb-2 bg-white/50 backdrop-blur-md rounded">
       <div
         className={[
           "relative w-full overflow-hidden rounded border bg-slate-100",
           isOver ? "ring-2 ring-purple-500" : "ring-1 ring-black/5",
         ].join(" ")}
-        style={{ aspectRatio: "21 / 9" }}
+        style={{ aspectRatio: "1 / 1" }}
         onDragOver={(e) => {
           e.preventDefault();
           setIsOver(true);
@@ -579,7 +538,7 @@ function InlineMediaEditor({
           <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
             <Upload className="h-8 w-8 mb-2" />
             <div className="text-xs mt-1">
-              画像（トリミング可）または60秒以内の動画（最大200MB）
+              画像または60秒以内の動画（最大200MB）
             </div>
           </div>
         ) : data.heroMediaType === "video" ? (
@@ -591,7 +550,7 @@ function InlineMediaEditor({
             playsInline
           />
         ) : (
-          <NextImage
+          <Image
             src={data.heroMediaUrl ?? ""}
             alt="company-hero"
             fill
@@ -637,8 +596,7 @@ function InlineMediaEditor({
       </div>
 
       <p className="mt-2 text-xs text-white text-outline">
-        ※ 画像はアップロード前に 21:9
-        でトリミングできます。動画はそのままアップロードされます。
+        ※ タイトル下のメディアは保存後に公開画面へ反映。
       </p>
     </div>
   );
@@ -757,7 +715,7 @@ function AiGenerateModal({
             <Wand2 className="h-5 w-5 text-purple-600" />
             {target === "about" ? "会社説明をAIで生成" : "事業内容をAIで生成"}
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs  text-white text-outline mt-1">
             キーワードを最大3つまで入力（1つ以上で開始可能）
           </p>
         </div>
@@ -1390,7 +1348,7 @@ function EditView({
   return (
     <div className="space-y-8">
       {/* 必須は会社名のみ（原文=ja） */}
-      <div className="grid md:grid-cols-2 gap-4 ">
+      <div className="grid md:grid-cols-2 gap-4">
         <LabeledInput
           label="会社名 *"
           value={base.name}
@@ -1498,7 +1456,7 @@ function EditView({
           placeholder={"例：\n主要サービスA\nCMS構築\n運用サポート\n"}
           className="bg-white/80"
         />
-        <p className="text-xs text-white text-outline">
+        <p className="text-xs  text-white text-outline">
           ※ Enter
           での空行や、最後の改行も保持されます（閲覧表示では空行は表示されません）。
         </p>
@@ -1512,7 +1470,7 @@ function EditView({
           onChange={(v) => onCommonChange({ ...common, mapEmbedUrl: v })}
           placeholder="https://www.google.com/maps/embed?..."
         />
-        <div className="mt-2 text-xs text-white text-outline">
+        <div className="mt-2 text-xs  text-white text-outline">
           ※
           短縮URL（maps.app.goo.gl）や通常URLでもOK。自動で埋め込み形式に変換します。
         </div>
@@ -1553,157 +1511,5 @@ function LabeledInput({
         className="bg-white/80"
       />
     </label>
-  );
-}
-
-import Cropper, { Area } from "react-easy-crop";
-
-/** 画像を読み込んで HTMLImageElement を返す */
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous"; // Firebase Storage の公開URLでも安全に
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-/** クロップした Blob を生成（react-easy-crop の areaPixels を元に） */
-async function getCroppedBlob(
-  imageSrc: string,
-  crop: Area,
-  type: string = "image/jpeg",
-  quality = 0.92
-): Promise<Blob> {
-  const image = await loadImage(imageSrc);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context not available");
-
-  canvas.width = crop.width;
-  canvas.height = crop.height;
-
-  ctx.drawImage(
-    image,
-    crop.x,
-    crop.y,
-    crop.width,
-    crop.height,
-    0,
-    0,
-    crop.width,
-    crop.height
-  );
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return reject(new Error("Canvas toBlob failed"));
-        resolve(blob);
-      },
-      type,
-      quality
-    );
-  });
-}
-
-/** 画像クロッパーモーダル */
-function ImageCropperModal({
-  file,
-  open,
-  aspect = 21 / 9,
-  onCancel,
-  onCropped,
-  title = "画像のトリミング",
-}: {
-  file: File;
-  open: boolean;
-  aspect?: number;
-  title?: string;
-  onCancel: () => void;
-  onCropped: (blob: Blob) => void;
-}) {
-  const [objectUrl, setObjectUrl] = useState<string>("");
-  const [zoom, setZoom] = useState(1);
-  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [area, setArea] = useState<Area | null>(null);
-  const [working, setWorking] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file, open]);
-
-  if (!open) return null;
-
-  const onCropComplete = (_: Area, areaPixels: Area) => setArea(areaPixels);
-
-  const doCrop = async () => {
-    if (!objectUrl || !area) return;
-    setWorking(true);
-    try {
-      const blob = await getCroppedBlob(
-        objectUrl,
-        area,
-        file.type || "image/jpeg"
-      );
-      onCropped(blob);
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl overflow-hidden">
-        <div className="px-4 py-3 border-b font-semibold">{title}</div>
-
-        <div className="relative bg-black" style={{ height: 380 }}>
-          {objectUrl && (
-            <Cropper
-              image={objectUrl}
-              crop={crop}
-              zoom={zoom}
-              aspect={aspect}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
-              objectFit="contain"
-              restrictPosition={true}
-              showGrid={true}
-            />
-          )}
-        </div>
-
-        <div className="px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">ズーム</label>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.01}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onCancel} disabled={working}>
-              キャンセル
-            </Button>
-            <Button
-              onClick={doCrop}
-              disabled={!area || working}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              {working ? "処理中…" : "決定してアップロード"}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
