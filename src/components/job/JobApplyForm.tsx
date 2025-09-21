@@ -161,7 +161,7 @@ const JA: Strings = {
     namePh: "山田 太郎",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "例）大阪府豊中市小曽根3-6-13",
+    addressPh: "例）大阪府豊中市〇〇町1-2-3",
     notesPh: "サービス内容をご記入ください",
   },
   modal: {
@@ -202,7 +202,7 @@ const EN: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "e.g. 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "e.g. 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Describe the service you need",
   },
   modal: {
@@ -244,7 +244,7 @@ const ZH: Strings = {
     namePh: "山田 太郎",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "例如：大阪府丰中市小曽根3-6-13",
+    addressPh: "例如：大阪府丰中市〇〇町1-2-3",
     notesPh: "请描述所需服务",
   },
   modal: {
@@ -285,7 +285,7 @@ const ZH_TW: Strings = {
     namePh: "山田 太郎",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "例如：大阪府豐中市小曽根3-6-13",
+    addressPh: "例如：大阪府豐中市〇〇町1-2-3",
     notesPh: "請描述所需服務",
   },
   modal: {
@@ -326,7 +326,7 @@ const KO: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "예: Osaka...",
+    addressPh: "예: 오사카부 도요나카시 ○○초 1-2-3",
     notesPh: "필요한 서비스를 입력하세요",
   },
   modal: {
@@ -368,7 +368,7 @@ const FR: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "ex. 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "ex. 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Décrivez le service souhaité",
   },
   modal: {
@@ -409,7 +409,7 @@ const ES: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "ej. 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "ej. 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Describa el servicio que necesita",
   },
   modal: {
@@ -450,7 +450,7 @@ const DE: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "z. B. 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "z. B. 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Beschreiben Sie den gewünschten Service",
   },
   modal: {
@@ -491,7 +491,7 @@ const PT: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "ex.: 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "ex.: 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Descreva o serviço necessário",
   },
   modal: {
@@ -532,7 +532,7 @@ const IT: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "es. 3-6-13 Ozone, Toyonaka, Osaka",
+    addressPh: "es. 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Descrivi il servizio richiesto",
   },
   modal: {
@@ -573,7 +573,7 @@ const RU: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "например, Osaka…",
+    addressPh: "например: Осака, Тойонака, ○○-тё 1-2-3",
     notesPh: "Опишите необходимую услугу",
   },
   modal: {
@@ -614,7 +614,7 @@ const TH: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "เช่น Osaka…",
+    addressPh: "เช่น: 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "อธิบายบริการที่ต้องการ",
   },
   modal: {
@@ -655,7 +655,7 @@ const VI: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "vd: Osaka…",
+    addressPh: "vd: 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Mô tả dịch vụ bạn cần",
   },
   modal: {
@@ -696,7 +696,7 @@ const IDN: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "cth: Osaka…",
+    addressPh: "cth: 1-2-3 ○○-cho, Toyonaka, Osaka",
     notesPh: "Jelaskan layanan yang dibutuhkan",
   },
   modal: {
@@ -737,7 +737,7 @@ const HI: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "उदा. ओसाका…",
+    addressPh: "उदा. 1-2-3 ○○-चो, टोयोनाका, ओसाका",
     notesPh: "आवश्यक सेवा का वर्णन करें",
   },
   modal: {
@@ -778,7 +778,7 @@ const AR: Strings = {
     namePh: "Taro Yamada",
     phonePh: "09012345678",
     emailPh: "example@example.com",
-    addressPh: "مثال: أوساكا…",
+    addressPh: "مثال: 1-2-3 ○○-cho، تويوناکا، أوساكا",
     notesPh: "صف الخدمة المطلوبة",
   },
   modal: {
@@ -966,8 +966,7 @@ export default function JobApplyForm() {
 
   const textClass = isDark ? "text-white" : "text-black";
   const cardClass = clsx(
-    "rounded-2xl border shadow-sm backdrop-blur bg-white/10",
-
+    "rounded-2xl border shadow-sm backdrop-blur bg-white/10"
   );
 
   return (
@@ -977,9 +976,7 @@ export default function JobApplyForm() {
         <div
           className={clsx(
             "px-5 pt-5 pb-3 border-b rounded-t-2xl",
-            isDark
-              ? " border-white/10"
-              : " border-black/10"
+            isDark ? " border-white/10" : " border-black/10"
           )}
         >
           <div className="flex items-center gap-2">
