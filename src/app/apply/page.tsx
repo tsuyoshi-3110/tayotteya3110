@@ -111,8 +111,8 @@ export default function JobApplyPage() {
 
   return (
     <div className={clsx("max-w-3xl mx-auto p-4 space-y-6", textClass)} dir={dir}>
-      <h1 className="text-xl font-bold">{t.title}</h1>
-      <p className="text-sm opacity-80">{t.subtitle}</p>
+      <h1 className="text-xl font-bold text-white text-outline">{t.title}</h1>
+      <p className="text-sm opacity-80 text-white text-outline">{t.subtitle}</p>
       <JobApplyForm />
     </div>
   );
