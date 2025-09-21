@@ -1022,8 +1022,8 @@ export default function JobApplyForm() {
               {...register("name")}
               className={
                 isDark
-                  ? "text-white placeholder:text-white/70"
-                  : "text-black placeholder:text-black"
+                  ? "text-white placeholder:text-white/50"
+                  : "text-black placeholder:text-black/50"
               }
               aria-required={true}
               required
@@ -1048,8 +1048,8 @@ export default function JobApplyForm() {
               {...register("phone")}
               className={
                 isDark
-                  ? "text-white placeholder:text-white/70"
-                  : "text-black placeholder:text-black"
+                  ? "text-white placeholder:text-white/50"
+                  : "text-black placeholder:text-black/50"
               }
               inputMode="tel"
               aria-required={true}
@@ -1076,8 +1076,8 @@ export default function JobApplyForm() {
               {...register("email")}
               className={
                 isDark
-                  ? "text-white placeholder:text-white/70"
-                  : "text-black placeholder:text-black"
+                  ? "text-white placeholder:text-white/50"
+                  : "text-black placeholder:text-black/50"
               }
               inputMode="email"
               aria-required={true}
@@ -1165,8 +1165,8 @@ export default function JobApplyForm() {
               {...register("address")}
               className={
                 isDark
-                  ? "text-white placeholder:text-white/70"
-                  : "text-black placeholder:text-black"
+                  ? "text-white placeholder:text-white/50"
+                  : "text-black placeholder:text-black/50"
               }
               aria-required={true}
               required
@@ -1192,8 +1192,8 @@ export default function JobApplyForm() {
               {...register("notes")}
               className={
                 isDark
-                  ? "text-white placeholder:text-white/70"
-                  : "text-black placeholder:text-black"
+                  ? "text-white placeholder:text-white/50"
+                  : "text-black placeholder:text-black/50"
               }
               aria-required={true}
               required
