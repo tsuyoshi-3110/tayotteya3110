@@ -18,10 +18,16 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { X } from "lucide-react";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import Image from "next/image";
 
 /* 許可MIME & 制限秒数 */
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const ALLOWED_VIDEO = ["video/mp4", "video/webm", "video/ogg", "video/quicktime"];
+const ALLOWED_VIDEO = [
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+];
 const MAX_VIDEO_SEC = 60; // 1分
 
 export default function PostForm() {
@@ -32,7 +38,9 @@ export default function PostForm() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
-  const [uploadTask, setUploadTask] = useState<ReturnType<typeof uploadBytesResumable> | null>(null);
+  const [uploadTask, setUploadTask] = useState<ReturnType<
+    typeof uploadBytesResumable
+  > | null>(null);
 
   const [siteName, setSiteName] = useState("Anonymous");
   const [logoUrl, setLogoUrl] = useState("/noImage.png");
@@ -48,7 +56,8 @@ export default function PostForm() {
       const s1 = await getDoc(doc(db, "siteSettings", SITE_KEY));
       if (s1.exists()) setSiteName((s1.data() as any).siteName ?? "Anonymous");
       const s2 = await getDoc(doc(db, "siteSettingsEditable", SITE_KEY));
-      if (s2.exists()) setLogoUrl((s2.data() as any).headerLogoUrl ?? "/noImage.png");
+      if (s2.exists())
+        setLogoUrl((s2.data() as any).headerLogoUrl ?? "/noImage.png");
     })();
   }, []);
 
@@ -77,7 +86,9 @@ export default function PostForm() {
     const isVid = ALLOWED_VIDEO.includes(type);
 
     if (!isImg && !isVid) {
-      alert("対応していないファイル形式です（画像: jpg/png/webp/gif、動画: mp4/webm/ogg/quicktime）");
+      alert(
+        "対応していないファイル形式です（画像: jpg/png/webp/gif、動画: mp4/webm/ogg/quicktime）"
+      );
       e.currentTarget.value = ""; // クリア
       return;
     }
@@ -274,12 +285,22 @@ export default function PostForm() {
           {previewUrl && (
             <div className="overflow-hidden rounded border">
               {isVideo ? (
-                <video src={previewUrl} className="h-auto w-full" controls playsInline />
+                <video
+                  src={previewUrl}
+                  className="h-auto w-full"
+                  controls
+                  playsInline
+                />
               ) : (
                 // 画像プレビュー（最適化オフでOK）
                 // Next/Image を使うなら unoptimized 推奨（blob: を最適化できないため）
                 // ここでは <img> でもOK
-                <img src={previewUrl} alt="preview" className="h-auto w-full object-contain" />
+                <Image
+                  src={previewUrl}
+                  alt="preview"
+                  className="h-auto w-full object-contain"
+                  unoptimized
+                />
               )}
             </div>
           )}

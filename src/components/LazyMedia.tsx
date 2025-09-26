@@ -1,5 +1,6 @@
 import { useInView } from "react-intersection-observer";
 import CardSpinner from "./CardSpinner";
+import Image from "next/image";
 
 interface Props {
   src: string;
@@ -11,8 +12,12 @@ interface Props {
 }
 
 export default function LazyMedia({
-  src, type, className,
-  autoPlay = false, loop = false, muted = false,
+  src,
+  type,
+  className,
+  autoPlay = false,
+  loop = false,
+  muted = false,
 }: Props) {
   const { ref, inView } = useInView({ rootMargin: "200px", triggerOnce: true });
 
@@ -20,8 +25,12 @@ export default function LazyMedia({
     <div ref={ref} className={className}>
       {inView ? (
         type === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt="" className="w-full h-full object-cover" />
+          <Image
+            src={src}
+            alt=""
+            className="w-full h-full object-cover"
+            unoptimized
+          />
         ) : (
           <video
             src={src}

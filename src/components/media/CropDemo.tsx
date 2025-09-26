@@ -72,10 +72,9 @@ export default function CropDemo() {
         <ImageCropperModal
           file={file}
           open={open}
-          aspect={21 / 9}
           onCancel={onCancel}
           onCropped={onCropped}
-          title="画像のトリミング（21:9）"
+          title="画像のトリミング（1:1）"
         />
       )}
     </div>
