@@ -14,7 +14,7 @@ const SITE_KEY = "tayotteya3110";
 function parseDocId(id: string) {
   const m = id.match(/^(\d{4}-\d{2}-\d{2})_(.+)$/);
   if (!m) return null;
-  const [ ymd, pid] = m;
+  const [ymd, pid] = m;
   const [y, mo, d] = ymd.split("-").map(Number);
   const date = new Date(y, mo - 1, d, 0, 0, 0, 0);
   return { dayTs: Timestamp.fromDate(date), pageId: pid };

@@ -2,20 +2,21 @@ import type { Metadata } from "next";
 import ProductsClient from "@/components/ProductsClient";
 
 export const metadata: Metadata = {
-  title: "サービス一覧｜おそうじ処 たよって屋",
+  title: "施工サービス一覧｜株式会社 TS Reform",
   description:
-    "おそうじ処 たよって屋のサービス一覧ページ。ハウスクリーニング、家事代行、整理収納など、暮らしをサポートする各種サービスを写真付きでご紹介します。",
+    "株式会社 TS Reform の施工サービス一覧ページ。外壁塗装、屋根工事、防水工事、雨漏り調査・補修など、住まいを守る各種リフォームサービスをご紹介します。",
   openGraph: {
-    title: "サービス一覧｜おそうじ処 たよって屋",
+    title: "施工サービス一覧｜株式会社 TS Reform",
     description:
-      "おそうじ処 たよって屋のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載し、自由に編集できます。",
-    url: "https://tayotteya.shop/products", // 本番URLに差し替え
-    siteName: "おそうじ処 たよって屋",
+      "株式会社 TS Reform の外装リフォームサービス。外壁塗装、屋根改修、防水工事、シーリング、雨漏り補修などを写真付きで掲載し、詳細をご確認いただけます。",
+    url: "https://ts-reform.jp/products",
+    siteName: "株式会社 TS Reform",
     images: [
       {
-        url: "/ogpLogo.png",
+        url: "https://ts-reform.jp/ogpLogo.png",
         width: 1200,
         height: 630,
+        alt: "株式会社 TS Reform OGP",
       },
     ],
     locale: "ja_JP",

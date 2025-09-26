@@ -6,18 +6,18 @@ import TopFixedText from "@/components/TopFixedText";
 import ScrollUpCTA from "@/components/ScrollUpCTA";
 
 export const metadata: Metadata = {
-  title: "おそうじ処 たよって屋｜家事代行",
+  title: "株式会社 TS Reform｜外装リフォーム・建設工事",
   description:
-    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納は、おそうじ処 たよって屋へ。水回りからリビングの徹底清掃、定期清掃まで暮らしに寄り添う丁寧なサービスを提供します。",
+    "株式会社 TS Reform は大阪府豊中市の外装リフォーム・建設工事の専門会社。外壁塗装・屋根改修・防水工事・雨漏り調査まで一貫対応。まずは無料見積もりをご相談ください。（TEL: 06-6151-3328）",
   openGraph: {
-    title: "おそうじ処 たよって屋｜家事代行",
+    title: "株式会社 TS Reform｜外装リフォーム・建設工事",
     description:
-      "ハウスクリーニング／家事代行／整理収納の専門サービス。大阪・兵庫エリアで、高品質な清掃と心地よい暮らしをサポートします。",
-    url: "https://tayotteya.shop/",
-    siteName: "おそうじ処 たよって屋",
+      "豊中市を拠点に外壁・屋根・防水などの外装リフォーム全般をワンストップで対応。確かな施工で住まいを長く美しく守ります。",
+    url: "https://ts-reform.jp/",
+    siteName: "株式会社 TS Reform",
     images: [
       {
-        url: "/ogpLogo.png",
+        url: "https://ts-reform.jp/ogpLogo.png",
         width: 1200,
         height: 630,
       },
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     locale: "ja_JP",
     type: "website",
   },
-  alternates: { canonical: "https://tayotteya.shop/" },
+  alternates: { canonical: "https://ts-reform.jp/" },
 };
 
 export default function HomePage() {
@@ -43,19 +43,20 @@ export default function HomePage() {
 
         {/* ページタイトルとリード文 */}
         <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6 text-outline">
-          おそうじ処 たよって屋
+          株式会社 TS Reform
         </h1>
 
         <p className="max-w-3xl mx-auto text-center leading-relaxed text-outline">
-          大阪府・兵庫県を中心に、ハウスクリーニング／家事代行／整理収納を提供しています。
-          キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。
-          ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。
+          大阪府豊中市を拠点に、外装リフォーム・建設工事を専門に手がけています。
+          外壁塗装・屋根改修・各種防水・シーリング・雨漏り調査まで、
+          住まいを長く美しく守る高品質な施工をワンストップでご提供します。
+          現地調査・お見積もりは無料。お気軽にご相談ください。
         </p>
 
         {/* 👇 スクロールアップで出現するCTA */}
         <ScrollUpCTA
-          href="/contact" // 例: 連絡ページ。セクションに飛ばすなら "#contact"
-          label="無料相談・お問い合わせ"
+          href="/contact"
+          label="無料見積もり・お問い合わせ"
           className="mt-5"
         />
       </section>
@@ -63,23 +64,34 @@ export default function HomePage() {
       {/* ③ JSON-LD（構造化データ） */}
       <script
         type="application/ld+json"
-        // 必要に応じて address/telephone を追記してください
         dangerouslySetInnerHTML={{
           __html: JSON.stringify([
             {
               "@context": "https://schema.org",
-              "@type": "CleaningService",
-              name: "おそうじ処 たよって屋",
-              url: "https://tayotteya.shop/",
+              "@type": "HomeAndConstructionBusiness",
+              name: "株式会社 TS Reform",
+              url: "https://ts-reform.jp/",
               description:
-                "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。",
-              serviceType: ["ハウスクリーニング", "家事代行", "整理収納"],
-              areaServed: [
-                { "@type": "AdministrativeArea", name: "大阪府" },
-                { "@type": "AdministrativeArea", name: "兵庫県" },
+                "大阪府豊中市の外装リフォーム・建設工事会社。外壁塗装・屋根改修・防水工事・雨漏り調査まで一貫対応。",
+              serviceType: [
+                "外装リフォーム工事",
+                "外壁塗装",
+                "屋根工事・屋根改修",
+                "防水工事",
+                "シーリング工事",
+                "雨漏り調査・補修"
               ],
-              image: "https://tayotteya.shop/ogp-home.jpg",
-            },
+              image: "https://ts-reform.jp/ogp-home.jpg",
+              address: {
+                "@type": "PostalAddress",
+                postalCode: "561-0813",
+                addressRegion: "大阪府",
+                addressLocality: "豊中市",
+                streetAddress: "小曽根3-6-13"
+              },
+              telephone: "06-6151-3328",
+              areaServed: [{ "@type": "AdministrativeArea", name: "大阪府" }]
+            }
           ]),
         }}
       />

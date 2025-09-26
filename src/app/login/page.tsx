@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
@@ -9,8 +9,8 @@ import {
 } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { LucideLogIn, LogOut, AlertCircle } from "lucide-react";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { LucideLogIn, LogOut, AlertCircle, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -25,11 +25,34 @@ import { ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ImageLogoControls from "@/components/ImageLogoControls";
 
+// Google Maps Places
+import { Loader } from "@googlemaps/js-api-loader";
+
+// Firestore ref
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
 type MetaDoc = {
   themeGradient?: ThemeKey;
   visibleMenuKeys?: string[];
+  address?: {
+    postalCode?: string;
+    region?: string;
+    locality?: string;
+    street?: string;
+    countryCode?: string;
+    lat?: number;
+    lng?: number;
+  };
+  googleSync?: {
+    enabled: boolean; // 口コミ表示ON/OFF
+    accountEmail?: string; // 任意の連絡用メール（UI表示用）
+    locationId?: string; // GBP Location ID（例: locations/123...）
+    lastSyncAt?: number;
+
+    // 施工実績ギャラリー → GBP 写真
+    worksAutoSyncEnabled?: boolean;
+    worksAlbumTag?: string;
+  };
 };
 
 const MENU_ITEMS: { key: string; label: string }[] = [
@@ -38,6 +61,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "staffs", label: "スタッフ" },
   { key: "pricing", label: "料金" },
   { key: "areas", label: "対応エリア" },
+  { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
   { key: "blog", label: "ブログ" },
   { key: "company", label: "会社概要" },
@@ -53,25 +77,51 @@ export default function LoginPage() {
   );
   const [user, setUser] = useState<User | null>(null);
 
+  // auth form
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // modals
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showForgotEmail, setShowForgotEmail] = useState(false);
 
-  // Firestore 初期読み込み
+  // Google / address UI states
+  const [gmapsReady, setGmapsReady] = useState(false);
+  const addrInputRef = useRef<HTMLInputElement | null>(null);
+
+  // GBP sync states
+  const [googleEnabled, setGoogleEnabled] = useState(false); // 口コミ表示
+  const [googleAccountEmail, setGoogleAccountEmail] = useState<string>("");
+  const [gbpLocationId, setGbpLocationId] = useState<string>("");
+  const [worksAutoSyncEnabled, setWorksAutoSyncEnabled] =
+    useState<boolean>(false);
+  const [worksAlbumTag, setWorksAlbumTag] = useState<string>("works");
+
+  // Google Maps API Key
+  const mapsApiKey = useMemo(() => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, []);
+
+  /* ---------------- 初期ロード（サイト設定） ---------------- */
   useEffect(() => {
     (async () => {
       try {
         const snap = await getDoc(META_REF);
         if (!snap.exists()) return;
         const data = snap.data() as MetaDoc;
+
         if (data.themeGradient) setTheme(data.themeGradient);
-        if (Array.isArray(data.visibleMenuKeys)) {
+        if (Array.isArray(data.visibleMenuKeys))
           setVisibleKeys(data.visibleMenuKeys);
+
+        // Google/GBP
+        if (data.googleSync) {
+          setGoogleEnabled(!!data.googleSync.enabled);
+          setGoogleAccountEmail(data.googleSync.accountEmail || "");
+          setGbpLocationId(data.googleSync.locationId || "");
+          setWorksAutoSyncEnabled(!!data.googleSync.worksAutoSyncEnabled);
+          setWorksAlbumTag(data.googleSync.worksAlbumTag || "works");
         }
       } catch (e) {
         console.error("初期データ取得失敗:", e);
@@ -79,7 +129,7 @@ export default function LoginPage() {
     })();
   }, []);
 
-  // 認証状態チェック
+  /* ---------------- 認証（オーナー判定） ---------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -109,6 +159,7 @@ export default function LoginPage() {
     return () => unsub();
   }, []);
 
+  /* ---------------- ログイン/ログアウト ---------------- */
   const handleLogin = async () => {
     setLoading(true);
     setError("");
@@ -141,6 +192,7 @@ export default function LoginPage() {
     await signOut(auth);
   };
 
+  /* ---------------- 表示設定の保存 ---------------- */
   const handleThemeChange = async (newTheme: ThemeKey) => {
     setTheme(newTheme);
     await setDoc(META_REF, { themeGradient: newTheme }, { merge: true });
@@ -149,6 +201,78 @@ export default function LoginPage() {
   const handleVisibleKeysChange = async (newKeys: string[]) => {
     setVisibleKeys(newKeys);
     await setDoc(META_REF, { visibleMenuKeys: newKeys }, { merge: true });
+  };
+
+  /* ---------------- Google Maps Places 初期化 ---------------- */
+  useEffect(() => {
+    if (!mapsApiKey) return;
+    const loader = new Loader({
+      apiKey: mapsApiKey,
+      version: "weekly",
+      libraries: ["places"],
+    });
+    loader
+      .load()
+      .then(() => setGmapsReady(true))
+      .catch(console.error);
+  }, [mapsApiKey]);
+
+  // 住所オートコンプリート
+  useEffect(() => {
+    if (!gmapsReady || !addrInputRef.current || !(window as any).google) return;
+    const ac = new google.maps.places.Autocomplete(addrInputRef.current!, {
+      fields: ["formatted_address", "geometry", "address_components"],
+      componentRestrictions: { country: ["jp"] },
+    });
+    ac.addListener("place_changed", async () => {
+      const place = ac.getPlace();
+      const loc = place.geometry?.location;
+      if (!loc) return;
+      const latV = loc.lat();
+      const lngV = loc.lng();
+
+      const comps = place.address_components || [];
+      const get = (t: string) =>
+        comps.find((c) => c.types.includes(t))?.long_name || "";
+      const region = get("administrative_area_level_1");
+      const locality =
+        get("locality") ||
+        get("sublocality") ||
+        get("administrative_area_level_2");
+      const postalCode = get("postal_code");
+      const formatted = place.formatted_address || "";
+      const street = formatted.replace(region, "").replace(locality, "").trim();
+
+      await updateDoc(META_REF, {
+        address: {
+          postalCode: postalCode || "",
+          region: region || "",
+          locality: locality || "",
+          street: street || formatted,
+          countryCode: "JP",
+          lat: latV,
+          lng: lngV,
+        },
+      });
+    });
+  }, [gmapsReady]);
+
+  /* ---------------- 口コミ表示 ON/OFF 保存 ---------------- */
+  const setReviewsEnabled = async (next: boolean) => {
+    setGoogleEnabled(next);
+    await setDoc(
+      META_REF,
+      {
+        googleSync: {
+          enabled: next,
+          accountEmail: next ? googleAccountEmail : "",
+          locationId: gbpLocationId || "",
+          worksAutoSyncEnabled,
+          worksAlbumTag,
+        },
+      },
+      { merge: true }
+    );
   };
 
   return (
@@ -160,7 +284,7 @@ export default function LoginPage() {
               <ChangePassword onClose={() => setShowChangePassword(false)} />
             </div>
           ) : (
-            <div className="w-full max-w-lg space-y-6">
+            <div className="w-full max-w-5xl space-y-6">
               {/* 表示設定 */}
               <Card className="shadow-xl bg-white/50">
                 <CardHeader>
@@ -208,6 +332,34 @@ export default function LoginPage() {
                       ))}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* ===== Google連携（かんたん設定） ===== */}
+              <Card className="shadow-xl bg-white/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                    <MapPin size={20} />
+                    Google 連携
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* 口コミ表示 */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={googleEnabled}
+                        onChange={(e) => setReviewsEnabled(e.target.checked)}
+                      />
+                      <span className="font-medium">口コミを表示する</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    このスイッチをONにすると、各店舗の保存時に自動取得された
+                    <strong>GoogleのPlace ID</strong>
+                    を使って口コミを表示します。グーグルマップの住所と一致している必要があります。
+                  </p>
                 </CardContent>
               </Card>
 
@@ -291,7 +443,7 @@ export default function LoginPage() {
             </CardContent>
           </Card>
 
-          {/* モーダル類 */}
+          {/* モーダル */}
           {showForgotPassword && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">

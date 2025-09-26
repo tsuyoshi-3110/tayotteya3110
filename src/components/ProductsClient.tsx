@@ -8,8 +8,9 @@ import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
 import { motion } from "framer-motion";
 
-// ✅ 共通UI
+// UI
 import { BusyOverlay } from "./BusyOverlay";
+import ProductMedia from "./ProductMedia";
 
 // Firebase
 import {
@@ -37,7 +38,6 @@ import {
 } from "firebase/storage";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import ProductMedia from "./ProductMedia";
 
 // Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
@@ -66,7 +66,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
-// ✅ 共通ファイル形式ユーティリティ
+// ファイル形式ヘルパ
 import {
   IMAGE_MIME_TYPES,
   VIDEO_MIME_TYPES,
@@ -78,6 +78,8 @@ type MediaType = "image" | "video";
 
 type Base = { title: string; body: string };
 type Tr = { lang: LangKey; title?: string; body?: string };
+
+type StorePick = { id: string; title: string; placeId?: string };
 
 type ProductDoc = {
   id: string;
@@ -92,6 +94,11 @@ type ProductDoc = {
   originalFileName?: string;
   createdAt?: any;
   updatedAt?: any;
+  // 🔗 施工実績 ⇔ 店舗 の紐づけ
+  storeLink?: {
+    storeId: string;
+    placeId?: string;
+  };
 };
 
 /* ===================== 定数 ===================== */
@@ -126,7 +133,13 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
   return Promise.all(tasks);
 }
 
-/* ===================== DnD Item ===================== */
+function mapsUrlFromPlaceId(placeId: string) {
+  return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
+    placeId
+  )}`;
+}
+
+/* ===================== DnDアイテム ===================== */
 function SortableItem({
   product,
   children,
@@ -157,18 +170,22 @@ function SortableItem({
 /* ===================== 本体 ===================== */
 export default function ProductsClient() {
   const router = useRouter();
+
+  // 一覧・権限
   const [list, setList] = useState<ProductDoc[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // 言語
   const { uiLang } = useUILang();
 
+  // フォーム状態
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editing, setEditing] = useState<ProductDoc | null>(null);
-
   const [titleJa, setTitleJa] = useState("");
   const [bodyJa, setBodyJa] = useState("");
   const [price, setPrice] = useState<number>(0);
 
+  // メディア
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -180,54 +197,51 @@ export default function ProductsClient() {
   const canOpenBodyGen = Boolean(titleJa?.trim());
   const canGenerateBody = aiKeywords.some((k) => k.trim());
 
+  // ページング
   const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const generateBodyWithAI = async () => {
-    if (!titleJa.trim()) {
-      alert("タイトルを入力してください");
-      return;
-    }
-    try {
-      setAiGenLoading(true);
-      const keywords = aiKeywords.filter((k) => k.trim());
-      const res = await fetch("/api/generate-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleJa, keywords }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "生成に失敗しました");
-      const newBody = (data?.body ?? "").trim();
-      if (!newBody) return alert("有効な本文が返りませんでした。");
-      setBodyJa(newBody);
-      setShowBodyGen(false);
-      setAiKeywords(["", "", ""]);
-    } catch {
-      alert("本文生成に失敗しました");
-    } finally {
-      setAiGenLoading(false);
-    }
-  };
+  // 店舗選択
+  const [storeOptions, setStoreOptions] = useState<StorePick[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
+  // テーマ
   const gradient = useThemeGradient();
   const isDark = useMemo(() => {
     const darks: ThemeKey[] = ["brandG", "brandH", "brandI"];
     return !!gradient && darks.some((k) => gradient === THEMES[k]);
   }, [gradient]);
 
+  // Firestore 参照
   const colRef: CollectionReference<DocumentData> = useMemo(
     () => collection(db, COL_PATH),
     []
   );
 
+  /* -------- 権限 -------- */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
+  /* -------- 店舗一覧（名前＋placeId） -------- */
   useEffect(() => {
-    // 初回20件だけリアルタイム購読（X風）
-    const q = query(colRef, orderBy("order", "asc"), limit(20));
+    const ref = collection(db, `siteStores/${SITE_KEY}/items`);
+    const unsub = onSnapshot(ref, (snap) => {
+      const rows: StorePick[] = snap.docs.map((d) => {
+        const v = d.data() as any;
+        return {
+          id: d.id,
+          title: v?.base?.name || v?.name || "(無題の店舗)",
+          placeId: v?.geo?.placeId,
+        };
+      });
+      setStoreOptions(rows);
+    });
+    return () => unsub();
+  }, []);
 
+  /* -------- 初回20件 購読 -------- */
+  useEffect(() => {
+    const q = query(colRef, orderBy("order", "asc"), limit(20));
     const unsubscribe = onSnapshot(q, (snap) => {
       const firstPage = snap.docs.map((d) => {
         const data = d.data() as any;
@@ -249,38 +263,37 @@ export default function ProductsClient() {
           originalFileName: data.originalFileName,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
+          storeLink: data.storeLink,
         };
         return row;
       });
 
-      // 既存リストにマージ：初回20件に含まれるIDは差し替え、後続ページは温存
       setList((prev) => {
         const firstIds = new Set(firstPage.map((r) => r.id));
-        const others = prev.filter((r) => !firstIds.has(r.id)); // 追加ロード済みのページ
+        const others = prev.filter((r) => !firstIds.has(r.id));
         const merged = [...firstPage, ...others];
         merged.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
         return merged;
       });
 
       setLastVisible(snap.docs.at(-1) ?? null);
-      setHasMore(snap.docs.length === 20); // 20件満たしていれば次ページあり
+      setHasMore(snap.docs.length === 20);
     });
 
     return () => unsubscribe();
   }, [colRef]);
 
+  /* -------- 次ページ読込 -------- */
   const loadMore = useCallback(async () => {
     if (!lastVisible || loadingMore || !hasMore) return;
 
     setLoadingMore(true);
-
     const q = query(
       colRef,
       orderBy("order", "asc"),
       startAfter(lastVisible),
       limit(20)
     );
-
     const snap = await getDocs(q);
 
     const existingIds = new Set(list.map((x) => x.id));
@@ -305,10 +318,11 @@ export default function ProductsClient() {
           originalFileName: data.originalFileName,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
+          storeLink: data.storeLink,
         };
         return row;
       })
-      .filter((row) => !existingIds.has(row.id)); // ★ 重複除外
+      .filter((row) => !existingIds.has(row.id));
 
     setList((prev) => {
       const merged = [...prev, ...nextPage];
@@ -329,11 +343,11 @@ export default function ProductsClient() {
         loadMore();
       }
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [loadMore, loadingMore, hasMore]);
 
+  /* -------- DnD -------- */
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -357,7 +371,7 @@ export default function ProductsClient() {
     [list, colRef]
   );
 
-  /* ファイル選択（動画は長さチェック） */
+  /* -------- ファイル選択（動画長さチェック） -------- */
   const onSelectFile = (f: File) => {
     if (!f) return;
     const isVideo = f.type.startsWith("video/");
@@ -365,12 +379,12 @@ export default function ProductsClient() {
       setFile(f);
       return;
     }
-    const url = URL.createObjectURL(f);
+    const blobUrl = URL.createObjectURL(f);
     const v = document.createElement("video");
     v.preload = "metadata";
-    v.src = url;
+    v.src = blobUrl;
     v.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
       if (v.duration > MAX_VIDEO_SEC) {
         alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
         return;
@@ -379,7 +393,7 @@ export default function ProductsClient() {
     };
   };
 
-  /* 保存処理 */
+  /* -------- 保存 -------- */
   const saveProduct = useCallback(async () => {
     if (progress !== null || saving) return;
     if (!titleJa.trim()) return alert("タイトルは必須です");
@@ -392,6 +406,7 @@ export default function ProductsClient() {
       let mediaType: MediaType = editing?.mediaType ?? "image";
       let originalFileName = editing?.originalFileName;
 
+      // 画像/動画アップロード
       if (file) {
         const isVideo = file.type.startsWith("video/");
         mediaType = isVideo ? "video" : "image";
@@ -405,7 +420,6 @@ export default function ProductsClient() {
         }
 
         const ext = extFromMime(file.type);
-
         const uploadFile = isVideo
           ? file
           : await imageCompression(file, {
@@ -432,8 +446,8 @@ export default function ProductsClient() {
               setProgress(
                 Math.round((s.bytesTransferred / s.totalBytes) * 100)
               ),
-            reject,
-            resolve
+            (e) => reject(e),
+            () => resolve()
           );
         });
 
@@ -442,6 +456,7 @@ export default function ProductsClient() {
         originalFileName = file.name;
         setProgress(null);
 
+        // 拡張子が変わった時は旧ファイル削除（拡張子推定）
         if (formMode === "edit" && editing) {
           const oldExt = extFromMime(
             editing.mediaType === "video" ? "video/mp4" : "image/jpeg"
@@ -457,10 +472,18 @@ export default function ProductsClient() {
         }
       }
 
+      // 翻訳
       const t = await translateAll(titleJa.trim(), bodyJa.trim());
       const base: Base = { title: titleJa.trim(), body: bodyJa.trim() };
 
-      const payload = {
+      // 店舗リンク
+      let storeLink: ProductDoc["storeLink"] | undefined;
+      if (selectedStoreId) {
+        const picked = storeOptions.find((o) => o.id === selectedStoreId);
+        if (picked) storeLink = { storeId: picked.id, placeId: picked.placeId };
+      }
+
+      const payload: Partial<ProductDoc> = {
         base,
         t,
         title: base.title,
@@ -469,23 +492,26 @@ export default function ProductsClient() {
         mediaType,
         price: Number.isFinite(price) ? Number(price) : 0,
         ...(originalFileName ? { originalFileName } : {}),
+        ...(storeLink ? { storeLink } : {}),
+        updatedAt: serverTimestamp() as any,
       };
 
       if (formMode === "edit" && editing) {
-        await updateDoc(doc(colRef, id), {
-          ...payload,
-          updatedAt: serverTimestamp(),
-        });
+        await updateDoc(doc(colRef, id), payload as any);
       } else {
         const tail = (list.at(-1)?.order ?? list.length - 1) + 1;
         await addDoc(colRef, {
           ...payload,
           createdAt: serverTimestamp(),
           order: tail,
-        });
+        } as any);
       }
 
+      // リセット
       setFormMode(null);
+      setEditing(null);
+      setFile(null);
+      setSelectedStoreId("");
     } catch (e) {
       console.error(e);
       alert("保存に失敗しました");
@@ -504,6 +530,8 @@ export default function ProductsClient() {
     editing,
     colRef,
     list,
+    selectedStoreId,
+    storeOptions,
   ]);
 
   if (!gradient) return null;
@@ -525,42 +553,41 @@ export default function ProductsClient() {
         >
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
             {list.map((p) => {
-              const loc = displayOf(p, uiLang); // ← uiLang と displayOf を実際に使用
+              const loc = displayOf(p, uiLang);
+              const storeName =
+                p.storeLink?.storeId
+                  ? storeOptions.find((s) => s.id === p.storeLink!.storeId)
+                      ?.title
+                  : undefined;
               return (
                 <SortableItem key={p.id} product={p}>
                   {({ listeners, attributes, isDragging }) => (
-                    // 外ラッパ：Pinがはみ出せるように overflowは付けない。高さ揃えのために h-full。
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9, y: 20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: 20 }}
                       transition={{ duration: 0.3 }}
-                      onClick={() => {
-                        if (isDragging) return;
-                        router.push(`/products/${p.id}`);
-                      }}
+                      onClick={() => router.push(`/products/${p.id}`)}
                       className="relative cursor-pointer h-full"
                     >
-                      {/* DnDハンドル（Pinをカード上部センターに） */}
+                      {/* DnD ハンドル */}
                       {auth.currentUser && (
                         <div
                           {...attributes}
                           {...listeners}
                           onClick={(e) => e.stopPropagation()}
-                          onContextMenu={(e) => e.preventDefault()} // 長押しメニュー抑止
-                          draggable={false} // ネイティブD&D抑止
-                          className="drag-handle absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3 touch-none"
+                          onContextMenu={(e) => e.preventDefault()}
+                          draggable={false}
+                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3 touch-none"
                           role="button"
                           aria-label="並び替え"
                         >
-                          {/* 見た目の丸いピン */}
                           <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
                             <Pin />
                           </div>
                         </div>
                       )}
 
-                      {/* 内側：カード本体（gradient背景・角丸・影・overflow-hidden） */}
                       <div
                         className={clsx(
                           "flex h-full flex-col border rounded-lg overflow-hidden shadow-xl transition-colors duration-200",
@@ -582,8 +609,8 @@ export default function ProductsClient() {
                           className="shadow-lg"
                         />
 
-                        {/* 商品情報（高さ揃え：下部に余白が出てもカード全体は h-full で統一） */}
-                        <div className="p-3 space-y-2">
+                        {/* 情報 */}
+                        <div className="p-3 space-y-1">
                           <h2
                             className={clsx("text-sm font-bold", {
                               "text-white": isDark,
@@ -591,7 +618,19 @@ export default function ProductsClient() {
                           >
                             {loc.title || "（無題）"}
                           </h2>
-                          {/* 必要なら本文の先頭だけ：<p className="text-xs opacity-80 line-clamp-2">{loc.body}</p> */}
+
+                          {/* 店舗名＋Googleマップ */}
+                          {p.storeLink?.placeId && (
+                            <a
+                              href={mapsUrlFromPlaceId(p.storeLink.placeId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-700 underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {storeName ? `${storeName} をGoogleマップで見る` : "Googleマップで見る"}
+                            </a>
+                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -612,6 +651,7 @@ export default function ProductsClient() {
             setBodyJa("");
             setPrice(0);
             setFile(null);
+            setSelectedStoreId("");
             setFormMode("add");
           }}
           className="fixed bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"
@@ -642,6 +682,31 @@ export default function ProductsClient() {
               className="w-full border px-3 py-2 rounded"
               rows={6}
             />
+
+            {/* 価格（任意） */}
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="価格（任意）"
+              value={Number.isFinite(price) ? String(price) : ""}
+              onChange={(e) => setPrice(Number(e.target.value || 0))}
+              className="w-full border px-3 py-2 rounded"
+            />
+
+            {/* 店舗選択（placeId付き） */}
+            <select
+              value={selectedStoreId}
+              onChange={(e) => setSelectedStoreId(e.target.value)}
+              className="w-full border px-3 py-2 rounded"
+            >
+              <option value="">（店舗に紐づけない）</option>
+              {storeOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.title}
+                  {o.placeId ? "" : "（Place ID 未設定）"}
+                </option>
+              ))}
+            </select>
 
             {/* AI 本文生成 */}
             <button
@@ -687,7 +752,29 @@ export default function ProductsClient() {
                       キャンセル
                     </button>
                     <button
-                      onClick={generateBodyWithAI}
+                      onClick={async () => {
+                        if (!titleJa.trim()) return;
+                        try {
+                          setAiGenLoading(true);
+                          const keywords = aiKeywords.filter((k) => k.trim());
+                          const res = await fetch("/api/generate-description", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ title: titleJa, keywords }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data?.error || "生成に失敗");
+                          const newBody = (data?.body ?? "").trim();
+                          if (!newBody) return alert("有効な本文が返りませんでした。");
+                          setBodyJa(newBody);
+                          setShowBodyGen(false);
+                          setAiKeywords(["", "", ""]);
+                        } catch {
+                          alert("本文生成に失敗しました");
+                        } finally {
+                          setAiGenLoading(false);
+                        }
+                      }}
                       className={clsx(
                         "flex-1 py-2 rounded text-white",
                         canGenerateBody ? "bg-indigo-600" : "bg-gray-400"
@@ -701,6 +788,7 @@ export default function ProductsClient() {
               </div>
             )}
 
+            {/* メディア */}
             <input
               type="file"
               accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}

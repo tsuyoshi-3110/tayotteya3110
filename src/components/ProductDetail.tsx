@@ -20,6 +20,8 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  collection,
+  getDocs,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -34,9 +36,13 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
-// 共通ユーティリティ
+// 共通UI/ユーティリティ
 import { BusyOverlay } from "./BusyOverlay";
-import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES, extFromMime } from "@/lib/fileTypes";
+import {
+  IMAGE_MIME_TYPES,
+  VIDEO_MIME_TYPES,
+  extFromMime,
+} from "@/lib/fileTypes";
 
 /* ---------- 型 ---------- */
 type MediaType = "image" | "video";
@@ -44,7 +50,11 @@ type MediaType = "image" | "video";
 type ProductDoc = Product & {
   base?: { title: string; body: string };
   t?: Array<{ lang: LangKey; title?: string; body?: string }>;
+  // 施工実績 ←→ 店舗の紐づけ（任意）
+  storeLink?: { storeId: string; placeId?: string };
 };
+
+type StorePick = { id: string; title: string; placeId?: string };
 
 /* ---------- 多言語ユーティリティ ---------- */
 function pickLocalized(
@@ -88,6 +98,13 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
     .map((r) => r.value);
 }
 
+function mapsUrlFromPlaceId(placeId: string) {
+  // queryは任意文字列でOK。placeId優先で地点を開く
+  return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
+    placeId
+  )}`;
+}
+
 /* ---------- 本体 ---------- */
 export default function ProductDetail({ product }: { product: Product }) {
   const router = useRouter();
@@ -103,7 +120,7 @@ export default function ProductDetail({ product }: { product: Product }) {
     return !!gradient && darks.some((k) => gradient === THEMES[k]);
   }, [gradient]);
 
-  // グローバル表示言語
+  // 表示言語
   const { uiLang } = useUILang();
 
   // Firestore の全文
@@ -113,6 +130,10 @@ export default function ProductDetail({ product }: { product: Product }) {
   const [showEdit, setShowEdit] = useState(false);
   const [titleJa, setTitleJa] = useState(product.title ?? "");
   const [bodyJa, setBodyJa] = useState(product.body ?? "");
+
+  // 紐づく店舗選択
+  const [storeOptions, setStoreOptions] = useState<StorePick[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
   // メディア
   const [file, setFile] = useState<File | null>(null);
@@ -127,9 +148,10 @@ export default function ProductDetail({ product }: { product: Product }) {
   const canOpenBodyGen = Boolean(titleJa?.trim());
   const canGenerateBody = aiKeywords.some((k) => k.trim());
 
-  // 初回 Firestore 読み直し
+  // 初回 Firestore 読み直し＋店舗候補取得
   useEffect(() => {
     (async () => {
+      // 商品読み直し
       const docRef = doc(db, "siteProducts", SITE_KEY, "items", product.id);
       const snap = await getDoc(docRef);
       const d = snap.data() as any;
@@ -138,7 +160,22 @@ export default function ProductDetail({ product }: { product: Product }) {
         setDocData(merged);
         setTitleJa(merged.base?.title ?? merged.title ?? "");
         setBodyJa(merged.base?.body ?? merged.body ?? "");
+        setSelectedStoreId(merged.storeLink?.storeId ?? "");
       }
+
+      // 店舗候補（name と placeId）
+      const storesSnap = await getDocs(
+        collection(db, `siteStores/${SITE_KEY}/items`)
+      );
+      const opts: StorePick[] = storesSnap.docs.map((x) => {
+        const v = x.data() as any;
+        return {
+          id: x.id,
+          title: v?.base?.name || v?.name || "(無題の店舗)",
+          placeId: v?.geo?.placeId,
+        };
+      });
+      setStoreOptions(opts);
     })();
   }, [product.id, product]);
 
@@ -231,8 +268,17 @@ export default function ProductDetail({ product }: { product: Product }) {
         setProgress(null);
       }
 
+      // 翻訳
       const t = await translateAll(titleJa.trim(), bodyJa.trim());
       const base = { title: titleJa.trim(), body: bodyJa.trim() };
+
+      // 店舗リンク（選択されていれば placeId を拾う）
+      let storeLink: ProductDoc["storeLink"] | undefined;
+      if (selectedStoreId) {
+        const picked = storeOptions.find((o) => o.id === selectedStoreId);
+        storeLink = { storeId: selectedStoreId, placeId: picked?.placeId };
+      }
+
       await updateDoc(docRef, {
         base,
         t,
@@ -240,6 +286,7 @@ export default function ProductDetail({ product }: { product: Product }) {
         body: base.body,
         mediaURL,
         mediaType,
+        ...(storeLink ? { storeLink } : { storeLink: null }), // 未選択なら解除
         updatedAt: serverTimestamp(),
       });
 
@@ -251,6 +298,7 @@ export default function ProductDetail({ product }: { product: Product }) {
         body: base.body,
         mediaURL,
         mediaType,
+        ...(storeLink ? { storeLink } : { storeLink: undefined }),
       }));
 
       setShowEdit(false);
@@ -282,6 +330,12 @@ export default function ProductDetail({ product }: { product: Product }) {
   };
 
   if (!gradient) return null;
+
+  // 紐づいた店舗の表示名
+  const linkedStoreName =
+    docData.storeLink?.storeId
+      ? storeOptions.find((s) => s.id === docData.storeLink!.storeId)?.title
+      : undefined;
 
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
@@ -347,10 +401,29 @@ export default function ProductDetail({ product }: { product: Product }) {
           <h1 className="text-lg font-bold whitespace-pre-wrap">
             {display.title}
           </h1>
+
+          {/* 施工実績の本文 */}
           {display.body && (
             <p className="text-sm whitespace-pre-wrap leading-relaxed">
               {display.body}
             </p>
+          )}
+
+          {/* 🔗 店舗リンク／Googleマップ */}
+          {docData.storeLink?.placeId && (
+            <a
+              href={mapsUrlFromPlaceId(docData.storeLink.placeId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={clsx(
+                "inline-block text-sm underline mt-1",
+                isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-700 hover:text-blue-900"
+              )}
+            >
+              {linkedStoreName
+                ? `${linkedStoreName} をGoogleマップで見る`
+                : "Googleマップで見る"}
+            </a>
           )}
         </div>
       </motion.div>
@@ -375,6 +448,31 @@ export default function ProductDetail({ product }: { product: Product }) {
               className="w-full border px-3 py-2 rounded"
               rows={6}
             />
+
+            {/* 店舗の紐づけ（任意） */}
+            <div className="space-y-1">
+              <label className="text-sm text-gray-700">店舗を紐づけ（任意）</label>
+              <select
+                value={selectedStoreId}
+                onChange={(e) => setSelectedStoreId(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+              >
+                <option value="">（店舗に紐づけない）</option>
+                {storeOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.title}
+                    {o.placeId ? "" : "（Place ID 未設定）"}
+                  </option>
+                ))}
+              </select>
+              {selectedStoreId && (
+                <p className="text-xs text-gray-500">
+                  {storeOptions.find((o) => o.id === selectedStoreId)?.placeId
+                    ? "選択した店舗の Place ID を使ってGoogleマップにリンクします。"
+                    : "この店舗には Place ID が未設定のため、Googleマップリンクは表示されません。"}
+                </p>
+              )}
+            </div>
 
             {/* AI 本文生成ボタン */}
             <button

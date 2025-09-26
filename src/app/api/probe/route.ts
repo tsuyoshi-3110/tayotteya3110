@@ -1,11 +1,24 @@
 // src/app/api/probe/route.ts
 import { NextResponse } from "next/server";
-import { getDocs, collection, query, where, Timestamp } from "firebase/firestore";
+import {
+  getDocs,
+  collection,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const SITE_KEY = "tayotteya3110";
 
-const range = (y1:number,m1:number,d1:number, y2:number,m2:number,d2:number) => ({
+const range = (
+  y1: number,
+  m1: number,
+  d1: number,
+  y2: number,
+  m2: number,
+  d2: number
+) => ({
   s: Timestamp.fromDate(new Date(y1, m1 - 1, d1, 0, 0, 0, 0)),
   e: Timestamp.fromDate(new Date(y2, m2 - 1, d2, 23, 59, 59, 999)),
 });
