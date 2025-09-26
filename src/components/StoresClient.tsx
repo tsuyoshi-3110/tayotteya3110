@@ -1,3 +1,4 @@
+// components/StoresClient.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -55,10 +56,12 @@ import { motion, useInView } from "framer-motion";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
+import StoreReviews from "@/components/StoreReviews";
 
 /* ======================== 定数/型 ======================== */
 const STORE_COL = `siteStores/${SITE_KEY}/items`;
 const STORAGE_PATH = `stores/public/${SITE_KEY}`;
+const META_EDIT_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
 type Store = {
   id: string;
@@ -201,6 +204,14 @@ export default function StoresClient() {
   const [aiFeature, setAiFeature] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Google 連携（サイト共通設定）
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [googleAccountEmail, setGoogleAccountEmail] = useState<string>("");
+  const [gbpLocationId, setGbpLocationId] = useState<string>("");
+  const [worksAutoSyncEnabled, setWorksAutoSyncEnabled] =
+    useState<boolean>(false);
+  const [worksAlbumTag, setWorksAlbumTag] = useState<string>("works");
+
   const gradient = useThemeGradient(); // isDark 判定に使用
   const isDark = useMemo(() => {
     const darkThemes: ThemeKey[] = ["brandG", "brandH", "brandI"];
@@ -234,8 +245,41 @@ export default function StoresClient() {
     await batch.commit();
   };
 
-  /* -------- Auth/購読 -------- */
+  /* -------- Auth -------- */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
+
+  /* -------- Google 連携（サイト共通設定）購読 -------- */
+  useEffect(() => {
+    const unsub = onSnapshot(META_EDIT_REF, (snap) => {
+      const d = snap.data() as any;
+      const g = d?.googleSync || {};
+      setGoogleEnabled(!!g.enabled);
+      setGoogleAccountEmail(g.accountEmail || "");
+      setGbpLocationId(g.locationId || "");
+      setWorksAutoSyncEnabled(!!g.worksAutoSyncEnabled);
+      setWorksAlbumTag(g.worksAlbumTag || "works");
+    });
+    return () => unsub();
+  }, []);
+
+  const saveGoogleToggle = async (next: boolean) => {
+    setGoogleEnabled(next);
+    await setDoc(
+      META_EDIT_REF,
+      {
+        googleSync: {
+          enabled: next,
+          accountEmail: next ? googleAccountEmail : "",
+          locationId: gbpLocationId || "",
+          worksAutoSyncEnabled,
+          worksAlbumTag,
+        },
+      },
+      { merge: true }
+    );
+  };
+
+  /* -------- 店舗一覧 購読 -------- */
   useEffect(() => {
     const qy = query(colRef, orderBy("order", "asc"));
     const unsub = onSnapshot(qy, (snap) => {
@@ -412,7 +456,6 @@ export default function StoresClient() {
     ================================================================= */
       let geo: Geo | undefined = undefined;
 
-      // 編集時に店名/住所に変更があるかを判定（新規は必ず解決）
       const prevName = editingStore?.base?.name ?? editingStore?.name ?? "";
       const prevAddr =
         editingStore?.base?.address ?? editingStore?.address ?? "";
@@ -548,7 +591,28 @@ export default function StoresClient() {
 
   return (
     <main className="max-w-5xl mx-auto p-4 mt-20">
-      {/* 並べ替え */}
+      {/* ===== Google連携（管理者のみ見える） ===== */}
+      {isAdmin && (
+        <div className="mb-6 rounded-lg border bg-white/70 p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="font-semibold">Google 連携（口コミ表示）</div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={googleEnabled}
+                onChange={(e) => saveGoogleToggle(e.target.checked)}
+              />
+              <span className="font-medium">口コミを表示する</span>
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-gray-600">
+            ON にすると、各店舗ドキュメントの <code>geo.placeId</code>{" "}
+            を使って Google の口コミを表示します。住所／Place ID が正しく解決されている必要があります。
+          </p>
+        </div>
+      )}
+
+      {/* 並べ替え + 一覧 */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -576,6 +640,7 @@ export default function StoresClient() {
                       attributes={attributes}
                       onEdit={openEdit}
                       onRemove={removeStore}
+                      googleEnabled={googleEnabled}
                     />
                   )}
                 </SortableStoreItem>
@@ -585,7 +650,7 @@ export default function StoresClient() {
         </SortableContext>
       </DndContext>
 
-      {/* 新規追加 */}
+      {/* 新規追加 FAB */}
       {isAdmin && formMode === null && (
         <button
           onClick={openAdd}
@@ -597,19 +662,8 @@ export default function StoresClient() {
 
       {/* フォームモーダル */}
       {isAdmin && formMode && (
-        <div
-          className="
-            fixed inset-0 z-50 bg-black/50
-            grid place-items-center p-4 min-h-dvh
-          "
-        >
-          <div
-            className="
-              w-full max-w-md sm:max-w-lg
-              bg-white rounded-lg p-6
-              max-h-[90vh] overflow-y-auto shadow-2xl
-            "
-          >
+        <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4 min-h-dvh">
+          <div className="w-full max-w-md sm:max-w-lg bg-white rounded-lg p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
             <h2 className="text-xl font-bold text-center mb-4">
               {formMode === "edit" ? "店舗を編集" : "店舗を追加"}
             </h2>
@@ -716,19 +770,8 @@ export default function StoresClient() {
 
       {/* AIモーダル */}
       {showAIModal && (
-        <div
-          className="
-            fixed inset-0 z-50 bg-black/50
-            grid place-items-center p-4 min-h-dvh
-          "
-        >
-          <div
-            className="
-              w-full max-w-sm sm:max-w-md
-              bg-white rounded-lg p-6
-              max-h-[90vh] overflow-y-auto shadow-2xl
-            "
-          >
+        <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4 min-h-dvh">
+          <div className="w-full max-w-sm sm:max-w-md bg-white rounded-lg p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
             <h3 className="text-lg font-semibold text-center mb-3">
               紹介文をAIで生成
             </h3>
@@ -807,8 +850,6 @@ export default function StoresClient() {
   );
 }
 
-import StoreReviews from "@/components/StoreReviews";
-
 /* ======================== Sortable item ======================== */
 function SortableStoreItem({
   store,
@@ -850,6 +891,7 @@ interface StoreCardProps {
   attributes: any;
   onEdit: (store: StoreDoc) => void;
   onRemove: (store: StoreDoc) => void;
+  googleEnabled: boolean;
 }
 
 function StoreCard({
@@ -864,27 +906,13 @@ function StoreCard({
   attributes,
   onEdit,
   onRemove,
+  googleEnabled,
 }: StoreCardProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -150px 0px" });
 
   const addrLines = splitLines(locAddress);
   const primaryAddr = addrLines[0] ?? "";
-
-  function useGoogleSyncEnabled() {
-    const [enabled, setEnabled] = useState(false);
-    useEffect(() => {
-      const ref = doc(db, "siteSettingsEditable", SITE_KEY);
-      const unsub = onSnapshot(ref, (snap) => {
-        const d = snap.data() as any;
-        setEnabled(!!d?.googleSync?.enabled);
-      });
-      return () => unsub();
-    }, []);
-    return enabled;
-  }
-
-  const googleEnabled = useGoogleSyncEnabled();
 
   return (
     <motion.div
@@ -894,7 +922,7 @@ function StoreCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={clsx(
-        "rounded-lg shadow relative mt-6", // ← overflow-hidden を削除
+        "rounded-lg shadow relative mt-6",
         isDragging
           ? "bg-yellow-100"
           : isDark

@@ -10,7 +10,7 @@ import {
 import { FirebaseError } from "firebase/app";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { LucideLogIn, LogOut, AlertCircle, MapPin } from "lucide-react";
+import { LucideLogIn, LogOut, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -92,16 +92,11 @@ export default function LoginPage() {
   const [gmapsReady, setGmapsReady] = useState(false);
   const addrInputRef = useRef<HTMLInputElement | null>(null);
 
-  // GBP sync states
-  const [googleEnabled, setGoogleEnabled] = useState(false); // 口コミ表示
-  const [googleAccountEmail, setGoogleAccountEmail] = useState<string>("");
-  const [gbpLocationId, setGbpLocationId] = useState<string>("");
-  const [worksAutoSyncEnabled, setWorksAutoSyncEnabled] =
-    useState<boolean>(false);
-  const [worksAlbumTag, setWorksAlbumTag] = useState<string>("works");
-
   // Google Maps API Key
-  const mapsApiKey = useMemo(() => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, []);
+  const mapsApiKey = useMemo(
+    () => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    []
+  );
 
   /* ---------------- 初期ロード（サイト設定） ---------------- */
   useEffect(() => {
@@ -114,15 +109,6 @@ export default function LoginPage() {
         if (data.themeGradient) setTheme(data.themeGradient);
         if (Array.isArray(data.visibleMenuKeys))
           setVisibleKeys(data.visibleMenuKeys);
-
-        // Google/GBP
-        if (data.googleSync) {
-          setGoogleEnabled(!!data.googleSync.enabled);
-          setGoogleAccountEmail(data.googleSync.accountEmail || "");
-          setGbpLocationId(data.googleSync.locationId || "");
-          setWorksAutoSyncEnabled(!!data.googleSync.worksAutoSyncEnabled);
-          setWorksAlbumTag(data.googleSync.worksAlbumTag || "works");
-        }
       } catch (e) {
         console.error("初期データ取得失敗:", e);
       }
@@ -257,24 +243,6 @@ export default function LoginPage() {
     });
   }, [gmapsReady]);
 
-  /* ---------------- 口コミ表示 ON/OFF 保存 ---------------- */
-  const setReviewsEnabled = async (next: boolean) => {
-    setGoogleEnabled(next);
-    await setDoc(
-      META_REF,
-      {
-        googleSync: {
-          enabled: next,
-          accountEmail: next ? googleAccountEmail : "",
-          locationId: gbpLocationId || "",
-          worksAutoSyncEnabled,
-          worksAlbumTag,
-        },
-      },
-      { merge: true }
-    );
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       {user ? (
@@ -332,34 +300,6 @@ export default function LoginPage() {
                       ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* ===== Google連携（かんたん設定） ===== */}
-              <Card className="shadow-xl bg-white/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-                    <MapPin size={20} />
-                    Google 連携
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* 口コミ表示 */}
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={googleEnabled}
-                        onChange={(e) => setReviewsEnabled(e.target.checked)}
-                      />
-                      <span className="font-medium">口コミを表示する</span>
-                    </label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    このスイッチをONにすると、各店舗の保存時に自動取得された
-                    <strong>GoogleのPlace ID</strong>
-                    を使って口コミを表示します。グーグルマップの住所と一致している必要があります。
-                  </p>
                 </CardContent>
               </Card>
 
