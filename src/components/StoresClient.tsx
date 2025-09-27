@@ -56,7 +56,7 @@ import { motion, useInView } from "framer-motion";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
-import StoreReviews from "@/components/StoreReviews";
+import StoreReviews from "./StoreReviews";
 
 /* ======================== 定数/型 ======================== */
 const STORE_COL = `siteStores/${SITE_KEY}/items`;
@@ -84,7 +84,13 @@ type TrStore = {
 };
 type Geo = { lat: number; lng: number; placeId?: string };
 
-type StoreDoc = Store & { base?: Base; t?: TrStore[]; geo?: Geo };
+type StoreDoc = Store & {
+  base?: Base;
+  t?: TrStore[];
+  geo?: Geo;
+  /** 店舗個別で口コミ表示のON/OFF（未設定は既定でtrue） */
+  showReviews?: boolean;
+};
 
 /* ======================== 表示ユーティリティ ======================== */
 const norm = (s: string) => (s ?? "").replace(/\r/g, "").trim();
@@ -191,6 +197,8 @@ export default function StoresClient() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
+  // 店舗個別の口コミ表示フラグ
+  const [showReviews, setShowReviews] = useState(true);
 
   // 画像
   const [file, setFile] = useState<File | null>(null);
@@ -320,6 +328,7 @@ export default function StoresClient() {
           base,
           t,
           ...(geo ? { geo } : {}),
+          showReviews: data.showReviews ?? true, // ★ 追加：既定はtrue
         } as StoreDoc;
       });
       docs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
@@ -335,6 +344,7 @@ export default function StoresClient() {
     setName("");
     setAddress("");
     setDescription("");
+    setShowReviews(true); // ★ 新規は既定でON
     setFile(null);
     setFormMode("add");
   };
@@ -345,6 +355,7 @@ export default function StoresClient() {
     setName(s.base?.name ?? s.name ?? "");
     setAddress(s.base?.address ?? s.address ?? "");
     setDescription(s.base?.description ?? s.description ?? "");
+    setShowReviews(s.showReviews ?? true); // ★ 既存を反映
     setFile(null);
     setFormMode("edit");
   };
@@ -450,21 +461,18 @@ export default function StoresClient() {
         ...(description.trim() && { description: description.trim() }),
       };
 
-      /* ================== 位置情報の解決（店名＋住所→Place ID 優先） ==================
-       - 住所の place_id ではなく “店舗の” place_id を得るため /api/resolve-place を使用
-       - 失敗時はフォールバックとして /api/geocode を試みる
-    ================================================================= */
+      /* ================== 位置情報の解決（店名＋住所→Place ID 優先） ================== */
       let geo: Geo | undefined = undefined;
 
       const prevName = editingStore?.base?.name ?? editingStore?.name ?? "";
       const prevAddr =
         editingStore?.base?.address ?? editingStore?.address ?? "";
+      // ★ 既存にgeoが無い場合は必ず再解決
       const needResolve =
-        !isEdit || prevName !== base.name || prevAddr !== base.address;
+        !isEdit || !editingStore?.geo || prevName !== base.name || prevAddr !== base.address;
 
       if (needResolve) {
         try {
-          // 1) 店名＋住所で店舗の Place ID を優先取得
           const r1 = await fetch("/api/resolve-place", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -482,11 +490,7 @@ export default function StoresClient() {
               ...(d1.placeId ? { placeId: d1.placeId } : {}),
             };
           } else {
-            console.warn(
-              "resolve-place failed:",
-              d1?.googleStatus || d1?.error || r1.status
-            );
-            // 2) フォールバック：住所のみのジオコーディング
+            // フォールバック：住所のみのジオコーディング
             try {
               const r2 = await fetch("/api/geocode", {
                 method: "POST",
@@ -504,21 +508,11 @@ export default function StoresClient() {
                   lng: d2.lng,
                   ...(d2.placeId ? { placeId: d2.placeId } : {}),
                 };
-              } else {
-                console.warn(
-                  "geocode fallback failed:",
-                  d2?.error || r2.status
-                );
               }
-            } catch (e) {
-              console.warn("geocode fallback exception:", e);
-            }
+            } catch {}
           }
-        } catch (e) {
-          console.warn("resolve-place exception:", e);
-        }
+        } catch {}
       } else if (isEdit && editingStore?.geo) {
-        // 編集で店名/住所に変更がない場合は現状の座標/Place ID を維持
         geo = editingStore.geo;
       }
 
@@ -533,6 +527,7 @@ export default function StoresClient() {
         updatedAt: FieldValue;
         originalFileName?: string;
         geo?: Geo;
+        showReviews: boolean;
       } = {
         base,
         t,
@@ -543,6 +538,7 @@ export default function StoresClient() {
         updatedAt: serverTimestamp(),
         ...(originalFileName && { originalFileName }),
         ...(geo ? { geo } : {}),
+        showReviews, // ★ 追加
       };
 
       if (isEdit) {
@@ -602,12 +598,12 @@ export default function StoresClient() {
                 checked={googleEnabled}
                 onChange={(e) => saveGoogleToggle(e.target.checked)}
               />
-              <span className="font-medium">口コミを表示する</span>
+              <span className="font-medium">口コミを表示する（全体）</span>
             </label>
           </div>
           <p className="mt-2 text-xs text-gray-600">
-            ON にすると、各店舗ドキュメントの <code>geo.placeId</code>{" "}
-            を使って Google の口コミを表示します。住所／Place ID が正しく解決されている必要があります。
+            ON にすると、各店舗ドキュメントの <code>geo.placeId</code> を使って Google の口コミを表示します。
+            さらに各店舗の「口コミ表示」フラグで個別にON/OFFできます。
           </p>
         </div>
       )}
@@ -717,6 +713,24 @@ export default function StoresClient() {
                 rows={3}
                 disabled={uploading || submitFlag}
               />
+            </div>
+
+            {/* 口コミ表示ON/OFF（個別） */}
+            <div className="mb-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showReviews}
+                  onChange={(e) => setShowReviews(e.target.checked)}
+                  disabled={uploading || submitFlag}
+                />
+                <span>この店舗で Google 口コミを表示する</span>
+              </label>
+              {!editingStore?.geo?.placeId && (
+                <div className="mt-1 text-xs text-gray-500">
+                  ※ Place ID が未設定の場合は、ONでも表示されません。
+                </div>
+              )}
             </div>
 
             {/* 画像 */}
@@ -914,6 +928,8 @@ function StoreCard({
   const addrLines = splitLines(locAddress);
   const primaryAddr = addrLines[0] ?? "";
 
+  const canShowReviews = (s.showReviews ?? true) && googleEnabled && !!s.geo?.placeId;
+
   return (
     <motion.div
       ref={ref}
@@ -985,13 +1001,49 @@ function StoreCard({
           <p className="text-sm whitespace-pre-wrap">{locDescription}</p>
         )}
 
-        {s.geo?.placeId && (
-          <StoreReviews placeId={s.geo.placeId} googleEnabled={googleEnabled} />
+        {/* ★ 店舗個別フラグ + グローバル + placeId が揃ったときだけ表示 */}
+        {canShowReviews && (
+          <StoreReviews placeId={s.geo!.placeId!} googleEnabled={googleEnabled} />
+        )}
+
+        {/* 管理者向け：geo未設定や非表示時のヒント */}
+        {isAdmin && !s.geo?.placeId && (
+          <div className="mt-2 text-xs text-amber-600">
+            ※ この店舗は <code>geo.placeId</code> が未設定です。店名/住所の更新で解決を実行してください。
+          </div>
+        )}
+        {isAdmin && googleEnabled && (s.showReviews === false) && (
+          <div className="mt-2 text-xs text-gray-600">
+            ※ この店舗は「口コミ表示」がOFFのため、非表示になっています。
+          </div>
         )}
       </div>
 
+      {/* 管理者用：右上操作群（個別トグル付き） */}
       {isAdmin && (
-        <div className="absolute top-2 right-2 flex gap-2">
+        <div className="absolute top-2 right-2 flex gap-2 items-center">
+          <label
+            className={clsx(
+              "flex items-center gap-1 rounded px-2 py-1 text-xs ring-1",
+              "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
+              !s.geo?.placeId && "opacity-50"
+            )}
+            title={s.geo?.placeId ? "この店舗の口コミ表示を切替" : "Place ID が未設定です"}
+          >
+            <input
+              type="checkbox"
+              checked={s.showReviews ?? true}
+              onChange={async (e) => {
+                await updateDoc(doc(db, STORE_COL, s.id), {
+                  showReviews: e.target.checked,
+                  updatedAt: serverTimestamp(),
+                });
+              }}
+              disabled={!s.geo?.placeId}
+            />
+            口コミ表示
+          </label>
+
           <button
             className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
             onClick={() => onEdit(s)}

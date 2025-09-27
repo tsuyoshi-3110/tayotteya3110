@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 }
 
 async function handler(name: string, address: string, debug = false) {
-  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return NextResponse.json({ error: "missing GOOGLE_MAPS_API_KEY" }, { status: 500 });
 
   const query = `${name} ${address}`.trim();

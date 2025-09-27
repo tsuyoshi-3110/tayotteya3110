@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const placeId = searchParams.get("placeId") || "";
     const lang = searchParams.get("lang") || "ja";
-    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const key = process.env.GOOGLE_MAPS_API_KEY;
     if (!key) {
       return NextResponse.json({ error: "missing api key" }, { status: 500 });
     }
