@@ -336,7 +336,7 @@ function InlineMediaViewer({
     <div className="px-6 md:px-8 pb-2">
       <div
         className="relative w-full overflow-hidden rounded border bg-black/5"
-        style={{ aspectRatio: "21 / 9" }}
+        style={{ aspectRatio: "1 / 1" }}
       >
         {type === "video" ? (
           <video
