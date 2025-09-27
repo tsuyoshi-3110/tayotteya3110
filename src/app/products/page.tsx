@@ -1,29 +1,31 @@
+// src/app/(routes)/news/page.tsx
 import type { Metadata } from "next";
-import ProductsClient from "@/components/ProductsClient";
+import NewsClient from "@/components/NewsClient";
 
 export const metadata: Metadata = {
-  title: "施工サービス一覧｜株式会社 TS Reform",
+  title: "お知らせ｜おそうじ処 たよって屋",
   description:
-    "株式会社 TS Reform の施工サービス一覧ページ。外壁塗装、屋根工事、防水工事、雨漏り調査・補修など、住まいを守る各種リフォームサービスをご紹介します。",
+    "おそうじ処 たよって屋の最新情報・キャンペーン・営業時間や対応エリアに関するお知らせを掲載しています（大阪・兵庫エリア対応）。",
   openGraph: {
-    title: "施工サービス一覧｜株式会社 TS Reform",
+    title: "お知らせ｜おそうじ処 たよって屋",
     description:
-      "株式会社 TS Reform の外装リフォームサービス。外壁塗装、屋根改修、防水工事、シーリング、雨漏り補修などを写真付きで掲載し、詳細をご確認いただけます。",
-    url: "https://ts-reform.jp/products",
-    siteName: "株式会社 TS Reform",
-    images: [
-      {
-        url: "https://ts-reform.jp/ogpLogo.png",
-        width: 1200,
-        height: 630,
-        alt: "株式会社 TS Reform OGP",
-      },
-    ],
+      "最新のお知らせやキャンペーン情報、営業時間・対応エリアの変更などを随時ご案内します。",
+    url: "https://tayotteya.shop/news",
+    siteName: "おそうじ処 たよって屋",
+    images: [{ url: "/ogpLogo.png", width: 1200, height: 630 }],
     locale: "ja_JP",
     type: "website",
   },
+  alternates: { canonical: "https://tayotteya.shop/news" },
 };
 
-export default function ProductsPage() {
-  return <ProductsClient />;
+export default function NewsPage() {
+  return (
+    <main className="px-4 py-12 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mt-6 mb-6 text-center text-white/80">
+        お知らせ
+      </h1>
+      <NewsClient />
+    </main>
+  );
 }
