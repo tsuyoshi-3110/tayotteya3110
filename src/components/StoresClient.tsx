@@ -469,7 +469,10 @@ export default function StoresClient() {
         editingStore?.base?.address ?? editingStore?.address ?? "";
       // ★ 既存にgeoが無い場合は必ず再解決
       const needResolve =
-        !isEdit || !editingStore?.geo || prevName !== base.name || prevAddr !== base.address;
+        !isEdit ||
+        !editingStore?.geo ||
+        prevName !== base.name ||
+        prevAddr !== base.address;
 
       if (needResolve) {
         try {
@@ -601,10 +604,77 @@ export default function StoresClient() {
               <span className="font-medium">口コミを表示する（全体）</span>
             </label>
           </div>
-          <p className="mt-2 text-xs text-gray-600">
-            ON にすると、各店舗ドキュメントの <code>geo.placeId</code> を使って Google の口コミを表示します。
-            さらに各店舗の「口コミ表示」フラグで個別にON/OFFできます。
-          </p>
+
+          {/* ▼ オーナー向けの分かりやすい説明（リンク付き） */}
+          <div className="mt-3 text-xs text-gray-700 space-y-2">
+            <p>
+              この機能は
+              <strong>
+                Googleビジネスプロフィール（Googleマップ上の店舗ページ）
+              </strong>
+              の口コミを表示します。 ONにすると各店舗ドキュメントの{" "}
+              <code>geo.placeId</code> を使って口コミを取得します。
+              さらに、店舗ごとの「口コミ表示」フラグで個別にON/OFFできます。
+            </p>
+
+            <p className="font-medium">表示されるための前提条件</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                店舗の<strong>Googleマップのビジネスページ</strong>
+                が公開されていること。
+              </li>
+              <li>
+                そのページに<strong>口コミが1件以上</strong>
+                投稿されていること（0件の場合は「口コミはまだありません」と表示）。
+              </li>
+              <li>
+                <strong>住所の一致で自動表示できます。</strong>
+                店舗ドキュメントの住所が
+                <strong>
+                  Googleマップ上の住所表記と同じ（または十分に一致）
+                </strong>
+                していれば、 保存時にシステムが自動で <code>Place ID</code>{" "}
+                と座標を解決し、口コミが表示されます。
+                表記ゆれ（番地抜け／全角半角／ハイフン違い
+                等）があると見つからないことがあります。
+                <span className="block text-gray-500 mt-1">
+                  ※
+                  Googleマップの店舗ページから住所をコピー＆ペーストすると成功率が上がります。
+                </span>
+              </li>
+            </ul>
+
+            <p className="font-medium">役立つリンク</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <a
+                  href="https://www.google.com/business/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-700"
+                >
+                  Googleビジネスプロフィール（管理画面）
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://support.google.com/business/answer/3474122?hl=ja"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-blue-700"
+                >
+                  口コミの読み方・返信方法（公式ヘルプ）
+                </a>
+              </li>
+            </ul>
+
+            <p className="text-gray-500">
+              各店舗カードの「
+              <span className="underline">Googleで口コミを見る</span>
+              」リンクから、
+              公開ページが正しいか・口コミが付いているかを確認できます。
+            </p>
+          </div>
         </div>
       )}
 
@@ -928,7 +998,8 @@ function StoreCard({
   const addrLines = splitLines(locAddress);
   const primaryAddr = addrLines[0] ?? "";
 
-  const canShowReviews = (s.showReviews ?? true) && googleEnabled && !!s.geo?.placeId;
+  const canShowReviews =
+    (s.showReviews ?? true) && googleEnabled && !!s.geo?.placeId;
 
   return (
     <motion.div
@@ -1003,16 +1074,20 @@ function StoreCard({
 
         {/* ★ 店舗個別フラグ + グローバル + placeId が揃ったときだけ表示 */}
         {canShowReviews && (
-          <StoreReviews placeId={s.geo!.placeId!} googleEnabled={googleEnabled} />
+          <StoreReviews
+            placeId={s.geo!.placeId!}
+            googleEnabled={googleEnabled}
+          />
         )}
 
         {/* 管理者向け：geo未設定や非表示時のヒント */}
         {isAdmin && !s.geo?.placeId && (
           <div className="mt-2 text-xs text-amber-600">
-            ※ この店舗は <code>geo.placeId</code> が未設定です。店名/住所の更新で解決を実行してください。
+            ※ この店舗は <code>geo.placeId</code>{" "}
+            が未設定です。店名/住所の更新で解決を実行してください。
           </div>
         )}
-        {isAdmin && googleEnabled && (s.showReviews === false) && (
+        {isAdmin && googleEnabled && s.showReviews === false && (
           <div className="mt-2 text-xs text-gray-600">
             ※ この店舗は「口コミ表示」がOFFのため、非表示になっています。
           </div>
@@ -1028,7 +1103,11 @@ function StoreCard({
               "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
               !s.geo?.placeId && "opacity-50"
             )}
-            title={s.geo?.placeId ? "この店舗の口コミ表示を切替" : "Place ID が未設定です"}
+            title={
+              s.geo?.placeId
+                ? "この店舗の口コミ表示を切替"
+                : "Place ID が未設定です"
+            }
           >
             <input
               type="checkbox"
