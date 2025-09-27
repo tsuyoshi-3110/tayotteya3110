@@ -1,12 +1,13 @@
-// app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
+import Footer from "@/components/common/Footer";
 import Script from "next/script";
 import ThemeBackground from "@/components/ThemeBackground";
 import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
+import AnalyticsLogger from "@/components/AnalyticsLogger";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import {
   kosugiMaru,
@@ -16,8 +17,6 @@ import {
   yomogi,
   hachiMaruPop,
 } from "@/lib/font";
-import AnalyticsLogger from "@/components/AnalyticsLogger";
-
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({
@@ -25,11 +24,10 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-// ✅ metadata から themeColor を削除
 export const metadata: Metadata = {
-  title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
+  title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行（大阪・兵庫）",
   description:
-    "おそうじ処 たよって屋は、大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。キッチンや浴室などの水回り、リビング、定期清掃まで、暮らしに寄り添う丁寧なサービスを提供します。",
+    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。大阪市東淀川区、豊中市、吹田市など近隣も丁寧に対応。水回り・リビング・定期清掃まで安心価格。",
   keywords: [
     "おそうじ処たよって屋",
     "たよって屋",
@@ -38,18 +36,17 @@ export const metadata: Metadata = {
     "整理収納",
     "大阪",
     "兵庫",
+    "大阪市東淀川区",
     "水回り掃除",
     "エアコンクリーニング",
   ],
   authors: [{ name: "おそうじ処 たよって屋" }],
   metadataBase: new URL("https://tayotteya.shop"),
-  alternates: {
-    canonical: "https://tayotteya.shop/",
-  },
+  alternates: { canonical: "https://tayotteya.shop/" },
   openGraph: {
     title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
     description:
-      "大阪・兵庫エリアでハウスクリーニング／家事代行／整理収納を提供。水回りやリビングの徹底清掃、定期清掃までお任せください。",
+      "大阪・兵庫エリアでハウスクリーニング／家事代行／整理収納を提供。大阪市東淀川区も対応。水回りやリビングの徹底清掃、定期清掃までお任せください。",
     url: "https://tayotteya.shop/",
     siteName: "おそうじ処 たよって屋",
     type: "website",
@@ -66,7 +63,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "おそうじ処 たよって屋｜ハウスクリーニング・家事代行",
-    description: "大阪・兵庫エリア対応。水回り／リビング／定期清掃まで丁寧に。",
+    description: "大阪・兵庫エリア対応。大阪市東淀川区のご依頼もお気軽に。",
     images: ["https://tayotteya.shop/ogpLogo.png"],
   },
   icons: {
@@ -79,7 +76,6 @@ export const metadata: Metadata = {
   },
 };
 
-// ✅ ここで themeColor を指定（root で一括適用）
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
@@ -103,7 +99,6 @@ export default function RootLayout({
       `}
     >
       <head>
-        {/* OGP画像の事前読み込み */}
         <link rel="preload" as="image" href="/ogpLogo.png" type="image/png" />
         <meta
           name="google-site-verification"
@@ -111,13 +106,19 @@ export default function RootLayout({
         />
       </head>
 
-      <body className="relative min-h-screen bg-[#ffffff]">
+      {/* ✅ フッターを下に張り付けるために flex レイアウト */}
+      <body className="flex min-h-dvh flex-col bg-[#ffffff]">
         <SubscriptionOverlay siteKey={SITE_KEY} />
         <AnalyticsLogger />
         <WallpaperBackground />
         <ThemeBackground />
+
         <Header />
-        {children}
+
+        {/* ✅ main を flex-1 にして余白を埋める */}
+        <main className="flex-1">{children}</main>
+
+        <Footer />
 
         {/* 構造化データ */}
         <Script
@@ -136,6 +137,7 @@ export default function RootLayout({
             areaServed: [
               { "@type": "AdministrativeArea", name: "大阪府" },
               { "@type": "AdministrativeArea", name: "兵庫県" },
+              { "@type": "AdministrativeArea", name: "大阪市東淀川区" },
             ],
             serviceType: ["ハウスクリーニング", "家事代行", "整理収納"],
             address: {

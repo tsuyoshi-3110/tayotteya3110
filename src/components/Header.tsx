@@ -473,7 +473,7 @@ export default function Header({ className = "" }: { className?: string }) {
       <Link
         href="/"
         className={clsx(
-          "text-md font-bold flex items-center gap-2 py-2 hover:opacity-50",
+          "text-lg font-bold flex items-center gap-2 py-2 hover:opacity-50",
           "text-white text-outline"
         )}
       >
@@ -483,72 +483,14 @@ export default function Header({ className = "" }: { className?: string }) {
             alt="ロゴ"
             width={48}
             height={48}
-            className="w-12 h-12 object-contain transition-opacity duration-200"
+            className="w-12 h-12 object-contain transition-opacity duration-200 "
             unoptimized
           />
         )}
         お掃除処たよって屋
       </Link>
 
-      {/* SNS */}
-      <nav
-        className={clsx("flex gap-2 ml-auto mr-2", rtl && "flex-row-reverse")}
-      >
-        <a
-          href="https://www.instagram.com/yuki.tayotte2017"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={clsx(
-            isDark ? "text-white" : "text-black",
-            "hover:text-pink-600 transition"
-          )}
-        >
-          <Image
-            src="/instagram-logo.png"
-            alt="Instagram"
-            width={32}
-            height={32}
-            className="object-contain"
-            unoptimized
-          />
-        </a>
-        <a
-          href="https://lin.ee/YcKAJja"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={clsx(
-            isDark ? "text-white" : "text-black",
-            "hover:text-pink-600 transition"
-          )}
-        >
-          <Image
-            src="/line-logo.png"
-            alt="LINE"
-            width={32}
-            height={32}
-            className="object-contain"
-            unoptimized
-          />
-        </a>
-        <a
-          href="https://tayotteya.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={clsx(
-            isDark ? "text-white" : "text-black",
-            "hover:text-pink-600 transition"
-          )}
-        >
-          <Image
-            src="/tayotteya_circle_image.png"
-            alt="Home"
-            width={32}
-            height={32}
-            className="object-contain"
-            unoptimized
-          />
-        </a>
-      </nav>
+
 
       {/* ハンバーガーメニュー */}
       <div>
