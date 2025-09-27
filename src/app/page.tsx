@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
 import TopFixedText from "@/components/TopFixedText";
-
+import  TopVisibleSections from "@/components/TopVisibleSections";
 
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜家事代行",
@@ -52,7 +52,7 @@ export default function HomePage() {
           ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。
         </p>
 
-
+        <TopVisibleSections />
       </section>
 
       {/* ③ JSON-LD（構造化データ） */}

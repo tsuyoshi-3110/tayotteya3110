@@ -34,6 +34,7 @@ const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 type MetaDoc = {
   themeGradient?: ThemeKey;
   visibleMenuKeys?: string[];
+  activeMenuKeys?: string[]; // トップ表示用
   address?: {
     postalCode?: string;
     region?: string;
@@ -44,12 +45,10 @@ type MetaDoc = {
     lng?: number;
   };
   googleSync?: {
-    enabled: boolean; // 口コミ表示ON/OFF
-    accountEmail?: string; // 任意の連絡用メール（UI表示用）
-    locationId?: string; // GBP Location ID（例: locations/123...）
+    enabled: boolean;
+    accountEmail?: string;
+    locationId?: string;
     lastSyncAt?: number;
-
-    // 施工実績ギャラリー → GBP 写真
     worksAutoSyncEnabled?: boolean;
     worksAlbumTag?: string;
   };
@@ -70,11 +69,13 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "partners", label: "協力業者募集！" },
 ];
 
+// トップ表示候補は限定
+const TOP_DISPLAYABLE_ITEMS = ["products", "pricing" ,"staffs", "areas", "stores", "story"];
+
 export default function LoginPage() {
   const [theme, setTheme] = useState<ThemeKey>("brandA");
-  const [visibleKeys, setVisibleKeys] = useState<string[]>(
-    MENU_ITEMS.map((m) => m.key)
-  );
+  const [visibleKeys, setVisibleKeys] = useState<string[]>(MENU_ITEMS.map((m) => m.key));
+  const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const [user, setUser] = useState<User | null>(null);
 
   // auth form
@@ -93,10 +94,7 @@ export default function LoginPage() {
   const addrInputRef = useRef<HTMLInputElement | null>(null);
 
   // Google Maps API Key
-  const mapsApiKey = useMemo(
-    () => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    []
-  );
+  const mapsApiKey = useMemo(() => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, []);
 
   /* ---------------- 初期ロード（サイト設定） ---------------- */
   useEffect(() => {
@@ -105,10 +103,9 @@ export default function LoginPage() {
         const snap = await getDoc(META_REF);
         if (!snap.exists()) return;
         const data = snap.data() as MetaDoc;
-
         if (data.themeGradient) setTheme(data.themeGradient);
-        if (Array.isArray(data.visibleMenuKeys))
-          setVisibleKeys(data.visibleMenuKeys);
+        if (Array.isArray(data.visibleMenuKeys)) setVisibleKeys(data.visibleMenuKeys);
+        if (Array.isArray(data.activeMenuKeys)) setActiveKeys(data.activeMenuKeys);
       } catch (e) {
         console.error("初期データ取得失敗:", e);
       }
@@ -178,7 +175,7 @@ export default function LoginPage() {
     await signOut(auth);
   };
 
-  /* ---------------- 表示設定の保存 ---------------- */
+  /* ---------------- Firestore 更新関数 ---------------- */
   const handleThemeChange = async (newTheme: ThemeKey) => {
     setTheme(newTheme);
     await setDoc(META_REF, { themeGradient: newTheme }, { merge: true });
@@ -189,6 +186,11 @@ export default function LoginPage() {
     await setDoc(META_REF, { visibleMenuKeys: newKeys }, { merge: true });
   };
 
+  const handleActiveKeysChange = async (newKeys: string[]) => {
+    setActiveKeys(newKeys);
+    await setDoc(META_REF, { activeMenuKeys: newKeys }, { merge: true });
+  };
+
   /* ---------------- Google Maps Places 初期化 ---------------- */
   useEffect(() => {
     if (!mapsApiKey) return;
@@ -197,10 +199,7 @@ export default function LoginPage() {
       version: "weekly",
       libraries: ["places"],
     });
-    loader
-      .load()
-      .then(() => setGmapsReady(true))
-      .catch(console.error);
+    loader.load().then(() => setGmapsReady(true)).catch(console.error);
   }, [mapsApiKey]);
 
   // 住所オートコンプリート
@@ -216,15 +215,10 @@ export default function LoginPage() {
       if (!loc) return;
       const latV = loc.lat();
       const lngV = loc.lng();
-
       const comps = place.address_components || [];
-      const get = (t: string) =>
-        comps.find((c) => c.types.includes(t))?.long_name || "";
+      const get = (t: string) => comps.find((c) => c.types.includes(t))?.long_name || "";
       const region = get("administrative_area_level_1");
-      const locality =
-        get("locality") ||
-        get("sublocality") ||
-        get("administrative_area_level_2");
+      const locality = get("locality") || get("sublocality") || get("administrative_area_level_2");
       const postalCode = get("postal_code");
       const formatted = place.formatted_address || "";
       const street = formatted.replace(region, "").replace(locality, "").trim();
@@ -256,9 +250,7 @@ export default function LoginPage() {
               {/* 表示設定 */}
               <Card className="shadow-xl bg-white/50">
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">
-                    表示設定
-                  </CardTitle>
+                  <CardTitle className="text-lg font-semibold">表示設定</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ImageLogoControls
@@ -266,25 +258,22 @@ export default function LoginPage() {
                     onProgress={(p) => console.log(p)}
                     onDone={(type, url) => console.log("done:", type, url)}
                   />
+
                   <div>
                     <p className="text-sm mb-2">テーマカラー</p>
-                    <ThemeSelector
-                      currentTheme={theme}
-                      onChange={handleThemeChange}
-                    />
+                    <ThemeSelector currentTheme={theme} onChange={handleThemeChange} />
                   </div>
                   <div>
                     <p className="text-sm mb-2">フォント</p>
                     <FontSwitcher />
                   </div>
+
+                  {/* 候補チェック */}
                   <div>
-                    <p className="text-sm mb-2">メニュー表示設定</p>
+                    <p className="text-sm mb-2">メニュー候補の設定</p>
                     <div className="space-y-1">
                       {MENU_ITEMS.map((item) => (
-                        <label
-                          key={item.key}
-                          className="flex items-center gap-2"
-                        >
+                        <label key={item.key} className="flex items-center gap-2">
                           <input
                             type="checkbox"
                             checked={visibleKeys.includes(item.key)}
@@ -293,6 +282,31 @@ export default function LoginPage() {
                                 ? [...visibleKeys, item.key]
                                 : visibleKeys.filter((k) => k !== item.key);
                               handleVisibleKeysChange(newKeys);
+                            }}
+                          />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* トップに表示するもの（限定） */}
+                  <div>
+                    <p className="text-sm mb-2">トップに表示するもの</p>
+                    <div className="space-y-1">
+                      {MENU_ITEMS.filter((item) =>
+                        TOP_DISPLAYABLE_ITEMS.includes(item.key)
+                      ).map((item) => (
+                        <label key={item.key} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            disabled={!visibleKeys.includes(item.key)} // 候補外は選べない
+                            checked={activeKeys.includes(item.key)}
+                            onChange={(e) => {
+                              const newKeys = e.target.checked
+                                ? [...activeKeys, item.key]
+                                : activeKeys.filter((k) => k !== item.key);
+                              handleActiveKeysChange(newKeys);
                             }}
                           />
                           {item.label}
@@ -349,10 +363,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <PasswordInput
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
               <div className="flex items-center justify-between text-sm">
                 <button
                   onClick={() => {
