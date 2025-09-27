@@ -1009,7 +1009,7 @@ function StoreCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={clsx(
-        "rounded-lg shadow relative mt-6",
+        "rounded-lg shadow relative mt-6 overflow-hidden",
         isDragging
           ? "bg-yellow-100"
           : isDark
@@ -1017,21 +1017,74 @@ function StoreCard({
           : "bg-white"
       )}
     >
-      {auth.currentUser !== null && (
-        <div
-          {...attributes}
-          {...listeners}
-          onTouchStart={(e) => e.preventDefault()}
-          className="absolute -top-5 left-1/2 -translate-x-1/2 z-30 cursor-grab active:cursor-grabbing touch-none select-none"
-        >
-          <div className="w-10 h-10 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow-md ring-1 ring-black/10 backdrop-blur">
-            <Pin className="w-5 h-5" />
-          </div>
+      {/* ====== ヘッダー行（ドラッグハンドル + 管理者操作） ====== */}
+      {(auth.currentUser !== null || isAdmin) && (
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-2">
+          {/* ドラッグハンドル */}
+          {auth.currentUser !== null && (
+            <div
+              {...attributes}
+              {...listeners}
+              onTouchStart={(e) => e.preventDefault()}
+              className="cursor-grab active:cursor-grabbing touch-none select-none"
+            >
+              <div className="w-8 h-8 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow ring-1 ring-black/10 backdrop-blur">
+                <Pin className="w-4 h-4" />
+              </div>
+            </div>
+          )}
+
+          {/* 管理者用操作群 */}
+          {isAdmin && (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 口コミ表示トグル */}
+              <label
+                className={clsx(
+                  "flex items-center gap-1 rounded px-2 py-1 text-xs ring-1",
+                  "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
+                  !s.geo?.placeId && "opacity-50"
+                )}
+                title={
+                  s.geo?.placeId
+                    ? "この店舗の口コミ表示を切替"
+                    : "Place ID が未設定です"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={s.showReviews ?? true}
+                  onChange={async (e) => {
+                    await updateDoc(doc(db, STORE_COL, s.id), {
+                      showReviews: e.target.checked,
+                      updatedAt: serverTimestamp(),
+                    });
+                  }}
+                  disabled={!s.geo?.placeId}
+                />
+                <span>口コミ表示</span>
+              </label>
+
+              {/* 編集/削除 */}
+              <button
+                className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+                onClick={() => onEdit(s)}
+              >
+                編集
+              </button>
+              <button
+                className="px-2 py-1 bg-red-600 text-white rounded text-xs"
+                onClick={() => onRemove(s)}
+              >
+                削除
+              </button>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ====== 画像エリア ====== */}
       {s.imageURL && (
-        <div className="relative w-full aspect-[1/1] overflow-hidden rounded-t-lg">
+        <div className="relative w-full aspect-[1/1] overflow-hidden">
           <Image
             src={s.imageURL}
             alt={locName || s.name}
@@ -1042,6 +1095,7 @@ function StoreCard({
         </div>
       )}
 
+      {/* ====== 本文エリア ====== */}
       <div className={clsx("p-4 space-y-2", isDark && "text-white")}>
         <h2 className="text-xl font-semibold whitespace-pre-wrap">{locName}</h2>
 
@@ -1072,7 +1126,7 @@ function StoreCard({
           <p className="text-sm whitespace-pre-wrap">{locDescription}</p>
         )}
 
-        {/* ★ 店舗個別フラグ + グローバル + placeId が揃ったときだけ表示 */}
+        {/* 口コミ表示 */}
         {canShowReviews && (
           <StoreReviews
             placeId={s.geo!.placeId!}
@@ -1080,11 +1134,10 @@ function StoreCard({
           />
         )}
 
-        {/* 管理者向け：geo未設定や非表示時のヒント */}
+        {/* 管理者向けヒント */}
         {isAdmin && !s.geo?.placeId && (
           <div className="mt-2 text-xs text-amber-600">
-            ※ この店舗は <code>geo.placeId</code>{" "}
-            が未設定です。店名/住所の更新で解決を実行してください。
+            ※ この店舗は <code>geo.placeId</code> が未設定です。店名/住所の更新で解決を実行してください。
           </div>
         )}
         {isAdmin && googleEnabled && s.showReviews === false && (
@@ -1093,50 +1146,6 @@ function StoreCard({
           </div>
         )}
       </div>
-
-      {/* 管理者用：右上操作群（個別トグル付き） */}
-      {isAdmin && (
-        <div className="absolute top-2 right-2 flex gap-2 items-center">
-          <label
-            className={clsx(
-              "flex items-center gap-1 rounded px-2 py-1 text-xs ring-1",
-              "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
-              !s.geo?.placeId && "opacity-50"
-            )}
-            title={
-              s.geo?.placeId
-                ? "この店舗の口コミ表示を切替"
-                : "Place ID が未設定です"
-            }
-          >
-            <input
-              type="checkbox"
-              checked={s.showReviews ?? true}
-              onChange={async (e) => {
-                await updateDoc(doc(db, STORE_COL, s.id), {
-                  showReviews: e.target.checked,
-                  updatedAt: serverTimestamp(),
-                });
-              }}
-              disabled={!s.geo?.placeId}
-            />
-            口コミ表示
-          </label>
-
-          <button
-            className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
-            onClick={() => onEdit(s)}
-          >
-            編集
-          </button>
-          <button
-            className="px-2 py-1 bg-red-600 text-white rounded text-sm"
-            onClick={() => onRemove(s)}
-          >
-            削除
-          </button>
-        </div>
-      )}
     </motion.div>
   );
 }

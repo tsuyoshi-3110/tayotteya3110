@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore"; // 👈 authも使う
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 // 各表示セクションのインポート
@@ -18,7 +18,7 @@ const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 // トップ表示対象に限定
 const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "products", label: "施工実績" },
-  { key: "pricing", label: "メニュ" },
+  { key: "pricing", label: "メニュー" },
   { key: "staffs", label: "スタッフ" },
   { key: "areas", label: "対応エリア" },
   { key: "stores", label: "店舗一覧" },
@@ -47,7 +47,9 @@ function renderSection(key: string) {
 
 export default function TopVisibleSections() {
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  /* Firestoreから表示設定をロード */
   useEffect(() => {
     (async () => {
       try {
@@ -62,6 +64,22 @@ export default function TopVisibleSections() {
       }
     })();
   }, []);
+
+  /* ログイン状態を監視 */
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      setIsLoggedIn(!!user);
+    });
+    return () => unsub();
+  }, []);
+
+  if (isLoggedIn) {
+    return (
+      <div className="py-8 text-center text-gray-500">
+        ログアウト時に選択したページは表示されます
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-12">
