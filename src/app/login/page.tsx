@@ -146,7 +146,11 @@ function I18nSettingsCard({
 }) {
   // 日本語を先頭に固定
   const sorted = [...LANGS].sort((a: any, b: any) =>
-    a.key === "ja" ? -1 : b.key === "ja" ? 1 : String(a.key).localeCompare(String(b.key))
+    a.key === "ja"
+      ? -1
+      : b.key === "ja"
+      ? 1
+      : String(a.key).localeCompare(String(b.key))
   );
 
   const getJpLabel = (key: string) => {
@@ -209,17 +213,28 @@ function I18nSettingsCard({
           </div>
 
           <div className="flex gap-2 mt-3">
-            <Button type="button" variant="outline" onClick={onSelectAll} className="h-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onSelectAll}
+              className="h-8"
+            >
               全選択
             </Button>
-            <Button type="button" variant="outline" onClick={onClearAll} className="h-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearAll}
+              className="h-8"
+            >
               日本語以外を全解除
             </Button>
           </div>
 
           {!enabled && (
             <p className="mt-2 text-xs text-gray-600">
-              ※ OFF の間は多言語UIや自動翻訳を抑止する想定です（他コンポーネント側の実装に依存します）。
+              ※ OFF
+              の間は多言語UIや自動翻訳を抑止する想定です（他コンポーネント側の実装に依存します）。
             </p>
           )}
         </div>
@@ -288,7 +303,9 @@ export default function LoginPage() {
           : (["ja"] as UILang[]);
         // 常に ja は含める
         setUiLangs(() => {
-          const s = new Set<UILang>(langs.length ? langs : (["ja"] as UILang[]));
+          const s = new Set<UILang>(
+            langs.length ? langs : (["ja"] as UILang[])
+          );
           s.add("ja" as UILang);
           return Array.from(s);
         });
@@ -380,7 +397,11 @@ export default function LoginPage() {
   // i18n: 有効/無効
   const handleI18nEnabledChange = async (next: boolean) => {
     setI18nEnabled(next);
-    await setDoc(META_REF, { i18n: { enabled: next, langs: uiLangs } }, { merge: true });
+    await setDoc(
+      META_REF,
+      { i18n: { enabled: next, langs: uiLangs } },
+      { merge: true }
+    );
   };
 
   // i18n: 言語トグル（ja は外せない）
@@ -394,9 +415,11 @@ export default function LoginPage() {
         else set.delete(lang);
       }
       const next = Array.from(set);
-      setDoc(META_REF, { i18n: { enabled: i18nEnabled, langs: next } }, { merge: true }).catch(
-        console.error
-      );
+      setDoc(
+        META_REF,
+        { i18n: { enabled: i18nEnabled, langs: next } },
+        { merge: true }
+      ).catch(console.error);
       return next;
     });
   };
@@ -407,13 +430,21 @@ export default function LoginPage() {
     );
     const next = all as UILang[];
     setUiLangs(next);
-    await setDoc(META_REF, { i18n: { enabled: i18nEnabled, langs: next } }, { merge: true });
+    await setDoc(
+      META_REF,
+      { i18n: { enabled: i18nEnabled, langs: next } },
+      { merge: true }
+    );
   };
 
   const handleClearAllLangsExceptJa = async () => {
     const next = ["ja"] as UILang[];
     setUiLangs(next);
-    await setDoc(META_REF, { i18n: { enabled: i18nEnabled, langs: next } }, { merge: true });
+    await setDoc(
+      META_REF,
+      { i18n: { enabled: i18nEnabled, langs: next } },
+      { merge: true }
+    );
   };
 
   /* ---------------- Google Maps Places 初期化 ---------------- */
@@ -424,7 +455,10 @@ export default function LoginPage() {
       version: "weekly",
       libraries: ["places"],
     });
-    loader.load().then(() => setGmapsReady(true)).catch(console.error);
+    loader
+      .load()
+      .then(() => setGmapsReady(true))
+      .catch(console.error);
   }, [mapsApiKey]);
 
   // 住所オートコンプリート
@@ -479,7 +513,9 @@ export default function LoginPage() {
               {/* 表示設定 */}
               <Card className="shadow-xl bg-white/50">
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">表示設定</CardTitle>
+                  <CardTitle className="text-lg font-semibold">
+                    表示設定
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <ImageLogoControls
@@ -490,7 +526,10 @@ export default function LoginPage() {
 
                   <div>
                     <SectionTitle>テーマカラー</SectionTitle>
-                    <ThemeSelector currentTheme={theme} onChange={handleThemeChange} />
+                    <ThemeSelector
+                      currentTheme={theme}
+                      onChange={handleThemeChange}
+                    />
                   </div>
 
                   <div>
@@ -503,7 +542,10 @@ export default function LoginPage() {
                     <SectionTitle>メニュー候補の設定</SectionTitle>
                     <div className="space-y-1">
                       {MENU_ITEMS.map((item) => (
-                        <label key={item.key} className="flex items-center gap-2">
+                        <label
+                          key={item.key}
+                          className="flex items-center gap-2"
+                        >
                           <input
                             type="checkbox"
                             checked={visibleKeys.includes(item.key)}
@@ -527,7 +569,10 @@ export default function LoginPage() {
                       {MENU_ITEMS.filter((item) =>
                         TOP_DISPLAYABLE_ITEMS.includes(item.key)
                       ).map((item) => (
-                        <label key={item.key} className="flex items-center gap-2">
+                        <label
+                          key={item.key}
+                          className="flex items-center gap-2"
+                        >
                           <input
                             type="checkbox"
                             disabled={!visibleKeys.includes(item.key)} // 候補外は選べない
@@ -543,15 +588,6 @@ export default function LoginPage() {
                         </label>
                       ))}
                     </div>
-                  </div>
-
-                  {/* 住所（オートコンプリート） */}
-                  <div>
-                    <SectionTitle>店舗住所（Google マップ連携）</SectionTitle>
-                    <Input
-                      ref={addrInputRef}
-                      placeholder="住所を入力すると候補が表示されます（例：東京都千代田区…）"
-                    />
                   </div>
                 </CardContent>
               </Card>
