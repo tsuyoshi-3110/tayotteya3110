@@ -760,20 +760,6 @@ export default function StoresClient() {
                 <label className="text-sm font-medium text-gray-700">
                   紹介文（任意）
                 </label>
-                <button
-                  type="button"
-                  className="text-xs text-indigo-600 underline disabled:opacity-50"
-                  onClick={() => {
-                    if (!name.trim() || !address.trim()) {
-                      alert("店舗名と住所を先に入力してください");
-                      return;
-                    }
-                    setShowAIModal(true);
-                  }}
-                  disabled={uploading || submitFlag}
-                >
-                  AIで紹介文を生成
-                </button>
               </div>
               <textarea
                 placeholder="紹介文（日本語）"
@@ -785,23 +771,22 @@ export default function StoresClient() {
               />
             </div>
 
-            {/* 口コミ表示ON/OFF（個別） */}
-            <div className="mb-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showReviews}
-                  onChange={(e) => setShowReviews(e.target.checked)}
-                  disabled={uploading || submitFlag}
-                />
-                <span>この店舗で Google 口コミを表示する</span>
-              </label>
-              {!editingStore?.geo?.placeId && (
-                <div className="mt-1 text-xs text-gray-500">
-                  ※ Place ID が未設定の場合は、ONでも表示されません。
-                </div>
-              )}
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="inline-flex items-center gap-2 rounded-md w-full h-10 bg-purple-500 hover:bg-purple-600 active:scale-[0.98] text-white"
+              onClick={() => {
+                if (!name.trim() || !address.trim()) {
+                  alert("店舗名と住所を先に入力してください");
+                  return;
+                }
+                setShowAIModal(true);
+              }}
+              disabled={uploading || submitFlag}
+            >
+              AIで紹介文を生成
+            </Button>
 
             {/* 画像 */}
             <div className="mb-3">
@@ -985,7 +970,6 @@ function StoreCard({
   locDescription,
   isAdmin,
   isDragging,
-  isDark,
   listeners,
   attributes,
   onEdit,
@@ -1010,11 +994,7 @@ function StoreCard({
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={clsx(
         "rounded-lg shadow relative mt-6 overflow-hidden",
-        isDragging
-          ? "bg-yellow-100"
-          : isDark
-          ? "bg-black/40 text-white"
-          : "bg-white"
+        isDragging ? "bg-yellow-100" : "bg-white/30"
       )}
     >
       {/* ====== ヘッダー行（ドラッグハンドル + 管理者操作） ====== */}
@@ -1096,8 +1076,10 @@ function StoreCard({
       )}
 
       {/* ====== 本文エリア ====== */}
-      <div className={clsx("p-4 space-y-2", isDark && "text-white")}>
-        <h2 className="text-xl font-semibold whitespace-pre-wrap">{locName}</h2>
+      <div className={clsx("p-4 space-y-2")}>
+        <h2 className="text-xl font-semibold whitespace-pre-wrap text-white text-outline">
+          {locName}
+        </h2>
 
         <div className="text-sm">
           {primaryAddr && (
@@ -1107,9 +1089,7 @@ function StoreCard({
               rel="noopener noreferrer"
               className={clsx(
                 "underline",
-                isDark
-                  ? "text-blue-300 hover:text-blue-200"
-                  : "text-blue-700 hover:text-blue-900"
+                "text-blue-700 hover:text-blue-900 "
               )}
             >
               {primaryAddr}
@@ -1123,7 +1103,9 @@ function StoreCard({
         </div>
 
         {locDescription && (
-          <p className="text-sm whitespace-pre-wrap">{locDescription}</p>
+          <p className="text-sm whitespace-pre-wrap text-white text-outline">
+            {locDescription}
+          </p>
         )}
 
         {/* 口コミ表示 */}
@@ -1137,7 +1119,8 @@ function StoreCard({
         {/* 管理者向けヒント */}
         {isAdmin && !s.geo?.placeId && (
           <div className="mt-2 text-xs text-amber-600">
-            ※ この店舗は <code>geo.placeId</code> が未設定です。店名/住所の更新で解決を実行してください。
+            ※ この店舗は <code>geo.placeId</code>{" "}
+            が未設定です。店名/住所の更新で解決を実行してください。
           </div>
         )}
         {isAdmin && googleEnabled && s.showReviews === false && (

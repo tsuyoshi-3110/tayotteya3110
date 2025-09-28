@@ -41,7 +41,6 @@ import { onAuthStateChanged } from "firebase/auth";
 
 // Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import { ThemeKey, THEMES } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 // DnD
@@ -208,10 +207,6 @@ export default function ProductsClient() {
 
   // テーマ
   const gradient = useThemeGradient();
-  const isDark = useMemo(() => {
-    const darks: ThemeKey[] = ["brandG", "brandH", "brandI"];
-    return !!gradient && darks.some((k) => gradient === THEMES[k]);
-  }, [gradient]);
 
   // Firestore 参照
   const colRef: CollectionReference<DocumentData> = useMemo(
@@ -554,11 +549,9 @@ export default function ProductsClient() {
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
             {list.map((p) => {
               const loc = displayOf(p, uiLang);
-              const storeName =
-                p.storeLink?.storeId
-                  ? storeOptions.find((s) => s.id === p.storeLink!.storeId)
-                      ?.title
-                  : undefined;
+              const storeName = p.storeLink?.storeId
+                ? storeOptions.find((s) => s.id === p.storeLink!.storeId)?.title
+                : undefined;
               return (
                 <SortableItem key={p.id} product={p}>
                   {({ listeners, attributes, isDragging }) => (
@@ -593,11 +586,7 @@ export default function ProductsClient() {
                           "flex h-full flex-col border rounded-lg overflow-hidden shadow-xl transition-colors duration-200",
                           "bg-gradient-to-b",
                           gradient,
-                          isDragging
-                            ? "bg-yellow-100"
-                            : isDark
-                            ? "bg-black/40 text-white"
-                            : "bg-white",
+                          isDragging ? "bg-yellow-100" : "bg-white",
                           !isDragging && "hover:shadow-lg"
                         )}
                       >
@@ -611,11 +600,7 @@ export default function ProductsClient() {
 
                         {/* 情報 */}
                         <div className="p-3 space-y-1">
-                          <h2
-                            className={clsx("text-sm font-bold", {
-                              "text-white": isDark,
-                            })}
-                          >
+                          <h2 className="text-white text-outline">
                             {loc.title || "（無題）"}
                           </h2>
 
@@ -628,7 +613,9 @@ export default function ProductsClient() {
                               className="text-xs text-blue-700 underline"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {storeName ? `${storeName} をGoogleマップで見る` : "Googleマップで見る"}
+                              {storeName
+                                ? `${storeName} をGoogleマップで見る`
+                                : "Googleマップで見る"}
                             </a>
                           )}
                         </div>
@@ -693,21 +680,6 @@ export default function ProductsClient() {
               className="w-full border px-3 py-2 rounded"
             />
 
-            {/* 店舗選択（placeId付き） */}
-            <select
-              value={selectedStoreId}
-              onChange={(e) => setSelectedStoreId(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">（店舗に紐づけない）</option>
-              {storeOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.title}
-                  {o.placeId ? "" : "（Place ID 未設定）"}
-                </option>
-              ))}
-            </select>
-
             {/* AI 本文生成 */}
             <button
               type="button"
@@ -763,9 +735,11 @@ export default function ProductsClient() {
                             body: JSON.stringify({ title: titleJa, keywords }),
                           });
                           const data = await res.json();
-                          if (!res.ok) throw new Error(data?.error || "生成に失敗");
+                          if (!res.ok)
+                            throw new Error(data?.error || "生成に失敗");
                           const newBody = (data?.body ?? "").trim();
-                          if (!newBody) return alert("有効な本文が返りませんでした。");
+                          if (!newBody)
+                            return alert("有効な本文が返りませんでした。");
                           setBodyJa(newBody);
                           setShowBodyGen(false);
                           setAiKeywords(["", "", ""]);

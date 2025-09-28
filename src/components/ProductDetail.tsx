@@ -332,10 +332,9 @@ export default function ProductDetail({ product }: { product: Product }) {
   if (!gradient) return null;
 
   // 紐づいた店舗の表示名
-  const linkedStoreName =
-    docData.storeLink?.storeId
-      ? storeOptions.find((s) => s.id === docData.storeLink!.storeId)?.title
-      : undefined;
+  const linkedStoreName = docData.storeLink?.storeId
+    ? storeOptions.find((s) => s.id === docData.storeLink!.storeId)?.title
+    : undefined;
 
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
@@ -398,13 +397,13 @@ export default function ProductDetail({ product }: { product: Product }) {
         )}
 
         <div className="p-4 space-y-2">
-          <h1 className="text-lg font-bold whitespace-pre-wrap">
+          <h1 className="text-lg font-bold whitespace-pre-wrap text-white text-outline">
             {display.title}
           </h1>
 
           {/* 施工実績の本文 */}
           {display.body && (
-            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed text-white text-outline">
               {display.body}
             </p>
           )}
@@ -417,7 +416,7 @@ export default function ProductDetail({ product }: { product: Product }) {
               rel="noopener noreferrer"
               className={clsx(
                 "inline-block text-sm underline mt-1",
-                isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-700 hover:text-blue-900"
+                "text-blue-700 hover:text-blue-900"
               )}
             >
               {linkedStoreName
@@ -448,31 +447,6 @@ export default function ProductDetail({ product }: { product: Product }) {
               className="w-full border px-3 py-2 rounded"
               rows={6}
             />
-
-            {/* 店舗の紐づけ（任意） */}
-            <div className="space-y-1">
-              <label className="text-sm text-gray-700">店舗を紐づけ（任意）</label>
-              <select
-                value={selectedStoreId}
-                onChange={(e) => setSelectedStoreId(e.target.value)}
-                className="w-full border px-3 py-2 rounded"
-              >
-                <option value="">（店舗に紐づけない）</option>
-                {storeOptions.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.title}
-                    {o.placeId ? "" : "（Place ID 未設定）"}
-                  </option>
-                ))}
-              </select>
-              {selectedStoreId && (
-                <p className="text-xs text-gray-500">
-                  {storeOptions.find((o) => o.id === selectedStoreId)?.placeId
-                    ? "選択した店舗の Place ID を使ってGoogleマップにリンクします。"
-                    : "この店舗には Place ID が未設定のため、Googleマップリンクは表示されません。"}
-                </p>
-              )}
-            </div>
 
             {/* AI 本文生成ボタン */}
             <button

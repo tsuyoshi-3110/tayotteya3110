@@ -302,7 +302,7 @@ export default function AboutClient() {
             key={displayText}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="leading-relaxed whitespace-pre-wrap prose prose-neutral max-w-none"
+            className="leading-relaxed whitespace-pre-wrap prose prose-neutral max-w-none text-white text-outline"
           >
             {displayText || "ただいま準備中です。"}
           </motion.div>

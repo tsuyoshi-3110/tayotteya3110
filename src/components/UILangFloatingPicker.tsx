@@ -4,9 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { LANGS } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import { db } from "@/lib/firebase";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { doc, onSnapshot } from "firebase/firestore";
 
 type LangOption = { key: UILang; label: string; emoji: string };
-const ALL_OPTIONS: ReadonlyArray<LangOption> = LANGS;
+const ALL_OPTIONS: ReadonlyArray<LangOption> = LANGS as ReadonlyArray<LangOption>;
+
+// Firestore: サイト設定参照
+const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
 const TAP_MOVE_THRESHOLD = 8;   // px 未満ならタップ
 const TAP_TIME_THRESHOLD = 500; // ms 未満ならタップ
@@ -16,6 +22,12 @@ const PICKER_W = 220; // px
 
 export default function UILangFloatingPicker() {
   const { uiLang, setUiLang } = useUILang();
+
+  // Firestore からの許可言語 / i18n 有効フラグ
+  const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
+  const [allowedLangs, setAllowedLangs] = useState<UILang[] | null>(null); // null は未ロード
+
+  // ▼ UI
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -24,9 +36,64 @@ export default function UILangFloatingPicker() {
   const [placement, setPlacement] = useState<"down" | "up">("down");
   const [menuMaxH, setMenuMaxH] = useState<string>("60vh"); // フォールバック
 
+  // ─────────────────────────────────────────────
+  // Firestore 購読：選択言語のみ表示するための設定を取得
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onSnapshot(META_REF, (snap) => {
+      const data = snap.data() as
+        | { i18n?: { enabled?: boolean; langs?: UILang[] } }
+        | undefined;
+
+      const enabled =
+        typeof data?.i18n?.enabled === "boolean" ? data!.i18n!.enabled! : true;
+      setI18nEnabled(enabled);
+
+      const langs = Array.isArray(data?.i18n?.langs)
+        ? (data!.i18n!.langs as UILang[])
+        : (["ja"] as UILang[]); // 未設定なら日本語のみ
+      // 日本語は常に含める
+      const set = new Set<UILang>(langs);
+      set.add("ja" as UILang);
+      setAllowedLangs(Array.from(set));
+    });
+
+    return () => unsub();
+  }, []);
+
+  // ─────────────────────────────────────────────
+  // 表示する言語オプションを絞り込み（i18n OFF の時は日本語のみ）
+  // ─────────────────────────────────────────────
+  const visibleOptions = useMemo<LangOption[]>(() => {
+    // 未ロード時は安全側で日本語のみ（ちらつき防止）
+    const allow = new Set<UILang>(
+      i18nEnabled
+        ? (allowedLangs ?? (["ja"] as UILang[]))
+        : (["ja"] as UILang[])
+    );
+    return ALL_OPTIONS.filter((o) => allow.has(o.key));
+  }, [allowedLangs, i18nEnabled]);
+
+  // 許可外の uiLang を選んでいる場合のフォールバック
+  useEffect(() => {
+    if (!visibleOptions.length) return; // まれに 0 の瞬間を無視
+    const isAllowed = visibleOptions.some((o) => o.key === uiLang);
+    if (!isAllowed) {
+      const fallback = visibleOptions.find((o) => o.key === "ja") ?? visibleOptions[0];
+      setUiLang(fallback.key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleOptions.map((o) => o.key).join(","), uiLang]);
+
   const current = useMemo<LangOption>(() => {
-    return ALL_OPTIONS.find((o) => o.key === uiLang) ?? ALL_OPTIONS[0];
-  }, [uiLang]);
+    // 現在言語がリストに無い場合もフォールバック
+    return (
+      visibleOptions.find((o) => o.key === uiLang) ??
+      visibleOptions.find((o) => o.key === "ja") ??
+      visibleOptions[0] ??
+      ALL_OPTIONS[0]
+    );
+  }, [uiLang, visibleOptions]);
 
   const decidePlacementAndSize = () => {
     if (!btnRef.current) return;
@@ -143,7 +210,7 @@ export default function UILangFloatingPicker() {
               maxWidth: "92vw", // 画面が狭いときは縮む
             }}
           >
-            {ALL_OPTIONS.map((o) => (
+            {visibleOptions.map((o) => (
               <LangRow
                 key={o.key}
                 option={o}
@@ -190,7 +257,10 @@ function LangRow({
         const dy = Math.abs(t.clientY - start.y);
         const dx = Math.abs(t.clientX - start.x);
         const dt = Date.now() - start.t;
-        const isTap = dy < TAP_MOVE_THRESHOLD && dx < TAP_MOVE_THRESHOLD && dt < TAP_TIME_THRESHOLD;
+        const isTap =
+          dy < TAP_MOVE_THRESHOLD &&
+          dx < TAP_MOVE_THRESHOLD &&
+          dt < TAP_TIME_THRESHOLD;
         if (isTap) {
           e.preventDefault();
           onSelect(option.key);
@@ -206,7 +276,9 @@ function LangRow({
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0">{option.emoji}</span>
-        <span className="truncate">{option.label} / {option.key}</span>
+        <span className="truncate">
+          {option.label} / {option.key}
+        </span>
       </div>
     </button>
   );

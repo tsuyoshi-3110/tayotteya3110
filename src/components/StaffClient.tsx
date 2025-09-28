@@ -673,7 +673,6 @@ export function StaffCard({
   isAdmin,
   isDragging,
   isLoaded,
-  isDark,
   gradient,
   listeners,
   attributes,
@@ -699,11 +698,7 @@ export function StaffCard({
         "flex flex-col h-full border rounded-lg shadow relative transition-colors duration-200",
         "bg-gradient-to-b",
         gradient,
-        isDragging
-          ? "z-50 shadow-xl"
-          : isDark
-          ? "bg-black/40 text-white"
-          : "bg-white",
+        isDragging ? "z-50 shadow-xl" : "bg-white",
         "cursor-default",
         "overflow-visible" // ← ここで外にはみ出したピンを隠さない
       )}
@@ -800,7 +795,7 @@ export function StaffCard({
         <h2
           className={clsx(
             "text-sm font-bold whitespace-pre-wrap",
-            isDark && "text-white"
+            "text-white text-outline"
           )}
         >
           {locTitle}
@@ -809,7 +804,7 @@ export function StaffCard({
           <p
             className={clsx(
               "text-sm whitespace-pre-wrap",
-              isDark && "text-white"
+              "text-white text-outline"
             )}
           >
             {locBody}

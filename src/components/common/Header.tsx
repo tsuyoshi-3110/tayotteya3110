@@ -15,15 +15,15 @@ import {
 import Image from "next/image";
 import clsx from "clsx";
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import { useHeaderLogoUrl } from "../hooks/useHeaderLogoUrl";
+import { useHeaderLogoUrl } from "../../hooks/useHeaderLogoUrl";
 import { auth, db } from "@/lib/firebase";
 import { THEMES, ThemeKey } from "@/lib/themes";
-import UILangFloatingPicker from "./UILangFloatingPicker";
+import UILangFloatingPicker from "../UILangFloatingPicker";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { doc, onSnapshot } from "firebase/firestore";
 
-/* ===== 多言語辞書（略） ===== */
+/* ===== 多言語辞書 ===== */
 type Keys =
   | "home"
   | "menuTitle"
@@ -354,7 +354,7 @@ const HEADER_H = "3rem";
 const TRIPLE_TAP_INTERVAL_MS = 500;
 const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 
-// ===== メニュー定義 =====
+/* ===== メニュー定義 ===== */
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "home", href: "/" },
   { key: "products", href: "/products" },
@@ -370,6 +370,15 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "partners", href: "/jobApp" },
 ];
 
+/* Firestore の editable 設定の型（必要分のみ） */
+type EditableSettings = {
+  visibleMenuKeys?: string[];
+  i18n?: {
+    enabled?: boolean;
+    langs?: UILang[]; // UI 表示を許可する言語（ja を含むことを推奨）
+  };
+};
+
 export default function Header({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const gradient = useThemeGradient();
@@ -377,54 +386,69 @@ export default function Header({ className = "" }: { className?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { uiLang } = useUILang();
 
-  // Firestore: 表示対象メニュー
+  /* Firestore: 表示対象メニュー */
   const [visibleMenuKeys, setVisibleMenuKeys] = useState<string[]>(
     MENU_ITEMS.map((m) => m.key)
   );
 
+  /* Firestore: i18n（翻訳）設定を購読（ピッカー表示制御に使用） */
+  const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
+  const [enabledUILangs, setEnabledUILangs] = useState<UILang[] | null>(null);
+
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
-
     const unsubscribe = onSnapshot(
       ref,
       (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as { visibleMenuKeys?: string[] };
-          if (Array.isArray(data.visibleMenuKeys)) {
-            setVisibleMenuKeys(data.visibleMenuKeys);
-          }
+        if (!snap.exists()) return;
+        const data = snap.data() as EditableSettings;
+
+        if (Array.isArray(data.visibleMenuKeys)) {
+          setVisibleMenuKeys(data.visibleMenuKeys);
+        }
+
+        const enabled =
+          typeof data.i18n?.enabled === "boolean" ? data.i18n!.enabled! : true;
+        setI18nEnabled(enabled);
+
+        if (Array.isArray(data.i18n?.langs) && data.i18n!.langs!.length > 0) {
+          // 許可言語の配列（UILang 型に限定）
+          setEnabledUILangs(data.i18n!.langs as UILang[]);
+        } else {
+          setEnabledUILangs(null); // null の場合は既定＝制限なし扱い
         }
       },
       (error) => {
-        console.error("メニュー設定購読エラー:", error);
+        console.error("メニュー/翻訳設定購読エラー:", error);
       }
     );
-
-    return () => unsubscribe(); // コンポーネント unmount 時に購読解除
-  }, []);
-
-  // ログイン状態
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsLoggedIn(!!user);
-    });
     return () => unsubscribe();
   }, []);
 
+  /* ログイン状態 */
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) =>
+      setIsLoggedIn(!!user)
+    );
+    return () => unsubscribe();
+  }, []);
+
+  /* グラデーション */
   const gradientClass = gradient
     ? `bg-gradient-to-b ${gradient}`
     : "bg-gray-100";
 
+  /* ダーク判定（テーマキーから） */
   const darkKeys: ThemeKey[] = ["brandH", "brandG", "brandI"];
   const currentKey = (Object.entries(THEMES).find(
     ([, v]) => v === gradient
   )?.[0] ?? null) as ThemeKey | null;
   const isDark = currentKey ? darkKeys.includes(currentKey) : false;
 
-  const t = T[uiLang] ?? T.ja;
+  /* i18n：RTL 言語ならスライドの文脈方向を反転 */
   const rtl = uiLang === "ar";
 
-  // 管理者リンクの3タップ検出
+  /* 管理者リンクの3タップ検出 */
   const [showAdminLink, setShowAdminLink] = useState(false);
   const tapCountRef = useRef(0);
   const lastTapAtRef = useRef(0);
@@ -483,14 +507,12 @@ export default function Header({ className = "" }: { className?: string }) {
             alt="ロゴ"
             width={48}
             height={48}
-            className="w-12 h-12 object-contain transition-opacity duration-200 "
+            className="w-12 h-12 object-contain transition-opacity duration-200"
             unoptimized
           />
         )}
         お掃除処たよって屋
       </Link>
-
-
 
       {/* ハンバーガーメニュー */}
       <div>
@@ -503,34 +525,35 @@ export default function Header({ className = "" }: { className?: string }) {
                 "w-7 h-7 border-2",
                 isDark ? "text-white border-white" : "text-black border-black"
               )}
-              aria-label={t.menuTitle}
+              aria-label={(T[uiLang] ?? T.ja).menuTitle}
             >
               <Menu size={26} />
             </Button>
           </SheetTrigger>
 
+          {/* === スライド（「メニュー」を最上部に固定表示） === */}
           <SheetContent
             side="right"
             className={clsx(
-              "flex flex-col",
-              "bg-gray-100",
+              "flex h-dvh min-h-0 flex-col p-0",
               gradient && "bg-gradient-to-b",
-              gradient
+              gradient || "bg-gray-100"
             )}
             dir={rtl ? "rtl" : "ltr"}
           >
+            {/* 視覚タイトル */}
+            <SheetHeader className="pt-4 px-4">
+              <SheetTitle className="text-center text-xl text-white text-outline">
+                {(T[uiLang] ?? T.ja).menuTitle}
+              </SheetTitle>
+            </SheetHeader>
+
+            {/* 中央メニュー（上下方向のセンターに配置） */}
             <div
-              className="flex flex-col h-full"
+              className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] px-6"
               onPointerDown={handleSecretTap}
             >
-              <SheetHeader className="pt-4 px-4">
-                <SheetTitle className="text-center text-xl !text-white text-outline">
-                  {t.menuTitle}
-                </SheetTitle>
-              </SheetHeader>
-
-              {/* メインメニュー */}
-              <div className="flex-1 flex flex-col justify-center items-center space-y-2 text-center">
+              <nav className="py-4 flex flex-col items-center text-center justify-center min-h-[60vh] space-y-3">
                 {MENU_ITEMS.filter((item) =>
                   visibleMenuKeys.includes(item.key)
                 ).map(({ key, href }) => (
@@ -538,49 +561,57 @@ export default function Header({ className = "" }: { className?: string }) {
                     key={key}
                     href={href}
                     onClick={() => setOpen(false)}
-                    className={clsx("text-lg", "text-white text-outline")}
+                    className="text-lg text-white text-outline"
                   >
-                    {t[key]}
+                    {(T[uiLang] ?? T.ja)[key]}
                   </Link>
                 ))}
-              </div>
+              </nav>
 
-              {/* 言語ピッカー */}
-              <UILangFloatingPicker />
+              {/* 言語ピッカー（翻訳が無効なら非表示） */}
+              {i18nEnabled && (
+                <div className="flex flex-col items-center gap-2 py-3">
+                  {/*
+                    注意：
+                    UILangFloatingPicker が「使用可能言語の制限」を props で受け取れない実装の場合は、
+                    このままでも表示可。内部で siteSettingsEditable.i18n.langs を参照する実装にしておくと
+                    Header 側の変更は不要です。
+                  */}
+                  <UILangFloatingPicker />
+                  {enabledUILangs && (
+                    <p className="text-xs text-white/80">
+                      利用可能な言語: {enabledUILangs.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
-              {/* フッターリンク */}
-              <div className="p-4 space-y-2">
+            {/* フッター（下詰め） */}
+            <div className="border-t border-white/30 px-6 py-4">
+              <div className="flex flex-col items-center gap-2">
                 {isLoggedIn && (
                   <>
                     <Link
                       href="/postList"
                       onClick={() => setOpen(false)}
-                      className={clsx(
-                        "block text-center text-lg",
-                        "text-white text-outline"
-                      )}
+                      className="text-center text-lg text-white text-outline"
                     >
-                      {t.timeline}
+                      {(T[uiLang] ?? T.ja).timeline}
                     </Link>
                     <Link
                       href="/community"
                       onClick={() => setOpen(false)}
-                      className={clsx(
-                        "block text-center text-lg",
-                        "text-white text-outline"
-                      )}
+                      className="text-center text-lg text-white text-outline"
                     >
-                      {t.community}
+                      {(T[uiLang] ?? T.ja).community}
                     </Link>
                     <Link
                       href="/analytics"
                       onClick={() => setOpen(false)}
-                      className={clsx(
-                        "block text-center text-lg",
-                        "text-white text-outline"
-                      )}
+                      className="text-center text-lg text-white text-outline"
                     >
-                      {t.analytics}
+                      {(T[uiLang] ?? T.ja).analytics}
                     </Link>
                   </>
                 )}
@@ -589,12 +620,9 @@ export default function Header({ className = "" }: { className?: string }) {
                   <Link
                     href="/login"
                     onClick={() => setOpen(false)}
-                    className={clsx(
-                      "block text-center text-lg",
-                      "text-white text-outline"
-                    )}
+                    className="text-center text-lg text-white text-outline"
                   >
-                    {t.admin}
+                    {(T[uiLang] ?? T.ja).admin}
                   </Link>
                 )}
               </div>

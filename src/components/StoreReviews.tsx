@@ -2,8 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useThemeGradient } from "@/lib/useThemeGradient";
-import { THEMES, ThemeKey } from "@/lib/themes";
 
 /* ===== Types ===== */
 type Review = {
@@ -49,7 +47,10 @@ function normalizeReviews(list: ApiShape["reviews"] | undefined): Review[] {
     if (out.startsWith("http://")) out = out.replace("http://", "https://");
     try {
       const url = new URL(out);
-      if (url.hostname.endsWith("googleusercontent.com") && !url.searchParams.has("sz")) {
+      if (
+        url.hostname.endsWith("googleusercontent.com") &&
+        !url.searchParams.has("sz")
+      ) {
         url.searchParams.set("sz", "64");
         out = url.toString();
       }
@@ -58,7 +59,8 @@ function normalizeReviews(list: ApiShape["reviews"] | undefined): Review[] {
   };
 
   return list.map((r) => {
-    const text = (r?.text ?? "").trim() || (r?.original_text ?? "").trim() || "";
+    const text =
+      (r?.text ?? "").trim() || (r?.original_text ?? "").trim() || "";
     return {
       author: (r?.author ?? r?.author_name ?? "").trim() || "匿名ユーザー",
       rating: typeof r?.rating === "number" ? r!.rating : 0,
@@ -84,7 +86,8 @@ function Avatar({ author, url }: { author: string; url?: string }) {
             loading="lazy"
             onError={(e) => {
               e.currentTarget.style.display = "none";
-              const sib = e.currentTarget.nextElementSibling as HTMLElement | null;
+              const sib = e.currentTarget
+                .nextElementSibling as HTMLElement | null;
               if (sib) sib.style.display = "flex";
             }}
           />
@@ -115,13 +118,6 @@ export default function StoreReviews({
   const [loading, setLoading] = useState(false); // 連携OFF時は発火させない
   const [error, setError] = useState<string | null>(null);
 
-  // Theme hooks（必ずトップレベル）
-  const gradient = useThemeGradient();
-  const isDark = useMemo(() => {
-    const darks: ThemeKey[] = ["brandG", "brandH", "brandI"];
-    return !!gradient && darks.some((k) => gradient === THEMES[k]);
-  }, [gradient]);
-
   // ここもトップレベルでOK（値はいつでも算出可能）
   const mapPlaceUrl = `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
     placeId
@@ -142,7 +138,9 @@ export default function StoreReviews({
       typeof avg === "number"
         ? avg.toFixed(1)
         : reviews && reviews.length > 0
-        ? (reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length).toFixed(1)
+        ? (
+            reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+          ).toFixed(1)
         : undefined;
 
     const reviewCount =
@@ -271,14 +269,18 @@ export default function StoreReviews({
       {/* ヘッダ */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">口コミ</span>
+          <span className="text-lg font-semibold text-white text-outline">
+            口コミ
+          </span>
           {typeof avg === "number" && (
             <span className="text-yellow-500" aria-label={`平均評価 ${avg} 点`}>
               {"★".repeat(Math.round(avg))}
             </span>
           )}
           {typeof total === "number" && (
-            <span className="text-sm opacity-70">（{total}件）</span>
+            <span className="text-sm opacity-70 text-white text-outline">
+              （{total}件）
+            </span>
           )}
         </div>
         <a
@@ -295,23 +297,26 @@ export default function StoreReviews({
       {reviews.map((rv, i) => (
         <div
           key={i}
-          className={`rounded-md border p-4 shadow-sm ${
-            isDark ? "bg-black/40 text-white" : "bg-white/70 text-gray-800"
-          }`}
+          className={`rounded-md border p-4 shadow-sm ${"bg-white/30 text-white text-outline"}`}
         >
           <div className="flex items-center gap-3 mb-2">
             <Avatar author={rv.author} url={rv.profilePhotoUrl} />
             <div className="flex-1">
               <div className="font-medium">{rv.author}</div>
               <div className="flex items-center gap-2 text-xs opacity-70">
-                <span className="text-yellow-500" aria-label={`評価 ${rv.rating} 点`}>
+                <span
+                  className="text-yellow-500"
+                  aria-label={`評価 ${rv.rating} 点`}
+                >
                   {"★".repeat(Math.round(rv.rating)) || "★"}
                 </span>
                 {rv.time && <span>{rv.time}</span>}
               </div>
             </div>
           </div>
-          <p className="text-sm whitespace-pre-wrap">{rv.text || "（コメントなし）"}</p>
+          <p className="text-sm whitespace-pre-wrap">
+            {rv.text || "（コメントなし）"}
+          </p>
         </div>
       ))}
     </div>
