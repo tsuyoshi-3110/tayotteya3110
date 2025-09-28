@@ -393,7 +393,7 @@ export default function Header({ className = "" }: { className?: string }) {
 
   /* Firestore: i18n（翻訳）設定を購読（ピッカー表示制御に使用） */
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
-  const [enabledUILangs, setEnabledUILangs] = useState<UILang[] | null>(null);
+
 
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
@@ -411,12 +411,6 @@ export default function Header({ className = "" }: { className?: string }) {
           typeof data.i18n?.enabled === "boolean" ? data.i18n!.enabled! : true;
         setI18nEnabled(enabled);
 
-        if (Array.isArray(data.i18n?.langs) && data.i18n!.langs!.length > 0) {
-          // 許可言語の配列（UILang 型に限定）
-          setEnabledUILangs(data.i18n!.langs as UILang[]);
-        } else {
-          setEnabledUILangs(null); // null の場合は既定＝制限なし扱い
-        }
       },
       (error) => {
         console.error("メニュー/翻訳設定購読エラー:", error);
@@ -578,11 +572,6 @@ export default function Header({ className = "" }: { className?: string }) {
                     Header 側の変更は不要です。
                   */}
                   <UILangFloatingPicker />
-                  {enabledUILangs && (
-                    <p className="text-xs text-white/80">
-                      利用可能な言語: {enabledUILangs.join(", ")}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
