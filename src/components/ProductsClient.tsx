@@ -182,7 +182,7 @@ export default function ProductsClient() {
   const [editing, setEditing] = useState<ProductDoc | null>(null);
   const [titleJa, setTitleJa] = useState("");
   const [bodyJa, setBodyJa] = useState("");
-  const [price, setPrice] = useState<number>(0);
+
 
   // メディア
   const [file, setFile] = useState<File | null>(null);
@@ -485,7 +485,6 @@ export default function ProductsClient() {
         body: base.body,
         mediaURL,
         mediaType,
-        price: Number.isFinite(price) ? Number(price) : 0,
         ...(originalFileName ? { originalFileName } : {}),
         ...(storeLink ? { storeLink } : {}),
         updatedAt: serverTimestamp() as any,
@@ -519,7 +518,6 @@ export default function ProductsClient() {
     saving,
     titleJa,
     bodyJa,
-    price,
     formMode,
     file,
     editing,
@@ -636,12 +634,11 @@ export default function ProductsClient() {
             setEditing(null);
             setTitleJa("");
             setBodyJa("");
-            setPrice(0);
             setFile(null);
             setSelectedStoreId("");
             setFormMode("add");
           }}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"
+          className="fixed z-50 bottom-6 right-6 w-14 h-14 bg-blue-500 text-white  rounded-full shadow-lg flex items-center justify-center"
         >
           <Plus size={28} />
         </button>
@@ -668,16 +665,6 @@ export default function ProductsClient() {
               onChange={(e) => setBodyJa(e.target.value)}
               className="w-full border px-3 py-2 rounded"
               rows={6}
-            />
-
-            {/* 価格（任意） */}
-            <input
-              type="number"
-              inputMode="numeric"
-              placeholder="価格（任意）"
-              value={Number.isFinite(price) ? String(price) : ""}
-              onChange={(e) => setPrice(Number(e.target.value || 0))}
-              className="w-full border px-3 py-2 rounded"
             />
 
             {/* AI 本文生成 */}

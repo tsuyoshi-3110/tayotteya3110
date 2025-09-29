@@ -394,7 +394,6 @@ export default function Header({ className = "" }: { className?: string }) {
   /* Firestore: i18n（翻訳）設定を購読（ピッカー表示制御に使用） */
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
 
-
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
     const unsubscribe = onSnapshot(
@@ -410,7 +409,6 @@ export default function Header({ className = "" }: { className?: string }) {
         const enabled =
           typeof data.i18n?.enabled === "boolean" ? data.i18n!.enabled! : true;
         setI18nEnabled(enabled);
-
       },
       (error) => {
         console.error("メニュー/翻訳設定購読エラー:", error);
@@ -517,7 +515,7 @@ export default function Header({ className = "" }: { className?: string }) {
               size="icon"
               className={clsx(
                 "w-7 h-7 border-2",
-                isDark ? "text-white border-white" : "text-black border-black"
+                isDark ? "text-white border-white" : "border-black"
               )}
               aria-label={(T[uiLang] ?? T.ja).menuTitle}
             >
@@ -531,13 +529,17 @@ export default function Header({ className = "" }: { className?: string }) {
             className={clsx(
               "flex h-dvh min-h-0 flex-col p-0",
               gradient && "bg-gradient-to-b",
-              gradient || "bg-gray-100"
+              gradient || "bg-gray-100",
+              // ▼ 色切替 + 線を太く + アイコンサイズを拡大（例: 28px）
+              isDark
+                ? "[&>button]:text-white [&>button>svg]:!text-white [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
+                : "[&>button]:text-black [&>button>svg]:!text-black [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
             )}
             dir={rtl ? "rtl" : "ltr"}
           >
             {/* 視覚タイトル */}
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className="text-center text-xl text-white text-outline">
+              <SheetTitle className="text-center text-xl !text-white text-outline">
                 {(T[uiLang] ?? T.ja).menuTitle}
               </SheetTitle>
             </SheetHeader>

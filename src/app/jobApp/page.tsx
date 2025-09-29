@@ -308,7 +308,7 @@ export default function JobPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b py-12 px-4" dir={isRTL ? "rtl" : "ltr"}>
-      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+      <div className="max-w-xl mx-auto bg-white/30 rounded-2xl shadow-xl p-8 border border-gray-200">
         <h1 className="text-3xl font-bold mb-4 text-center text-sky-700">{ui.title}</h1>
         <p className="mb-6 text-gray-600 text-center">{ui.subtitle}</p>
 
