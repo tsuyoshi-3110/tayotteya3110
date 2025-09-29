@@ -107,7 +107,7 @@ export default function RootLayout({
       </head>
 
       {/* ✅ フッターを下に張り付けるために flex レイアウト */}
-      <body className="flex min-h-dvh flex-col bg-[#ffffff]">
+      <body className="relative min-h-[100dvh] flex flex-col">
         <SubscriptionOverlay siteKey={SITE_KEY} />
         <AnalyticsLogger />
         <WallpaperBackground />
