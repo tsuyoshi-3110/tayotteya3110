@@ -34,6 +34,7 @@ type Keys =
   | "stores"
   | "story"
   | "blog"
+  | "news" // ★ 追加
   | "company"
   | "reserve"
   | "contact"
@@ -54,6 +55,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "店舗一覧",
     story: "私たちの思い",
     blog: "ブログ",
+    news: "お知らせ", // ★ 追加
     company: "会社概要",
     reserve: "ご予約はこちら",
     contact: "お問い合わせ",
@@ -73,6 +75,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Store List",
     story: "Our Story",
     blog: "Blog",
+    news: "News", // ★ 追加
     company: "Company Profile",
     reserve: "Book Here",
     contact: "Contact",
@@ -92,6 +95,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "门店列表",
     story: "我们的理念",
     blog: "博客",
+    news: "公告", // ★ 追加（お知らせ）
     company: "公司简介",
     reserve: "点击预约",
     contact: "联系我们",
@@ -111,6 +115,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "門市列表",
     story: "我們的理念",
     blog: "部落格",
+    news: "最新消息", // ★ 追加
     company: "公司簡介",
     reserve: "預約請點此",
     contact: "聯絡我們",
@@ -130,6 +135,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "매장 목록",
     story: "우리의 이야기",
     blog: "블로그",
+    news: "공지사항", // ★ 追加
     company: "회사 소개",
     reserve: "예약하기",
     contact: "문의하기",
@@ -149,6 +155,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Liste des magasins",
     story: "Notre histoire",
     blog: "Blog",
+    news: "Actualités", // ★ 追加
     company: "Profil de l’entreprise",
     reserve: "Réserver ici",
     contact: "Contact",
@@ -168,6 +175,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Lista de tiendas",
     story: "Nuestra historia",
     blog: "Blog",
+    news: "Noticias", // ★ 追加
     company: "Perfil de la empresa",
     reserve: "Reservar aquí",
     contact: "Contacto",
@@ -187,6 +195,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Filialübersicht",
     story: "Unsere Geschichte",
     blog: "Blog",
+    news: "Neuigkeiten", // ★ 追加
     company: "Unternehmensprofil",
     reserve: "Hier buchen",
     contact: "Kontakt",
@@ -206,6 +215,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Lista de lojas",
     story: "Nossa história",
     blog: "Blog",
+    news: "Notícias", // ★ 追加
     company: "Perfil da empresa",
     reserve: "Reservar aqui",
     contact: "Contato",
@@ -225,6 +235,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Elenco negozi",
     story: "La nostra storia",
     blog: "Blog",
+    news: "Notizie", // ★ 追加
     company: "Profilo aziendale",
     reserve: "Prenota qui",
     contact: "Contatto",
@@ -244,6 +255,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Список магазинов",
     story: "Наша история",
     blog: "Блог",
+    news: "Новости", // ★ 追加
     company: "О компании",
     reserve: "Онлайн-запись",
     contact: "Контакты",
@@ -263,6 +275,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "รายชื่อร้านค้า",
     story: "เรื่องราวของเรา",
     blog: "บล็อก",
+    news: "ข่าวสาร", // ★ 追加
     company: "ข้อมูลบริษัท",
     reserve: "จองที่นี่",
     contact: "ติดต่อเรา",
@@ -282,6 +295,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Danh sách cửa hàng",
     story: "Câu chuyện của chúng tôi",
     blog: "Blog",
+    news: "Tin tức", // ★ 追加
     company: "Hồ sơ công ty",
     reserve: "Đặt lịch tại đây",
     contact: "Liên hệ",
@@ -301,6 +315,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "Daftar toko",
     story: "Kisah kami",
     blog: "Blog",
+    news: "Berita", // ★ 追加
     company: "Profil perusahaan",
     reserve: "Pesan di sini",
     contact: "Kontak",
@@ -320,6 +335,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "स्टोर सूची",
     story: "हमारी कहानी",
     blog: "ब्लॉग",
+    news: "समाचार", // ★ 追加
     company: "कंपनी प्रोफ़ाइल",
     reserve: "यहाँ बुक करें",
     contact: "संपर्क करें",
@@ -339,6 +355,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     stores: "قائمة المتاجر",
     story: "قصتنا",
     blog: "المدونة",
+    news: "الأخبار", // ★ 追加
     company: "نبذة عن الشركة",
     reserve: "احجز هنا",
     contact: "اتصل بنا",
@@ -364,6 +381,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "stores", href: "/stores" },
   { key: "story", href: "/about" },
   { key: "blog", href: "/blog" },
+  { key: "news", href: "/news" }, // ★ 追加
   { key: "company", href: "/company" },
   { key: "contact", href: "/contact" },
   { key: "reserve", href: "/apply" },
@@ -567,12 +585,6 @@ export default function Header({ className = "" }: { className?: string }) {
               {/* 言語ピッカー（翻訳が無効なら非表示） */}
               {i18nEnabled && (
                 <div className="flex flex-col items-center gap-2 py-3">
-                  {/*
-                    注意：
-                    UILangFloatingPicker が「使用可能言語の制限」を props で受け取れない実装の場合は、
-                    このままでも表示可。内部で siteSettingsEditable.i18n.langs を参照する実装にしておくと
-                    Header 側の変更は不要です。
-                  */}
                   <UILangFloatingPicker />
                 </div>
               )}

@@ -12,6 +12,7 @@ import AreasClient from "./AreasClient";
 import StoresClient from "./StoresClient";
 import AboutClient from "./AboutClient";
 import MenuPageClient from "./MenuPageClient";
+import NewsClient from "./NewsClient";
 
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
@@ -23,6 +24,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "areas", label: "対応エリア" },
   { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
+  { key: "news", label: "お知らせ" },
 ];
 
 // key に応じてどのコンポーネントを表示するか
@@ -40,6 +42,8 @@ function renderSection(key: string) {
       return <StoresClient />;
     case "story":
       return <AboutClient />;
+       case "news":
+      return <NewsClient />
     default:
       return null;
   }

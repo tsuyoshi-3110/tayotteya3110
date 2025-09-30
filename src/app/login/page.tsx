@@ -71,6 +71,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
   { key: "blog", label: "ブログ" },
+  { key: "news", label: "お知らせ" },
   { key: "company", label: "会社概要" },
   { key: "contact", label: "無料相談・お問合せ" },
   { key: "reserve", label: "ご予約はこちら" },
@@ -85,6 +86,7 @@ const TOP_DISPLAYABLE_ITEMS = [
   "areas",
   "stores",
   "story",
+  "news"
 ];
 
 /* =========================

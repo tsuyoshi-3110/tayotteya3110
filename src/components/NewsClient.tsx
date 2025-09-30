@@ -31,6 +31,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
+  type UploadTask,
 } from "firebase/storage";
 import { AlertCircle, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -38,16 +39,25 @@ import CardSpinner from "./CardSpinner";
 import MediaWithSpinner from "./MediaWithSpinner";
 import Image from "next/image";
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import { THEMES, ThemeKey } from "@/lib/themes";
+import { THEMES, type ThemeKey as ThemeKeyGrad } from "@/lib/themes";
 import { AnimatePresence, motion, useInView } from "framer-motion";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import clsx from "clsx";
+import { BusyOverlay } from "./BusyOverlay";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
+import { LANGS, type LangKey } from "@/lib/langs";
 
 /* ---------- 型 ---------- */
+// Firestore 保存形式：原文（ja）＋ t[lang] に各言語翻訳を保持
 interface NewsItem {
   id: string;
-  title: string;
-  body: string;
+
+  // 原文（日本語）
+  titleBase: string;
+  bodyBase: string;
+
+  // 翻訳辞書（ja は base を使う想定）
+  t?: Partial<Record<LangKey, { title: string; body: string }>>;
+
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   createdBy: string;
@@ -55,25 +65,20 @@ interface NewsItem {
   mediaType?: "image" | "video";
 }
 
-/* ---------- 多言語一覧 ---------- */
-const LANGS = [
-  { key: "en", label: "英語", emoji: "🇺🇸" },
-  { key: "zh", label: "中国語(簡体)", emoji: "🇨🇳" },
-  { key: "zh-TW", label: "中国語(繁体)", emoji: "🇹🇼" },
-  { key: "ko", label: "韓国語", emoji: "🇰🇷" },
-  { key: "fr", label: "フランス語", emoji: "🇫🇷" },
-  { key: "es", label: "スペイン語", emoji: "🇪🇸" },
-  { key: "de", label: "ドイツ語", emoji: "🇩🇪" },
-  { key: "pt", label: "ポルトガル語", emoji: "🇵🇹" },
-  { key: "it", label: "イタリア語", emoji: "🇮🇹" },
-  { key: "ru", label: "ロシア語", emoji: "🇷🇺" },
-  { key: "th", label: "タイ語", emoji: "🇹🇭" },
-  { key: "vi", label: "ベトナム語", emoji: "🇻🇳" },
-  { key: "id", label: "インドネシア語", emoji: "🇮🇩" },
-  { key: "hi", label: "ヒンディー語", emoji: "🇮🇳" },
-  { key: "ar", label: "アラビア語", emoji: "🇸🇦" },
-] as const;
-type LangKey = (typeof LANGS)[number]["key"];
+// 旧データ互換用（title/body だけの古いドキュメントを吸収）
+type LegacyNews = {
+  title?: string;
+  body?: string;
+  titleBase?: string;
+  bodyBase?: string;
+  t?: NewsItem["t"];
+  createdAt?: any;
+  updatedAt?: Timestamp;
+  createdBy?: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  [k: string]: any;
+};
 
 /* ---------- 定数 ---------- */
 const ALLOWED_IMG = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -95,12 +100,25 @@ const STORAGE_PATH = `siteNews/${SITE_KEY}/items`;
 const FIRST_LOAD = 20;
 const PAGE_SIZE = 20;
 
-const DARK_KEYS: ThemeKey[] = ["brandG", "brandH", "brandI"];
+const DARK_KEYS: ThemeKeyGrad[] = ["brandG", "brandH", "brandI"];
 
 /* =========================================================
-      ここからコンポーネント本体
+      コンポーネント本体
 ========================================================= */
 export default function NewsClient() {
+  // ---- Hook は必ずトップレベルで呼ぶ（ESLint対応） ----
+  const uiLangState = useUILang() as unknown; // 返り値が配列/オブジェクトの両対応
+  let uiLang: LangKey = "ja";
+  if (Array.isArray(uiLangState)) {
+    uiLang = (uiLangState[0] as LangKey) ?? "ja";
+  } else if (
+    uiLangState &&
+    typeof uiLangState === "object" &&
+    "uiLang" in uiLangState
+  ) {
+    uiLang = (uiLangState as { uiLang?: LangKey }).uiLang ?? "ja";
+  }
+
   const gradient = useThemeGradient();
   const isDark = useMemo(
     () => !!gradient && DARK_KEYS.some((k) => THEMES[k] === gradient),
@@ -111,22 +129,21 @@ export default function NewsClient() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
 
-  /* モーダル入力 */
+  /* モーダル入力（原文のみ） */
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [titleBase, setTitleBase] = useState("");
+  const [bodyBase, setBodyBase] = useState("");
 
   /* メディア入力 */
   const [draftFile, setDraftFile] = useState<File | null>(null);
   const [previewURL, setPreviewURL] = useState<string | null>(null);
 
-  /* 進捗・アップロード */
+  /* 進捗・アップロード／保存 */
   const [uploadPct, setUploadPct] = useState<number | null>(null);
-  const [uploadTask, setUploadTask] = useState<ReturnType<
-    typeof uploadBytesResumable
-  > | null>(null);
+  const uploadTaskRef = useRef<UploadTask | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false); // BusyOverlay 用
 
   /* ページネーション */
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
@@ -137,32 +154,28 @@ export default function NewsClient() {
   /* エラー表示 */
   const [alertVisible, setAlertVisible] = useState(false);
 
-  /* AI 本文生成 */
+  /* AI 本文生成（原文向け） */
   const [showAIModal, setShowAIModal] = useState(false);
   const [keywords, setKeywords] = useState(["", "", ""]);
   const [aiLoading, setAiLoading] = useState(false);
   const nonEmptyKeywords = keywords.filter((k) => k.trim() !== "");
 
-  /* 多言語ピッカー */
-  const [showLangPicker, setShowLangPicker] = useState(false);
-  const [translating, setTranslating] = useState(false);
-  const [langQuery, setLangQuery] = useState("");
-
-  const filteredLangs = useMemo(() => {
-    const q = langQuery.trim().toLowerCase();
-    if (!q) return LANGS;
-    return LANGS.filter(
-      (l) =>
-        l.label.toLowerCase().includes(q) || l.key.toLowerCase().includes(q)
-    );
-  }, [langQuery]);
-
   /* ---------- Firestore 参照 ---------- */
-
   const colRef = useMemo(
     () => collection(db, "siteNews", SITE_KEY, "items"),
     []
   );
+
+  /* ---------- アンマウント時のアップロードキャンセル ---------- */
+  useEffect(() => {
+    return () => {
+      try {
+        uploadTaskRef.current?.cancel();
+      } catch {
+        /* noop */
+      }
+    };
+  }, []);
 
   /* ---------- 初期フェッチ & 認証 ---------- */
   useEffect(() => onAuthStateChanged(auth, setUser), []);
@@ -178,10 +191,9 @@ export default function NewsClient() {
     );
 
     const unsub = onSnapshot(firstQuery, (snap) => {
-      const firstPage: NewsItem[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<NewsItem, "id">),
-      }));
+      const firstPage: NewsItem[] = snap.docs.map((d) =>
+        normalizeItem(d.id, d.data() as LegacyNews)
+      );
 
       setItems((prev) => {
         const map = new Map<string, NewsItem>(prev.map((x) => [x.id, x]));
@@ -215,10 +227,9 @@ export default function NewsClient() {
         limit(PAGE_SIZE)
       );
       const snap = await getDocs(nextQuery);
-      const nextPage: NewsItem[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<NewsItem, "id">),
-      }));
+      const nextPage: NewsItem[] = snap.docs.map((d) =>
+        normalizeItem(d.id, d.data() as LegacyNews)
+      );
 
       setItems((prev) => {
         const map = new Map<string, NewsItem>(prev.map((x) => [x.id, x]));
@@ -286,12 +297,12 @@ export default function NewsClient() {
   };
 
   /* =====================================================
-      追加 / 更新
+      追加 / 更新（原文入力 → ja以外へ並列翻訳 → 保存）
   ===================================================== */
   const openAdd = () => {
     setEditingId(null);
-    setTitle("");
-    setBody("");
+    setTitleBase("");
+    setBodyBase("");
     setDraftFile(null);
     setPreviewURL(null);
     setModalOpen(true);
@@ -300,8 +311,8 @@ export default function NewsClient() {
 
   const openEdit = (n: NewsItem) => {
     setEditingId(n.id);
-    setTitle(n.title);
-    setBody(n.body);
+    setTitleBase(n.titleBase || "");
+    setBodyBase(n.bodyBase || "");
     setDraftFile(null);
     setPreviewURL(null);
     setModalOpen(true);
@@ -311,8 +322,8 @@ export default function NewsClient() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
-    setTitle("");
-    setBody("");
+    setTitleBase("");
+    setBodyBase("");
     if (previewURL) URL.revokeObjectURL(previewURL);
     setDraftFile(null);
     setPreviewURL(null);
@@ -320,27 +331,65 @@ export default function NewsClient() {
     setKeywords(["", "", ""]);
   };
 
+  // 一括翻訳：
+  // ① /api/translate-batch を試す
+  // ② 無ければ Promise.allSettled で各言語を並列翻訳（遅い問題を解消）
+  const translateAll = useCallback(async (title: string, body: string) => {
+    const targets = (LANGS.map((l) => l.key) as LangKey[]).filter(
+      (k) => k !== "ja"
+    );
+
+
+
+    // 2) 個別翻訳を「並列」実行
+    const requests = targets.map(async (lang) => {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "ja", target: lang, title, body }),
+      });
+      if (!res.ok) throw new Error("translate error");
+      const data = (await res.json()) as { title?: string; body?: string };
+      const tt = (data.title || "").trim() || title;
+      const bb = (data.body || "").trim() || body;
+      return { lang, title: tt, body: bb };
+    });
+
+    const settled = await Promise.allSettled(requests);
+    const t: NewsItem["t"] = {};
+    settled.forEach((r, i) => {
+      const lang = targets[i]!;
+      if (r.status === "fulfilled") {
+        t[lang] = { title: r.value.title, body: r.value.body };
+      } else {
+        // 失敗時は原文でフォールバック（欠落を作らない）
+        t[lang] = { title, body };
+      }
+    });
+    return t;
+  }, []);
+
   const handleSubmit = useCallback(async () => {
-    if (!user || !title.trim() || !body.trim()) {
+    if (!user || !titleBase.trim() || !bodyBase.trim()) {
       setAlertVisible(true);
       return;
     }
 
-    setUploading(true);
-    try {
-      const base: Partial<NewsItem> = { title, body };
-      const payload: Partial<NewsItem> = editingId
-        ? { ...base, updatedAt: Timestamp.now() }
-        : { ...base, createdAt: Timestamp.now(), createdBy: user.uid };
+    setSaving(true);
+    setUploading(!!draftFile);
 
-      // メディアアップロード
-      if (draftFile) {
+    try {
+      // アップロードと翻訳を並列実行
+      const mediaPromise = (async (): Promise<
+        Pick<NewsItem, "mediaUrl" | "mediaType">
+      > => {
+        if (!draftFile) return {};
         const sRef = ref(
           getStorage(),
           `${STORAGE_PATH}/${Date.now()}_${draftFile.name}`
         );
         const task = uploadBytesResumable(sRef, draftFile);
-        setUploadTask(task);
+        uploadTaskRef.current = task;
         setUploadPct(0);
 
         task.on("state_changed", (s) =>
@@ -353,23 +402,46 @@ export default function NewsClient() {
           )
         );
 
-        Object.assign(payload, {
+        uploadTaskRef.current = null;
+
+        return {
           mediaUrl: url,
           mediaType: ALLOWED_VIDEO.includes(draftFile.type) ? "video" : "image",
-        });
-      }
+        };
+      })();
+
+      const translatePromise = translateAll(titleBase, bodyBase);
+
+      const [mediaPart, t] = await Promise.all([
+        mediaPromise,
+        translatePromise,
+      ]);
+
+      const baseFields = {
+        titleBase: titleBase.trim(),
+        bodyBase: bodyBase.trim(),
+        t,
+        ...(mediaPart as object),
+      } satisfies Partial<NewsItem>;
 
       if (editingId) {
-        await updateDoc(doc(colRef, editingId), payload);
+        await updateDoc(doc(colRef, editingId), {
+          ...baseFields,
+          updatedAt: Timestamp.now(),
+        });
       } else {
-        await addDoc(colRef, payload as Omit<NewsItem, "id">);
+        await addDoc(colRef, {
+          ...baseFields,
+          createdAt: Timestamp.now(),
+          createdBy: user.uid,
+        } as Omit<NewsItem, "id">);
       }
 
-      // 成功時：インラインでリセット
+      // 成功時：リセット
       setModalOpen(false);
       setEditingId(null);
-      setTitle("");
-      setBody("");
+      setTitleBase("");
+      setBodyBase("");
       if (previewURL) URL.revokeObjectURL(previewURL);
       setDraftFile(null);
       setPreviewURL(null);
@@ -379,11 +451,21 @@ export default function NewsClient() {
       console.error(err);
       alert("保存に失敗しました");
     } finally {
+      setSaving(false);
       setUploading(false);
       setUploadPct(null);
-      setUploadTask(null);
+      uploadTaskRef.current = null;
     }
-  }, [title, body, draftFile, editingId, user, colRef, previewURL]);
+  }, [
+    titleBase,
+    bodyBase,
+    draftFile,
+    editingId,
+    user,
+    colRef,
+    previewURL,
+    translateAll,
+  ]);
 
   /* =====================================================
       削除
@@ -396,46 +478,13 @@ export default function NewsClient() {
       if (n.mediaUrl) {
         try {
           await deleteObject(ref(getStorage(), n.mediaUrl as any));
-        } catch {}
+        } catch {
+          /* noop */
+        }
       }
       setItems((prev) => prev.filter((m) => m.id !== n.id));
     },
     [user, colRef]
-  );
-
-  /* =====================================================
-      多言語：翻訳して追記
-  ===================================================== */
-  const translateAndAppend = useCallback(
-    async (target: LangKey) => {
-      if (!title.trim() || !body.trim() || translating) return;
-
-      try {
-        setTranslating(true);
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, body, target }),
-        });
-        if (!res.ok) throw new Error("翻訳APIエラー");
-        const data = (await res.json()) as { title?: string; body?: string };
-
-        const tTitle = (data.title || "").trim();
-        const tBody = (data.body || "").trim();
-
-        if (tTitle) setTitle((prev) => (prev ? `${prev}\n${tTitle}` : tTitle));
-        if (tBody) setBody((prev) => (prev ? `${prev}\n\n${tBody}` : tBody));
-
-        setShowLangPicker(false);
-        setLangQuery("");
-      } catch (e) {
-        console.error(e);
-        alert("翻訳に失敗しました。時間をおいて再度お試しください。");
-      } finally {
-        setTranslating(false);
-      }
-    },
-    [title, body, translating]
   );
 
   /* =====================================================
@@ -445,42 +494,15 @@ export default function NewsClient() {
   if (!gradient) return <CardSpinner />;
 
   return (
-    <div>
-      {/* ===== アップロードモーダル ===== */}
-      {uploadPct !== null && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-          <div className="relative z-10 w-2/3 max-w-xs bg-white/90 rounded-xl shadow-xl p-4">
-            <p className="text-center text-sm font-medium text-gray-800 mb-2">
-              アップロード中… {uploadPct}%
-            </p>
-            <div className="w-full h-3 bg-gray-200 rounded">
-              <div
-                className="h-full bg-green-500 rounded transition-all duration-150"
-                style={{ width: `${uploadPct}%` }}
-              />
-            </div>
-            {uploadTask?.snapshot.state === "running" && (
-              <button
-                type="button"
-                onClick={() => uploadTask.cancel()}
-                className="block mx-auto mt-3 text-xs text-red-600 hover:underline"
-              >
-                キャンセル
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="relative">
+      {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
+      <BusyOverlay uploadingPercent={uploadPct} saving={saving || aiLoading} />
 
       {/* ===== 一覧 ===== */}
       <ul className="space-y-4 p-4">
         {items.length === 0 ? (
           <li
-            className={`p-6 rounded-lg shadow border ${
-              isDark
-                ? "bg-gray-800 text-white border-gray-700"
-                : "bg-white text-gray-900 border-gray-200"
-            }`}
+            className="p-6 rounded-lg shadow border bg-white/30 text-white text-outline"
           >
             現在、お知らせはまだありません。
           </li>
@@ -494,6 +516,7 @@ export default function NewsClient() {
                 openEdit={openEdit}
                 handleDelete={handleDelete}
                 isDark={isDark}
+                uiLang={uiLang}
               />
             ))}
           </AnimatePresence>
@@ -505,14 +528,14 @@ export default function NewsClient() {
         <button
           onClick={openAdd}
           aria-label="新規追加"
-          disabled={uploading}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50"
+          disabled={saving}
+          className="fixed bottom-6 z-50 right-6 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50"
         >
           <Plus size={28} />
         </button>
       )}
 
-      {/* ===== 追加 / 編集モーダル ===== */}
+      {/* ===== 追加 / 編集モーダル（原文のみ入力） ===== */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
           <div
@@ -520,21 +543,21 @@ export default function NewsClient() {
                 max-h-[90vh] overflow-y-auto"
           >
             <h3 className="text-xl font-bold text-center">
-              {editingId ? "お知らせを編集" : "お知らせを追加"}
+              {editingId ? "お知らせを編集（原文）" : "お知らせを追加（原文）"}
             </h3>
 
-            {/* ---------- 入力欄 ---------- */}
+            {/* ---------- 入力欄（日本語の原文） ---------- */}
             <input
               className="w-full border px-3 py-2 rounded"
-              placeholder="タイトル（翻訳は末尾に改行で追記されます）"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              placeholder="タイトル（日本語）"
+              value={titleBase}
+              onChange={(e) => setTitleBase(e.target.value)}
             />
             <textarea
               className="w-full border px-3 py-2 rounded h-40"
-              placeholder="本文（翻訳は末尾に新しい段落として追記されます）"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
+              placeholder="本文（日本語）"
+              value={bodyBase}
+              onChange={(e) => setBodyBase(e.target.value)}
             />
 
             {/* ---------- メディア選択 ---------- */}
@@ -576,31 +599,19 @@ export default function NewsClient() {
                 ))}
             </div>
 
-            {/* ---------- AI 生成ボタン ---------- */}
+            {/* ---------- AI 生成ボタン（原文の下書き作成） ---------- */}
             <button
               onClick={() => {
-                if (!title.trim()) {
-                  alert("タイトルを入力してください。");
+                if (!titleBase.trim()) {
+                  alert("タイトル（日本語）を入力してください。");
                   return;
                 }
                 setShowAIModal(true);
               }}
               className="bg-purple-600 text-white w-full py-2 rounded"
             >
-              AIで本文作成
+              AIで本文を作成（日本語）
             </button>
-
-            {/* ---------- 多言語対応ボタン ---------- */}
-            {title.trim() && body.trim() && (
-              <button
-                type="button"
-                onClick={() => setShowLangPicker(true)}
-                disabled={uploading || aiLoading || translating}
-                className="w-full mt-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-              >
-                AIで多国語対応
-              </button>
-            )}
 
             {/* ---------- バリデーションエラー ---------- */}
             {alertVisible && (
@@ -608,7 +619,7 @@ export default function NewsClient() {
                 <AlertCircle />
                 <AlertTitle>入力エラー</AlertTitle>
                 <AlertDescription>
-                  タイトルと本文を両方入力してください。
+                  タイトルと本文（日本語）を入力してください。
                 </AlertDescription>
               </Alert>
             )}
@@ -617,7 +628,7 @@ export default function NewsClient() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleSubmit}
-                disabled={uploading}
+                disabled={saving}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
               >
                 {editingId ? "更新" : "追加"}
@@ -633,105 +644,13 @@ export default function NewsClient() {
         </div>
       )}
 
-      {/* ===== 言語ピッカー ===== */}
-      {showLangPicker && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm bg-black/40"
-          onClick={() => !translating && setShowLangPicker(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.18 }}
-            className="w-full max-w-lg mx-4 rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="rounded-2xl bg-white/90 backdrop-saturate-150 border border-white/50">
-              <div className="p-5 border-b border-black/5 flex items-center justify-between">
-                <h3 className="text-lg font-bold">言語を選択</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowLangPicker(false)}
-                  className="text-sm text-gray-500 hover:text-gray-800"
-                  disabled={translating}
-                >
-                  閉じる
-                </button>
-              </div>
-
-              {/* 検索 */}
-              <div className="px-5 pt-4">
-                <input
-                  type="text"
-                  value={langQuery}
-                  onChange={(e) => setLangQuery(e.target.value)}
-                  placeholder="言語名やコードで検索（例: フランス語 / fr）"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* グリッド */}
-              <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {filteredLangs.map((lng) => (
-                  <button
-                    key={lng.key}
-                    type="button"
-                    onClick={() => translateAndAppend(lng.key)}
-                    disabled={translating}
-                    className={clsx(
-                      "group relative rounded-xl border p-3 text-left transition",
-                      "bg-white hover:shadow-lg hover:-translate-y-0.5",
-                      "focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                      "disabled:opacity-60"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{lng.emoji}</span>
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">
-                          {lng.label}
-                        </div>
-                        <div className="text-xs text-gray-500">/{lng.key}</div>
-                      </div>
-                    </div>
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-indigo-400 opacity-0 group-hover:opacity-100 transition" />
-                  </button>
-                ))}
-                {filteredLangs.length === 0 && (
-                  <div className="col-span-full text-center text-sm text-gray-500 py-6">
-                    一致する言語が見つかりません
-                  </div>
-                )}
-              </div>
-
-              {/* フッター */}
-              <div className="px-5 pb-5">
-                <button
-                  type="button"
-                  onClick={() => setShowLangPicker(false)}
-                  className="w-full rounded-lg px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700"
-                  disabled={translating}
-                >
-                  キャンセル
-                </button>
-              </div>
-
-              {/* ローディングバー */}
-              {translating && (
-                <div className="h-1 w-full overflow-hidden rounded-b-2xl">
-                  <div className="h-full w-1/2 animate-[progress_1.2s_ease-in-out_infinite] bg-indigo-500" />
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* ===== AI モーダル ===== */}
+      {/* ===== AI モーダル（原文ジェネレータ） ===== */}
       {showAIModal && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 className="text-xl font-bold text-center">AIで本文を生成</h3>
+            <h3 className="text-xl font-bold text-center">
+              AIで本文を生成（日本語）
+            </h3>
 
             <p className="text-sm text-gray-600">最低 1 つ以上入力</p>
             <div className="flex flex-col gap-2">
@@ -762,7 +681,7 @@ export default function NewsClient() {
 
             <button
               disabled={
-                !title.trim() || nonEmptyKeywords.length === 0 || aiLoading
+                !titleBase.trim() || nonEmptyKeywords.length === 0 || aiLoading
               }
               onClick={async () => {
                 setAiLoading(true);
@@ -770,10 +689,13 @@ export default function NewsClient() {
                   const res = await fetch("/api/generate-news", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ title, keywords: nonEmptyKeywords }),
+                    body: JSON.stringify({
+                      title: titleBase,
+                      keywords: nonEmptyKeywords,
+                    }),
                   });
                   const data = await res.json();
-                  setBody(data.text);
+                  setBodyBase(String(data.text ?? ""));
                   setShowAIModal(false);
                 } catch {
                   alert("AI 生成に失敗しました");
@@ -803,22 +725,82 @@ export default function NewsClient() {
   );
 }
 
+/* ===== 正規化：旧データも新フォーマットで扱えるように変換 ===== */
+function normalizeItem(id: string, raw: LegacyNews): NewsItem {
+  const titleBase =
+    typeof raw.titleBase === "string"
+      ? raw.titleBase
+      : typeof raw.title === "string"
+      ? raw.title
+      : "";
+  const bodyBase =
+    typeof raw.bodyBase === "string"
+      ? raw.bodyBase
+      : typeof raw.body === "string"
+      ? raw.body
+      : "";
+
+  let createdAt: Timestamp;
+  if (raw.createdAt instanceof Timestamp) {
+    createdAt = raw.createdAt;
+  } else if (raw.createdAt && typeof raw.createdAt.toMillis === "function") {
+    createdAt = Timestamp.fromMillis(raw.createdAt.toMillis());
+  } else {
+    createdAt = Timestamp.fromMillis(Date.now());
+  }
+
+  const item: NewsItem = {
+    id,
+    titleBase,
+    bodyBase,
+    t: raw.t ?? undefined,
+    createdAt,
+    updatedAt: raw.updatedAt,
+    createdBy: raw.createdBy ?? "",
+    mediaUrl: raw.mediaUrl,
+    mediaType: raw.mediaType,
+  };
+
+  return item;
+}
+
 /* ===== カード用サブコンポーネント ===== */
 function NewsCard({
   item,
   user,
   openEdit,
   handleDelete,
-  isDark,
+  uiLang,
 }: {
   item: NewsItem;
   user: User | null;
   openEdit: (n: NewsItem) => void;
   handleDelete: (n: NewsItem) => void;
   isDark: boolean;
+  uiLang: LangKey;
 }) {
   const ref = useRef<HTMLLIElement>(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -150px 0px" });
+
+  // 表示用テキスト（言語フォールバック：uiLang → ja → en）
+  const { titleText, bodyText } = useMemo(() => {
+    if (uiLang === "ja") {
+      return { titleText: item.titleBase, bodyText: item.bodyBase };
+    }
+    const t = item.t?.[uiLang];
+    if (t?.title || t?.body) {
+      return {
+        titleText: t.title || item.titleBase,
+        bodyText: t.body || item.bodyBase,
+      };
+    }
+    if (item.titleBase || item.bodyBase) {
+      return { titleText: item.titleBase, bodyText: item.bodyBase };
+    }
+    const en = item.t?.en;
+    if (en) return { titleText: en.title || "", bodyText: en.body || "" };
+    return { titleText: "", bodyText: "" };
+  }, [item, uiLang]);
 
   return (
     <motion.li
@@ -827,13 +809,9 @@ function NewsCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       exit={{ opacity: 0, y: 40 }}
-      className={`p-6 rounded-lg shadow border ${
-        isDark
-          ? "bg-gray-800 text-white border-gray-700"
-          : "bg-white text-gray-900 border-gray-200"
-      }`}
+      className={`p-6 rounded-lg shadow border bg-white/30` }
     >
-      <h2 className="font-bold whitespace-pre-wrap">{item.title}</h2>
+      <h2 className="font-bold whitespace-pre-wrap text-white text-outline">{titleText}</h2>
 
       {/* メディア（画像 / 動画） */}
       {item.mediaUrl && (
@@ -851,7 +829,7 @@ function NewsCard({
         />
       )}
 
-      <p className="mt-2 whitespace-pre-wrap">{item.body}</p>
+      <p className="mt-2 whitespace-pre-wrap  text-white text-outline">{bodyText}</p>
 
       {/* 編集・削除ボタン（ログイン時のみ） */}
       {user && (
