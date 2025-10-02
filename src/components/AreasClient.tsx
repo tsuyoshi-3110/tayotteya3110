@@ -63,6 +63,10 @@ export default function AreasClient() {
   const markerRef = useRef<google.maps.Marker | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
 
+  // Geocoder & 解決済みアドレスの追跡
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const lastResolvedAddrRef = useRef<string>("");
+
   // フィット制御
   const didInitialFitRef = useRef(false);
   const fitAfterPickRef = useRef(false);
@@ -99,6 +103,8 @@ export default function AreasClient() {
         setRadiusKm(typeof sa.radiusKm === "number" ? sa.radiusKm : 10);
         setNote(sa.note || "");
         setTPacks(Array.isArray(data.serviceAreaT) ? data.serviceAreaT : []);
+        // 既に座標が保存されている場合は、解決済みアドレスとして扱う
+        if (sa.address) lastResolvedAddrRef.current = sa.address;
       } finally {
         setLoading(false);
       }
@@ -118,7 +124,9 @@ export default function AreasClient() {
     });
     loader
       .load()
-      .then(() => setGmapsReady(true))
+      .then(() => {
+        setGmapsReady(true);
+      })
       .catch((e) => {
         console.error(e);
         setMapsError(
@@ -127,6 +135,14 @@ export default function AreasClient() {
       });
   }, [mapsApiKey]);
 
+  // ===== Geocoder 準備 =====
+  useEffect(() => {
+    if (!gmapsReady) return;
+    if (!geocoderRef.current) {
+      geocoderRef.current = new google.maps.Geocoder();
+    }
+  }, [gmapsReady]);
+
   // ===== マップ描画（中心・マーカー・円） =====
   useEffect(() => {
     if (!gmapsReady || !mapDivRef.current) return;
@@ -134,7 +150,7 @@ export default function AreasClient() {
     const hasCenter = typeof lat === "number" && typeof lng === "number";
     const center = hasCenter
       ? new google.maps.LatLng(lat!, lng!)
-      : new google.maps.LatLng(34.6937, 135.5023); // 大阪市
+      : new google.maps.LatLng(34.6937, 135.5023); // 大阪市（フォールバック）
 
     if (!mapRef.current) {
       mapRef.current = new google.maps.Map(mapDivRef.current, {
@@ -205,18 +221,56 @@ export default function AreasClient() {
     if (!gmapsReady || !autocompleteRef.current) return;
     const ac = new google.maps.places.Autocomplete(autocompleteRef.current, {
       fields: ["geometry", "formatted_address"],
-      componentRestrictions: { country: ["jp"] },
+      componentRestrictions: { country: ["JP"] },
     });
-    ac.addListener("place_changed", () => {
+    const listener = ac.addListener("place_changed", () => {
       const place = ac.getPlace();
       const loc = place.geometry?.location;
       if (!loc) return;
-      setAddr(place.formatted_address || "");
+      const formatted = place.formatted_address || "";
+      setAddr(formatted);
       setLat(loc.lat());
       setLng(loc.lng());
+      lastResolvedAddrRef.current = formatted; // この住所は座標まで解決済み
       fitAfterPickRef.current = true;
     });
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
   }, [gmapsReady]);
+
+  // ===== タイプ入力だけでも座標を更新（フォールバック Geocoding / デバウンス） =====
+  useEffect(() => {
+    if (!gmapsReady) return;
+    const raw = addr.trim();
+    if (!raw) return;
+
+    // 既にこの住所で解決済みならスキップ
+    if (lastResolvedAddrRef.current === raw) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const gc = geocoderRef.current;
+        if (!gc) return;
+        // GeocoderResponse は status を持たないため results のみ判定
+        const { results } = await gc.geocode({
+          address: raw,
+          region: "jp",
+        });
+        if (results?.[0]) {
+          const loc = results[0].geometry.location;
+          setLat(loc.lat());
+          setLng(loc.lng());
+          lastResolvedAddrRef.current = raw;
+          fitAfterPickRef.current = true;
+        }
+      } catch {
+        // noop（入力中の失敗は無視）
+      }
+    }, 700); // 入力停止 700ms で解決
+
+    return () => clearTimeout(timer);
+  }, [addr, gmapsReady]);
 
   // ===== 表示用（UI言語で切替） =====
   const displayAddr = useMemo(() => {
@@ -275,32 +329,57 @@ export default function AreasClient() {
     setSaveMsg("");
     setSaving(true);
     try {
+      // 座標が未確定なら、保存前にフォールバックで解決を試みる
+      let nextLat = lat;
+      let nextLng = lng;
+      const raw = addr.trim();
+      if ((typeof nextLat !== "number" || typeof nextLng !== "number") && raw) {
+        try {
+          const gc = geocoderRef.current;
+          if (gmapsReady && gc) {
+            // GeocoderResponse は status 無し
+            const { results } = await gc.geocode({
+              address: raw,
+              region: "jp",
+            });
+            if (results?.[0]) {
+              const loc = results[0].geometry.location;
+              nextLat = loc.lat();
+              nextLng = loc.lng();
+              lastResolvedAddrRef.current = raw;
+            }
+          }
+        } catch {
+          // noop
+        }
+      }
+
       // 1) JA 原文 + 共有フィールドを保存（先に確定）
       const basePayload: any = {
         serviceArea: {
-          address: addr || "",
+          address: raw || "",
           radiusKm: Number.isFinite(radiusKm) ? radiusKm : 10,
           note: note || "",
         },
       };
-      if (typeof lat === "number" && typeof lng === "number") {
-        basePayload.serviceArea.lat = lat;
-        basePayload.serviceArea.lng = lng;
+      if (typeof nextLat === "number" && typeof nextLng === "number") {
+        basePayload.serviceArea.lat = nextLat;
+        basePayload.serviceArea.lng = nextLng;
       }
       await setDoc(SETTINGS_REF, basePayload, { merge: true });
 
       // 2) 全言語翻訳
-      const tAll = await translateAll({ address: addr || "", note: note || "" });
+      const tAll = await translateAll({ address: raw || "", note: note || "" });
 
       // 3) 翻訳結果を保存
-      await setDoc(
-        SETTINGS_REF,
-        { serviceAreaT: tAll },
-        { merge: true }
-      );
+      await setDoc(SETTINGS_REF, { serviceAreaT: tAll }, { merge: true });
 
       // ローカルにも反映
+      setLat(nextLat);
+      setLng(nextLng);
       setTPacks(tAll);
+
+      setSaveMsg("✅ 保存しました。");
     } catch (e: any) {
       console.error("save error:", e);
       setSaveMsg(
@@ -360,14 +439,13 @@ export default function AreasClient() {
           <CardContent className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">拠点住所（日本語）</label>
+                <label className="text-sm font-medium">拠点住所</label>
                 <Input
                   ref={autocompleteRef}
                   value={addr}
                   onChange={(e) => setAddr(e.target.value)}
-                  placeholder="例）大阪府豊中市〇〇…（候補から選択可）"
+                  placeholder="例）奈良県奈良市…（候補から選択可／そのまま入力でもOK）"
                 />
-
               </div>
 
               <div className="space-y-2">
@@ -390,14 +468,13 @@ export default function AreasClient() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">補足説明（日本語・任意）</label>
+              <label className="text-sm font-medium">補足説明</label>
               <textarea
                 className="w-full min-h-24 rounded-md border p-2 text-sm"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="例）エリア外でも状況により対応可能です。まずはご相談ください。"
               />
-
             </div>
 
             <div className="flex items-center gap-3">
@@ -409,8 +486,6 @@ export default function AreasClient() {
                 <span className="text-xs text-muted-foreground">地図SDKの準備中…</span>
               )}
             </div>
-
-
           </CardContent>
         </Card>
       )}
