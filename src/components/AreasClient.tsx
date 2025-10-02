@@ -63,7 +63,7 @@ export default function AreasClient() {
   const markerRef = useRef<google.maps.Marker | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
 
-  // Geocoder & 解決済みアドレスの追跡
+  // Geocoder（フォールバック用）
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
   const lastResolvedAddrRef = useRef<string>("");
 
@@ -103,7 +103,6 @@ export default function AreasClient() {
         setRadiusKm(typeof sa.radiusKm === "number" ? sa.radiusKm : 10);
         setNote(sa.note || "");
         setTPacks(Array.isArray(data.serviceAreaT) ? data.serviceAreaT : []);
-        // 既に座標が保存されている場合は、解決済みアドレスとして扱う
         if (sa.address) lastResolvedAddrRef.current = sa.address;
       } finally {
         setLoading(false);
@@ -124,9 +123,7 @@ export default function AreasClient() {
     });
     loader
       .load()
-      .then(() => {
-        setGmapsReady(true);
-      })
+      .then(() => setGmapsReady(true))
       .catch((e) => {
         console.error(e);
         setMapsError(
@@ -138,9 +135,7 @@ export default function AreasClient() {
   // ===== Geocoder 準備 =====
   useEffect(() => {
     if (!gmapsReady) return;
-    if (!geocoderRef.current) {
-      geocoderRef.current = new google.maps.Geocoder();
-    }
+    if (!geocoderRef.current) geocoderRef.current = new google.maps.Geocoder();
   }, [gmapsReady]);
 
   // ===== マップ描画（中心・マーカー・円） =====
@@ -202,19 +197,30 @@ export default function AreasClient() {
     if (!needFit) return;
 
     const map = mapRef.current;
+    // 一度 idle を待ってからフィット（初回用）
     google.maps.event.addListenerOnce(map, "idle", () => {
-      map.fitBounds(bounds, 64);
+      const b = circleRef.current?.getBounds?.();
+      if (b) map.fitBounds(b, 64);
       didInitialFitRef.current = true;
       fitAfterPickRef.current = false;
     });
-    setTimeout(() => {
-      if (!didInitialFitRef.current || fitAfterPickRef.current) {
-        map.fitBounds(bounds, 64);
-        didInitialFitRef.current = true;
-        fitAfterPickRef.current = false;
-      }
-    }, 0);
-  }, [gmapsReady, lat, lng, radiusKm]);
+    // 念のため即時にも一度
+    map.fitBounds(bounds, 64);
+  }, [gmapsReady, lat, lng]);
+
+  // ===== ここが要件：半径変更のたびに毎回フィット（拡大・縮小どちらも追随） =====
+  useEffect(() => {
+    if (!gmapsReady || !mapRef.current || !circleRef.current) return;
+    const b = circleRef.current.getBounds?.();
+    if (!b) return;
+    const map = mapRef.current;
+    map.fitBounds(b, 64);
+    // 反映遅延対策：描画反映後にも再フィット
+    google.maps.event.addListenerOnce(map, "idle", () => {
+      const b2 = circleRef.current?.getBounds?.();
+      if (b2) map.fitBounds(b2, 64);
+    });
+  }, [radiusKm, gmapsReady]);
 
   // ===== 住所オートコンプリート（原文=JA） =====
   useEffect(() => {
@@ -231,31 +237,26 @@ export default function AreasClient() {
       setAddr(formatted);
       setLat(loc.lat());
       setLng(loc.lng());
-      lastResolvedAddrRef.current = formatted; // この住所は座標まで解決済み
+      lastResolvedAddrRef.current = formatted; // 座標まで解決済み
       fitAfterPickRef.current = true;
     });
-    return () => {
-      google.maps.event.removeListener(listener);
-    };
+    return () => google.maps.event.removeListener(listener);
   }, [gmapsReady]);
 
-  // ===== タイプ入力だけでも座標を更新（フォールバック Geocoding / デバウンス） =====
+  // ===== タイプ入力でも座標更新（フォールバック Geocoding / デバウンス） =====
   useEffect(() => {
     if (!gmapsReady) return;
     const raw = addr.trim();
     if (!raw) return;
-
-    // 既にこの住所で解決済みならスキップ
     if (lastResolvedAddrRef.current === raw) return;
 
     const timer = setTimeout(async () => {
       try {
         const gc = geocoderRef.current;
         if (!gc) return;
-        // GeocoderResponse は status を持たないため results のみ判定
         const { results } = await gc.geocode({
           address: raw,
-          region: "jp",
+          region: "jp", // status は見ない（型エラー回避）
         });
         if (results?.[0]) {
           const loc = results[0].geometry.location;
@@ -264,11 +265,8 @@ export default function AreasClient() {
           lastResolvedAddrRef.current = raw;
           fitAfterPickRef.current = true;
         }
-      } catch {
-        // noop（入力中の失敗は無視）
-      }
-    }, 700); // 入力停止 700ms で解決
-
+      } catch {/* noop */}
+    }, 700);
     return () => clearTimeout(timer);
   }, [addr, gmapsReady]);
 
@@ -302,14 +300,12 @@ export default function AreasClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // title=住所 / body=補足 で転用
           title: address ?? "",
           body: note ?? "",
           target: lang,
         }),
       });
       if (!res.ok) {
-        // 失敗時は空文字で占位（後で再生成してもOK）
         return { lang, address: "", note: "" } as ServiceAreaT;
       }
       const json = (await res.json()) as { title?: string; body?: string };
@@ -337,11 +333,7 @@ export default function AreasClient() {
         try {
           const gc = geocoderRef.current;
           if (gmapsReady && gc) {
-            // GeocoderResponse は status 無し
-            const { results } = await gc.geocode({
-              address: raw,
-              region: "jp",
-            });
+            const { results } = await gc.geocode({ address: raw, region: "jp" });
             if (results?.[0]) {
               const loc = results[0].geometry.location;
               nextLat = loc.lat();
@@ -349,12 +341,10 @@ export default function AreasClient() {
               lastResolvedAddrRef.current = raw;
             }
           }
-        } catch {
-          // noop
-        }
+        } catch {/* noop */}
       }
 
-      // 1) JA 原文 + 共有フィールドを保存（先に確定）
+      // 1) JA 原文 + 共有フィールド
       const basePayload: any = {
         serviceArea: {
           address: raw || "",
@@ -371,10 +361,8 @@ export default function AreasClient() {
       // 2) 全言語翻訳
       const tAll = await translateAll({ address: raw || "", note: note || "" });
 
-      // 3) 翻訳結果を保存
+      // 3) 翻訳結果を保存 & ローカル反映
       await setDoc(SETTINGS_REF, { serviceAreaT: tAll }, { merge: true });
-
-      // ローカルにも反映
       setLat(nextLat);
       setLng(nextLng);
       setTPacks(tAll);
@@ -462,7 +450,7 @@ export default function AreasClient() {
                   className="w-full"
                 />
                 <p className="text-xs text-muted-foreground">
-                  地図上に円でサービス範囲を表示します（1〜100km）。
+                  スライダー操作に合わせて地図が自動で拡大/縮小します（1〜100km）。
                 </p>
               </div>
             </div>
