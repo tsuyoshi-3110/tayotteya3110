@@ -9,6 +9,8 @@ import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+// ▼ カート全体提供（追加）
+import { CartProvider } from "@/lib/cart/CartContext";
 import {
   kosugiMaru,
   notoSansJP,
@@ -113,12 +115,17 @@ export default function RootLayout({
         <WallpaperBackground />
         <ThemeBackground />
 
-        <Header />
+        {/* サイト全体をCartProviderでラップ */}
+        <CartProvider>
+          {/* 上位オーバーレイ（サブスク状態によるブロック等） */}
+          <SubscriptionOverlay siteKey={SITE_KEY} />
+          {/* UI本体 */}
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </CartProvider>
 
-        {/* ✅ main を flex-1 にして余白を埋める */}
-        <main className="flex-1">{children}</main>
 
-        <Footer />
 
         {/* 構造化データ */}
         <Script

@@ -30,8 +30,6 @@ type Keys =
   | "projects" // ★ 追加：旧 products（施工実績）
   | "products" // ★ 新設：商品一覧
   | "productsEC" // EC
-  | "cart" // EC
-  | "shipping" // EC 管理
   | "staffs"
   | "pricing"
   | "areas"
@@ -55,8 +53,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "施工実績", // ← 旧 products をこちらへ
     products: "商品一覧", // ← 新しい products
     productsEC: "オンラインショップ",
-    cart: "カート",
-    shipping: "EC管理",
     staffs: "スタッフ",
     pricing: "料金",
     areas: "対応エリア",
@@ -79,8 +75,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Projects",
     products: "Products",
     productsEC: "Online Store",
-    cart: "Cart",
-    shipping: "Shipping Management",
     staffs: "Staff",
     pricing: "Pricing",
     areas: "Service Areas",
@@ -103,8 +97,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "施工案例",
     products: "商品一览",
     productsEC: "网店",
-    cart: "购物车",
-    shipping: "EC管理",
     staffs: "员工",
     pricing: "价格",
     areas: "服务区域",
@@ -127,8 +119,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "施工案例",
     products: "商品一覽",
     productsEC: "網路商店",
-    cart: "購物車",
-    shipping: "EC管理",
     staffs: "員工",
     pricing: "價格",
     areas: "服務範圍",
@@ -151,8 +141,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "시공 사례",
     products: "상품 목록",
     productsEC: "온라인 스토어",
-    cart: "장바구니",
-    shipping: "배송 관리",
     staffs: "스태프",
     pricing: "요금",
     areas: "서비스 지역",
@@ -175,8 +163,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Réalisations",
     products: "Produits",
     productsEC: "Boutique en ligne",
-    cart: "Panier",
-    shipping: "Gestion des expéditions",
     staffs: "Équipe",
     pricing: "Tarifs",
     areas: "Zones desservies",
@@ -199,8 +185,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Proyectos",
     products: "Productos",
     productsEC: "Tienda en línea",
-    cart: "Carrito",
-    shipping: "Gestión de envíos",
     staffs: "Equipo",
     pricing: "Precios",
     areas: "Áreas de servicio",
@@ -223,8 +207,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Referenzen",
     products: "Produkte",
     productsEC: "Online-Shop",
-    cart: "Warenkorb",
-    shipping: "Versandverwaltung",
     staffs: "Team",
     pricing: "Preise",
     areas: "Einsatzgebiete",
@@ -247,8 +229,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Projetos",
     products: "Produtos",
     productsEC: "Loja Online",
-    cart: "Carrinho",
-    shipping: "Gerenciamento de Envio",
     staffs: "Equipe",
     pricing: "Preços",
     areas: "Áreas de atendimento",
@@ -271,8 +251,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Progetti",
     products: "Prodotti",
     productsEC: "Negozio online",
-    cart: "Carrello",
-    shipping: "Gestione spedizioni",
     staffs: "Staff",
     pricing: "Prezzi",
     areas: "Aree servite",
@@ -295,8 +273,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Наши работы",
     products: "Товары",
     productsEC: "Интернет-магазин",
-    cart: "Корзина",
-    shipping: "Управление доставкой",
     staffs: "Сотрудники",
     pricing: "Цены",
     areas: "Районы обслуживания",
@@ -319,8 +295,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "ผลงาน",
     products: "รายการสินค้า",
     productsEC: "ร้านค้าออนไลน์",
-    cart: "ตะกร้าสินค้า",
-    shipping: "การจัดการการจัดส่ง",
     staffs: "ทีมงาน",
     pricing: "ราคา",
     areas: "พื้นที่ให้บริการ",
@@ -343,8 +317,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Dự án đã làm",
     products: "Sản phẩm",
     productsEC: "Cửa hàng trực tuyến",
-    cart: "Giỏ hàng",
-    shipping: "Quản lý vận chuyển",
     staffs: "Nhân viên",
     pricing: "Bảng giá",
     areas: "Khu vực phục vụ",
@@ -367,8 +339,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "Portofolio",
     products: "Produk",
     productsEC: "Toko daring",
-    cart: "Keranjang",
-    shipping: "Manajemen Pengiriman",
     staffs: "Staf",
     pricing: "Harga",
     areas: "Area layanan",
@@ -391,8 +361,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "परियोजनाएँ",
     products: "उत्पाद",
     productsEC: "ऑनलाइन स्टोर",
-    cart: "कार्ट",
-    shipping: "शिपिंग प्रबंधन",
     staffs: "स्टाफ़",
     pricing: "मूल्य",
     areas: "सेवा क्षेत्र",
@@ -415,8 +383,6 @@ const T: Record<UILang, Record<Keys, string>> = {
     projects: "المشاريع المنجزة",
     products: "قائمة المنتجات",
     productsEC: "المتجر الإلكتروني",
-    cart: "عربة التسوق",
-    shipping: "إدارة الشحن",
     staffs: "الفريق",
     pricing: "الأسعار",
     areas: "مناطق الخدمة",
@@ -441,11 +407,11 @@ const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 
 /* ===== メニュー定義 ===== */
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
+  { key: "productsEC", href: "/productsEC" },
   { key: "home", href: "/" },
   { key: "projects", href: "/projects" }, // ★ 旧 products の中身はこちらへ
   { key: "products", href: "/products" }, // ★ 新しい商品一覧
-  { key: "productsEC", href: "/productsEC" },
-  { key: "cart", href: "/cart" },
+
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
   { key: "areas", href: "/areas" },
@@ -468,23 +434,6 @@ export default function Header({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const gradient = useThemeGradient();
   const logoUrl = useHeaderLogoUrl();
-
-  // Stripe 連携状態（必要ならここで利用）
-  const [stripeConnected, setStripeConnected] = useState(false);
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/sellers/connect-status?siteKey=${encodeURIComponent(SITE_KEY)}`
-        );
-        const data = await res.json();
-        const ok = data?.connected === true || data?.status === "completed";
-        setStripeConnected(!!ok);
-      } catch {
-        setStripeConnected(false);
-      }
-    })();
-  }, []);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   useEffect(() => {
@@ -580,7 +529,6 @@ export default function Header({ className = "" }: { className?: string }) {
     "timeline",
     "community",
     "analytics",
-    "shipping",
     "admin",
   ]);
   const labelOf = (k: Keys) =>
@@ -742,15 +690,6 @@ export default function Header({ className = "" }: { className?: string }) {
                     >
                       {labelOf("analytics")}
                     </Link>
-                    {stripeConnected && (
-                      <Link
-                        href="/shipping"
-                        onClick={() => setOpen(false)}
-                        className="text-center text-lg text-white text-outline"
-                      >
-                        {labelOf("shipping")}
-                      </Link>
-                    )}
                   </>
                 )}
 

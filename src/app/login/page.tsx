@@ -34,7 +34,7 @@ import { Loader } from "@googlemaps/js-api-loader";
 
 // Firestore ref
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
-const SELLER_REF = doc(db, "siteSellers", SITE_KEY);
+
 
 /* =========================
    Stripe Connect カード（住所設定ボタン込み）
@@ -631,16 +631,23 @@ export default function LoginPage() {
 
   // ▼ EC可否トグル時に seller の onboardingCompleted を即時反映
   const setOnboardingCompleted = async (next: boolean) => {
-    await setDoc(
-      SELLER_REF,
-      { stripe: { onboardingCompleted: next } },
-      { merge: true }
-    );
-    await updateDoc(SELLER_REF, { "stripe.onboardingCompleted": next }).catch(
-      () => {
-        /* setDocで反映済み */
-      }
-    );
+    const user = auth.currentUser;
+    if (!user) throw new Error("not-signed-in");
+    const token = await user.getIdToken();
+
+    const res = await fetch("/api/sellers/onboarding-completed", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ siteKey: SITE_KEY, completed: next }),
+    });
+
+    if (!res.ok) {
+      const j = await res.json().catch(() => null);
+      throw new Error(j?.error || `HTTP ${res.status}`);
+    }
   };
 
   /* ---------------- Google Maps Places 初期化 ---------------- */

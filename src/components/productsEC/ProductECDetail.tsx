@@ -1,160 +1,181 @@
+// src/components/ProductECDetail.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Pin, Plus } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import clsx from "clsx";
 import { v4 as uuid } from "uuid";
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-  CollectionReference,
-  DocumentData,
-} from "firebase/firestore";
+import imageCompression from "browser-image-compression";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2 } from "lucide-react";
+
+import { useThemeGradient } from "@/lib/useThemeGradient";
+import { ThemeKey, THEMES } from "@/lib/themes";
+import { type Product } from "@/types/Product";
+
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useThemeGradient } from "@/lib/useThemeGradient";
-import clsx from "clsx";
 import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
-import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import SortableItem from "../SortableItem";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import ProductMedia from "../ProductMedia";
-import { uploadProductMedia } from "@/lib/media/uploadProductMedia";
+  doc,
+  deleteDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+} from "firebase/firestore";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
-// 多言語
-import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import CardSpinner from "../CardSpinner";
 import { BusyOverlay } from "../BusyOverlay";
-import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
-import { displayOf, sectionTitleLoc } from "@/lib/i18n/display";
-import { translateAll, translateSectionTitleAll } from "@/lib/i18n/translate";
+
 import {
-  type ProdDoc,
-  type Base,
-  type Tr,
-  type MediaType,
-} from "@/types/productLocales";
-import { useProducts } from "@/hooks/useProducts";
-import { useSections } from "@/hooks/useSections";
-import SectionManagerModal from "../products/SectionManagerModal";
+  IMAGE_MIME_TYPES,
+  VIDEO_MIME_TYPES,
+  extFromMime,
+} from "@/lib/fileTypes";
+
+// ▼ カート
+import { useCart } from "@/lib/cart/CartContext";
+
+/* 多言語対応：UI言語 & 対応言語一覧 */
+import { LANGS, type LangKey } from "@/lib/langs";
+import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+
+// ★ 為替
 import { useFxRates } from "@/lib/fx/client";
 
-/* ================= キーワード入力モーダル ================= */
-type KeywordModalProps = {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (keywords: string[]) => void;
+/* ▼ カートボタンの文言：多言語 */
+const ADD_TO_CART_T: Record<UILang, string> = {
+  ja: "カートに入れる",
+  en: "Add to cart",
+  zh: "加入购物车",
+  "zh-TW": "加入購物車",
+  ko: "장바구니에 담기",
+  fr: "Ajouter au panier",
+  es: "Añadir al carrito",
+  de: "In den Warenkorb",
+  pt: "Adicionar ao carrinho",
+  it: "Aggiungi al carrello",
+  ru: "В корзину",
+  th: "หยิบใส่ตะกร้า",
+  vi: "Thêm vào giỏ",
+  id: "Masukkan ke keranjang",
+  hi: "कार्ट में जोड़ें",
+  ar: "أضِف إلى السلة",
 };
-function KeywordModal({ open, onClose, onSubmit }: KeywordModalProps) {
-  const [k1, setK1] = useState("");
-  const [k2, setK2] = useState("");
-  const [k3, setK3] = useState("");
-
-  if (!open) return null;
-
-  const handleSubmit = () => {
-    const kws = [k1, k2, k3].map((s) => s.trim()).filter(Boolean);
-    if (kws.length === 0) {
-      alert("キーワードを1つ以上入力してください（最大3つまで）");
-      return;
-    }
-    onSubmit(kws);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md bg-white rounded-lg p-5 space-y-4 shadow-xl">
-        <h3 className="text-lg font-semibold text-center">AI紹介文のキーワード</h3>
-        <p className="text-sm text-gray-600 text-center">
-          最大3つまで入力できます。少なくとも1つ入力すると生成します。
-        </p>
-        <div className="space-y-2">
-          <input
-            value={k1}
-            onChange={(e) => setK1(e.target.value)}
-            placeholder="キーワード1（例：濃厚クリーム）"
-            className="w-full border rounded px-3 h-10"
-          />
-          <input
-            value={k2}
-            onChange={(e) => setK2(e.target.value)}
-            placeholder="キーワード2（任意）"
-            className="w-full border rounded px-3 h-10"
-          />
-          <input
-            value={k3}
-            onChange={(e) => setK3(e.target.value)}
-            placeholder="キーワード3（任意）"
-            className="w-full border rounded px-3 h-10"
-          />
-        </div>
-        <div className="flex gap-2 justify-center pt-1">
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-          >
-            生成する
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            キャンセル
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+export function addToCartLabel(lang: UILang): string {
+  return ADD_TO_CART_T[lang] ?? ADD_TO_CART_T.en;
 }
 
-/* ===== 税率・丸め ===== */
-const TAX_RATE = 0.1 as const;
-type RoundingPolicy = "round" | "floor" | "ceil";
-const ROUNDING_POLICY: RoundingPolicy = "round";
-const rint = (n: number, policy: RoundingPolicy = ROUNDING_POLICY) =>
-  policy === "floor" ? Math.floor(n) : policy === "ceil" ? Math.ceil(n) : Math.round(n);
-const toExclYen = (
-  incl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) => rint((Number(incl) || 0) / (1 + taxRate), policy);
-const toInclYen = (
-  excl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) => rint((Number(excl) || 0) * (1 + taxRate), policy);
+/* ▼ 追加トーストの文言：多言語（{name} を商品名に差し込み） */
+const ADDED_TO_CART_T: Record<UILang, string> = {
+  ja: "{name} をカートに追加しました",
+  en: "Added {name} to your cart",
+  zh: "已将 {name} 加入购物车",
+  "zh-TW": "已將 {name} 加入購物車",
+  ko: "{name} 을(를) 장바구니에 담았습니다",
+  fr: "{name} ajouté à votre panier",
+  es: "Has añadido {name} al carrito",
+  de: "{name} wurde dem Warenkorb hinzugefügt",
+  pt: "{name} adicionado ao carrinho",
+  it: "Hai aggiunto {name} al carrello",
+  ru: "{name} добавлен в корзину",
+  th: "เพิ่ม {name} ลงในตะกร้าแล้ว",
+  vi: "Đã thêm {name} vào giỏ hàng",
+  id: "{name} telah ditambahkan ke keranjang",
+  hi: "{name} कार्ट में जोड़ा गया",
+  ar: "تمت إضافة {name} إلى السلة",
+};
+function addedToCartText(lang: UILang, name: string): string {
+  const template = ADDED_TO_CART_T[lang] ?? ADDED_TO_CART_T.en;
+  return template.replace("{name}", name);
+}
 
-/* ===== 表示テキスト ===== */
-const ALL_CATEGORY_T: Record<UILang, string> = {
-  ja: "全カテゴリー",
-  en: "All categories",
-  zh: "全部分类",
-  "zh-TW": "全部分類",
-  ko: "모든 카테고리",
-  fr: "Toutes les catégories",
-  es: "Todas las categorías",
-  de: "Alle Kategorien",
-  pt: "Todas as categorias",
-  it: "Tutte le categorie",
-  ru: "Все категории",
-  th: "ทุกหมวดหมู่",
-  vi: "Tất cả danh mục",
-  id: "Semua kategori",
-  hi: "सभी श्रेणियाँ",
-  ar: "كل الفئات",
+type MediaType = "image" | "video";
+
+type Section = {
+  id: string;
+  base: { title: string };
+  t: Array<{ lang: LangKey; title?: string }>;
+  createdAt?: any;
+  order?: number;
 };
 
+type ProductDoc = Product & {
+  base?: { title: string; body: string };
+  t?: Array<{ lang: LangKey; title?: string; body?: string }>;
+  sectionId?: string | null;
+  mediaURL?: string;
+  mediaType?: MediaType;
+  originalFileName?: string;
+  published?: boolean; // 公開/非公開
+  priceIncl?: number; // 税込保存値
+  priceExcl?: number; // 税抜保存値
+  taxRate?: number; // 保存税率
+};
+
+const TOAST_DURATION_MS = 3000;
+
+/* ===== 税計算（日本10%） ===== */
+const TAX_RATE = 0.1 as const;
+const rint = (n: number) => Math.round(Number(n) || 0);
+const toExclYen = (incl: number, rate = TAX_RATE) =>
+  rint((Number(incl) || 0) / (1 + rate));
+const toInclYen = (excl: number, rate = TAX_RATE) =>
+  rint((Number(excl) || 0) * (1 + rate));
+
+/* 表示テキスト（UI言語で解決） */
+function pickLocalized(
+  p: ProductDoc,
+  lang: UILang
+): { title: string; body: string } {
+  if (lang === "ja") {
+    return {
+      title: p.base?.title ?? p.title ?? "",
+      body: p.base?.body ?? p.body ?? "",
+    };
+  }
+  const hit = p.t?.find((x) => x.lang === lang);
+  return {
+    title: hit?.title ?? p.base?.title ?? p.title ?? "",
+    body: hit?.body ?? p.base?.body ?? p.body ?? "",
+  };
+}
+
+/* 翻訳 */
+type Tr = { lang: LangKey; title: string; body: string };
+async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
+  const jobs: Promise<Tr>[] = LANGS.map(async (l) => {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: titleJa, body: bodyJa, target: l.key }),
+    });
+    if (!res.ok) throw new Error(`translate error: ${l.key}`);
+    const data = (await res.json()) as { title?: string; body?: string };
+    return {
+      lang: l.key,
+      title: (data.title ?? "").trim(),
+      body: (data.body ?? "").trim(),
+    };
+  });
+  const settled = await Promise.allSettled(jobs);
+  return settled
+    .filter((r): r is PromiseFulfilledResult<Tr> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
+/* 税ラベル */
 const TAX_T: Record<UILang, { incl: string; excl: string }> = {
   ja: { incl: "税込", excl: "税抜" },
   en: { incl: "tax included", excl: "tax excluded" },
@@ -171,583 +192,665 @@ const TAX_T: Record<UILang, { incl: string; excl: string }> = {
   vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
   id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
   hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "शامل الضريبة", excl: "غير شامل الضريبة" },
+  ar: { incl: "शامل الضريبة", excl: "غير شامل الضريبة" } as any,
 };
 
-const PAGE_SIZE = 20;
-const MAX_VIDEO_SEC = 30;
-
-/* ===== 言語→通貨/ロケール と表示関数 ===== */
-const CURRENCY_BY_LANG: Record<UILang, { currency: string; locale: string }> = {
-  ja: { currency: "JPY", locale: "ja-JP" },
-  en: { currency: "USD", locale: "en-US" },
-  zh: { currency: "CNY", locale: "zh-CN" },
-  "zh-TW": { currency: "TWD", locale: "zh-TW" },
-  ko: { currency: "KRW", locale: "ko-KR" },
-  fr: { currency: "EUR", locale: "fr-FR" },
-  es: { currency: "EUR", locale: "es-ES" },
-  de: { currency: "EUR", locale: "de-DE" },
-  pt: { currency: "BRL", locale: "pt-BR" },
-  it: { currency: "EUR", locale: "it-IT" },
-  ru: { currency: "RUB", locale: "ru-RU" },
-  th: { currency: "THB", locale: "th-TH" },
-  vi: { currency: "VND", locale: "vi-VN" },
-  id: { currency: "IDR", locale: "id-ID" },
-  hi: { currency: "INR", locale: "hi-IN" },
-  ar: { currency: "AED", locale: "ar-AE" },
+/* ====== 通貨表示（UI言語→通貨/ロケール） ====== */
+const UILANG_TO_LOCALE: Partial<Record<UILang, string>> = {
+  ja: "ja-JP",
+  en: "en-US",
+  zh: "zh-CN",
+  "zh-TW": "zh-TW",
+  ko: "ko-KR",
+  fr: "fr-FR",
+  es: "es-ES",
+  de: "de-DE",
+  pt: "pt-PT",
+  it: "it-IT",
+  ru: "ru-RU",
+  th: "th-TH",
+  vi: "vi-VN",
+  id: "id-ID",
+  hi: "hi-IN",
+  ar: "ar-AE",
 };
+const UILANG_TO_CCY: Partial<Record<UILang, string>> = {
+  ja: "JPY",
+  en: "USD",
+  zh: "CNY",
+  "zh-TW": "TWD",
+  ko: "KRW",
+  fr: "EUR",
+  es: "EUR",
+  de: "EUR",
+  pt: "EUR",
+  it: "EUR",
+  ru: "EUR",
+  th: "USD",
+  vi: "USD",
+  id: "USD",
+  hi: "USD",
+  ar: "USD",
+};
+const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "TWD"]);
 
-function formatPriceFromJPY(
-  amountJPY: number,
-  uiLang: UILang,
+function formatPriceByLang(
+  jpyIncl: number,
+  lang: UILang,
   rates: Record<string, number> | null
 ) {
-  const { currency, locale } = CURRENCY_BY_LANG[uiLang] ?? { currency: "JPY", locale: "ja-JP" };
-  if (!rates || currency === "JPY" || rates[currency] == null) {
-    return { text: new Intl.NumberFormat(locale, { style: "currency", currency: "JPY" }).format(amountJPY), approx: false };
+  const locale = UILANG_TO_LOCALE[lang] ?? "en-US";
+  const ccy = UILANG_TO_CCY[lang] ?? "JPY";
+  const rate = rates?.[ccy];
+
+  // レート無い/未取得 → JPY
+  if (!rate) {
+    return new Intl.NumberFormat(UILANG_TO_LOCALE.ja ?? "ja-JP", {
+      style: "currency",
+      currency: "JPY",
+      maximumFractionDigits: 0,
+    }).format(jpyIncl);
   }
-  const converted = amountJPY * rates[currency];
-  return { text: new Intl.NumberFormat(locale, { style: "currency", currency }).format(converted), approx: true };
+
+  const major = jpyIncl * rate;
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: ccy,
+    maximumFractionDigits: ZERO_DECIMAL.has(ccy) ? 0 : 2,
+  }).format(major);
 }
 
-/* ====== 税込表示のためのフォールバック導出 ====== */
-function deriveInclJPY(p: ProdDoc): number {
-  const anyP = p as any;
-  // 1) ドキュメントが明示的に税込を持っていればそれを使う
-  if (typeof anyP.priceIncl === "number") return anyP.priceIncl;
-
-  // 2) 旧データ/他画面由来：priceInputMode と taxIncluded を見て判断
-  const price = typeof anyP.price === "number" ? anyP.price : 0;
-  const inputMode = anyP.priceInputMode as "incl" | "excl" | undefined;
-  const taxIncludedFlag = anyP.taxIncluded as boolean | undefined;
-
-  if (inputMode === "excl" || taxIncludedFlag === false) {
-    // 税抜で保存されている可能性 → 税込へ変換して表示
-    return toInclYen(price);
-  }
-  // それ以外は price をそのまま税込として扱う
-  return price;
-}
-
-export default function ProductsClient() {
-  /* ===== 状態 ===== */
+export default function ProductECDetail({ product }: { product: Product }) {
+  // 権限・テーマ
   const [isAdmin, setIsAdmin] = useState(false);
-  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
-  const [editing, setEditing] = useState<ProdDoc | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-
-  // 原文（日本語）
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [price, setPrice] = useState<number | "">("");
-  const [taxIncluded, setTaxIncluded] = useState(true); // UIは維持・保存は常に税込
-
-  // セクション（フォーム用）
-  const [formSectionId, setFormSectionId] = useState<string>("");
-  const [selectedSectionId, setSelectedSectionId] = useState<string>("all");
-  const [showSecModal, setShowSecModal] = useState(false);
-  const [newSecName, setNewSecName] = useState("");
-
-  // 進捗
-  const [progress, setProgress] = useState<number | null>(null);
-  const [uploadingPercent, setUploadingPercent] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const uploading = progress !== null;
-
-  // AI 生成
-  const [aiLoading, setAiLoading] = useState(false);
-  const [showKeywordModal, setShowKeywordModal] = useState(false);
-
+  const [uploadingPercent, setUploadingPercent] = useState<number | null>(null);
+  const [navigatingBack, setNavigatingBack] = useState(false);
   const gradient = useThemeGradient();
   const router = useRouter();
-  const { uiLang } = useUILang();
-  const taxT = TAX_T[uiLang] ?? TAX_T.ja;
-
-  /* 為替 */
-  const { rates } = useFxRates();
-
-  /* ===== Firestore refs ===== */
-  const productColRef: CollectionReference<DocumentData> = useMemo(
-    () => collection(db, "siteProducts", SITE_KEY, "items"),
-    []
-  );
-
-  /* ===== Hooks: Products / Sections ===== */
-  const { list, handleDragEnd } = useProducts({
-    productColRef,
-    selectedSectionId,
-    pageSize: PAGE_SIZE,
-  });
-
-  const {
-    sections,
-    add: addSection,
-    remove: removeSection,
-    reorder: reorderSections,
-  } = useSections(SITE_KEY);
-
-  /* ===== 権限 ===== */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
-  /* ===== ラベル ===== */
-  const currentSectionLabel =
-    selectedSectionId === "all"
-      ? ALL_CATEGORY_T[uiLang] ?? ALL_CATEGORY_T.ja
-      : sections.find((s) => s.id === selectedSectionId)
-      ? sectionTitleLoc(sections.find((s) => s.id === selectedSectionId)!, uiLang)
-      : "";
+  const isDark = useMemo<boolean>(() => {
+    const darks: ThemeKey[] = ["brandG", "brandH", "brandI"];
+    return !!(gradient && darks.some((k) => gradient === THEMES[k]));
+  }, [gradient]);
 
-  /* ===== DnD センサー（固定） ===== */
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } })
+  // UI言語・税ラベル・為替
+  const { uiLang } = useUILang();
+  const cartBtnLabel = addToCartLabel(uiLang); // 多言語ラベル
+  const taxT = TAX_T[uiLang] ?? TAX_T.ja;
+  const { rates } = useFxRates();
+
+  // 表示用
+  const [displayProduct, setDisplayProduct] = useState<ProductDoc>(
+    product as ProductDoc
   );
 
-  /* ===== UIヘルパ ===== */
-  const resetFields = useCallback(() => {
-    setEditing(null);
-    setTitle("");
-    setBody("");
-    setPrice("");
-    setFile(null);
-    setFormSectionId("");
+  // セクション一覧（未使用でも購読維持）
+  const [, setSections] = useState<Section[]>([]);
+
+  // 編集モーダル state
+  const [showEdit, setShowEdit] = useState(false);
+  const [title, setTitle] = useState<string>(product.title ?? "");
+  const [body, setBody] = useState<string>(product.body ?? "");
+
+  // 初期税込
+  const initialIncl =
+    (product as any).priceIncl ??
+    (typeof (product as any).priceExcl === "number"
+      ? toInclYen((product as any).priceExcl, TAX_RATE)
+      : typeof product.price === "number"
+      ? product.price
+      : 0);
+
+  const [price, setPrice] = useState<number | "">(
+    typeof initialIncl === "number" ? initialIncl : ""
+  );
+  const [taxIncluded] = useState<boolean>(true);
+  const [published, setPublished] = useState<boolean>(
+    (product as any).published !== false
+  );
+  const [file] = useState<File | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const uploading = progress !== null;
+
+  // カート
+  const [qty, setQty] = useState<number>(1);
+  const { add: addToCart } = useCart();
+  const [addedToast, setAddedToast] = useState<null | {
+    name: string;
+    qty: number;
+  }>(null);
+  const stepQty = (delta: number) =>
+    setQty((n) => Math.max(1, Math.min(999, (Number(n) || 1) + delta)));
+  const handleQtyInput = (v: string) => {
+    if (v === "") return setQty(1);
+    const n = Number(String(v).replace(/[^\d]/g, ""));
+    if (!Number.isFinite(n)) return;
+    setQty(Math.max(1, Math.min(999, n)));
+  };
+
+  // セクション選択
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
+    (product as any).sectionId ?? null
+  );
+
+  // 初期化
+  useEffect(() => {
+    setDisplayProduct(product as ProductDoc);
+    setSelectedSectionId((product as any).sectionId ?? null);
+    setTitle(product.title ?? "");
+    setBody(product.body ?? "");
+    setPrice(typeof initialIncl === "number" ? initialIncl : "");
+    setPublished((product as any).published !== false);
+    setQty(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product]);
+
+  // セクション購読
+  useEffect(() => {
+    const secRef = collection(db, "siteSections", SITE_KEY, "sections");
+    const qy = query(secRef, orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(qy, (snap) => {
+      const rows: Section[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          base: data.base ?? { title: data.title ?? "" },
+          t: Array.isArray(data.t) ? data.t : [],
+          createdAt: data.createdAt,
+          order: typeof data.order === "number" ? data.order : undefined,
+        };
+      });
+      rows.sort((a, b) => {
+        const ao = a.order ?? 999999;
+        const bo = b.order ?? 999999;
+        if (ao !== bo) return ao - bo;
+        const at = a.createdAt?.toMillis?.() ?? 0;
+        const bt = b.createdAt?.toMillis?.() ?? 0;
+        return at - bt;
+      });
+      setSections(rows);
+    });
+    return () => unsub();
   }, []);
 
-  const openAdd = useCallback(() => {
-    if (uploading) return;
-    resetFields();
-    setFormMode("add");
-  }, [resetFields, uploading]);
-
-  const closeForm = useCallback(() => {
-    if (uploading) return;
-    setTimeout(() => {
-      resetFields();
-      setFormMode(null);
-    }, 100);
-  }, [resetFields, uploading]);
-
-  /* ===== AI 紹介文生成（キーワード対応） ===== */
-  const handleGenerateBody = useCallback(
-    async (keywords: string[]) => {
-      if (!title) {
-        alert("タイトルを入力してください");
-        return;
-      }
-      const kws = (keywords || []).map((s) => s.trim()).filter(Boolean);
-      if (kws.length === 0) {
-        alert("キーワードを1つ以上入力してください");
-        return;
-      }
-      try {
-        setAiLoading(true);
-        const res = await fetch("/api/generate-description", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, price, keywords: kws }),
-        });
-        const data = await res.json();
-        if (data?.body) {
-          setBody(data.body);
-        } else {
-          alert("生成に失敗しました");
-        }
-      } catch {
-        alert("エラーが発生しました");
-      } finally {
-        setAiLoading(false);
-      }
-    },
-    [title, price]
-  );
-
-  /* ===== 保存 ===== */
-  const saveProduct = useCallback(async () => {
-    if (uploading) return;
+  // 保存
+  const handleSave = async () => {
     if (!title.trim()) return alert("タイトル必須");
     if (price === "") return alert("価格を入力してください");
-    if (formMode === "add" && !file) return alert("メディアを選択してください");
 
     setSaving(true);
     try {
-      const id = editing?.id ?? uuid();
+      let mediaURL: string = displayProduct.mediaURL ?? "";
+      let mediaType: MediaType =
+        (displayProduct.mediaType as MediaType) || "image";
+      let originalFileName: string =
+        (displayProduct as any).originalFileName ?? "";
 
-      // メディア（アップロード or 既存）
-      let mediaURL = editing?.mediaURL ?? "";
-      let mediaType: MediaType = (editing?.mediaType ?? "image") as MediaType;
-
+      // 画像/動画アップロード（現状 file は null 運用）
       if (file) {
-        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
+        const isVideo = file.type.startsWith("video/");
+        mediaType = isVideo ? "video" : "image";
+
         const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
+        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
         if (!isValidImage && !isValidVideo) {
-          alert("対応形式：画像（JPEG, PNG, WEBP, GIF）／動画（MP4, MOV など）");
-          throw new Error("invalid file type");
+          alert("対応形式ではありません");
+          setSaving(false);
+          return;
+        }
+        if (isVideo && file.size > 50 * 1024 * 1024) {
+          alert("動画は 50 MB 未満にしてください");
+          setSaving(false);
+          return;
         }
 
-        setProgress(0);
-        setUploadingPercent(0);
+        const ext = isVideo ? extFromMime(file.type) : "jpg";
+        const uploadFile = isVideo
+          ? file
+          : await imageCompression(file, {
+              maxWidthOrHeight: 1200,
+              maxSizeMB: 0.7,
+              useWebWorker: true,
+              fileType: "image/jpeg",
+              initialQuality: 0.8,
+            });
 
-        const up = await uploadProductMedia({
-          file,
-          siteKey: SITE_KEY,
-          docId: id,
-          previousType: editing?.mediaType,
-          onProgress: (pct) => {
-            setProgress(pct);
-            setUploadingPercent(pct);
-          },
+        const storageRef = ref(
+          getStorage(),
+          `products/public/${SITE_KEY}/${product.id}.${ext}`
+        );
+        const task = uploadBytesResumable(storageRef, uploadFile, {
+          contentType: isVideo ? file.type : "image/jpeg",
         });
-        mediaURL = up.mediaURL;
-        mediaType = up.mediaType;
 
+        setUploadingPercent(0);
+        setProgress(0);
+        task.on("state_changed", (s) => {
+          const pct = Math.round((s.bytesTransferred / s.totalBytes) * 100);
+          setProgress(pct);
+          setUploadingPercent(pct);
+        });
+        await task;
+
+        mediaURL = `${await getDownloadURL(storageRef)}?v=${uuid()}`;
+        originalFileName = file.name || originalFileName;
         setProgress(null);
         setUploadingPercent(null);
       }
 
-      // 本文（日本語=base、jaは翻訳しない）
-      const base: Base = { title: title.trim(), body: body.trim() };
-      const tAll = await translateAll(base.title, base.body);
-      const t: Tr[] = tAll.filter((x) => x.lang !== "ja");
-
-      // 価格（入力モードに応じて変換。保存は税込固定）
-      let priceIncl: number;
-      let priceExcl: number;
-      let priceInputMode: "incl" | "excl";
-
-      if (taxIncluded) {
-        // 税込入力 → そのまま税込に保存
-        priceIncl = rint(Number(price) || 0);
-        priceExcl = toExclYen(priceIncl);
-        priceInputMode = "incl";
-      } else {
-        // 税抜入力 → 税込へ変換して保存
-        priceExcl = rint(Number(price) || 0);
-        priceIncl = toInclYen(priceExcl);
-        priceInputMode = "excl";
+      const base = { title: title.trim(), body: (body ?? "").trim() };
+      let t: Tr[] = [];
+      try {
+        t = await translateAll(base.title, base.body);
+      } catch (e) {
+        console.warn("translateAll failed, continue without i18n fields", e);
+        t = [];
       }
 
-      const payload: any = {
+      const typed = typeof price === "number" ? price : Number(price) || 0;
+      let priceIncl = 0;
+      let priceExcl = 0;
+
+      if (taxIncluded) {
+        priceIncl = rint(typed);
+        priceExcl = toExclYen(priceIncl, TAX_RATE);
+      } else {
+        priceExcl = rint(typed);
+        priceIncl = toInclYen(priceExcl, TAX_RATE);
+      }
+
+      const payload = {
         title: base.title,
         body: base.body,
-        price: priceIncl,     // 互換のため price は常に「税込」
+        price: priceIncl, // 互換：税込
         priceIncl,
         priceExcl,
         taxRate: TAX_RATE,
-        taxIncluded: true,    // ストレージ上は常に税込を正とする
-        priceInputMode,       // 入力モードの記録（フォールバックに使用）
+        taxIncluded: true, // EC は表示/保存とも税込運用
         mediaURL,
         mediaType,
         base,
         t,
-      };
+        sectionId: selectedSectionId ?? null,
+        originalFileName: originalFileName || "",
+        updatedAt: serverTimestamp(),
+        published: !!published,
+      } as const;
 
-      const originalFileName = file?.name || (editing as any)?.originalFileName;
-      if (originalFileName) payload.originalFileName = originalFileName;
-      if (formMode === "add") payload.sectionId = formSectionId || null;
+      await updateDoc(
+        doc(db, "siteProducts", SITE_KEY, "items", product.id),
+        payload
+      );
 
-      if (formMode === "edit" && editing) {
-        await updateDoc(doc(productColRef, id), payload);
-      } else {
-        await addDoc(productColRef, { ...payload, createdAt: serverTimestamp() });
-      }
+      // ローカル反映
+      setDisplayProduct((prev) => ({
+        ...(prev as ProductDoc),
+        ...payload,
+      }));
 
-      setProgress(null);
-      setUploadingPercent(null);
-      closeForm();
-    } catch (e) {
-      console.error(e);
-      alert("保存に失敗しました。対応形式や容量をご確認ください。");
+      setShowEdit(false);
+    } catch (err) {
+      console.error(err);
+      alert("保存に失敗しました");
       setProgress(null);
       setUploadingPercent(null);
     } finally {
       setSaving(false);
     }
-  }, [
-    uploading,
-    title,
-    body,
-    price,
-    formMode,
-    file,
-    editing,
-    formSectionId,
-    productColRef,
-    closeForm,
-    taxIncluded,
-  ]);
+  };
 
-  if (!gradient) return null;
+  // 削除
+  const handleDelete = async () => {
+    if (!confirm(`「${displayProduct.title}」を削除しますか？`)) return;
+    const storage = getStorage();
+    try {
+      if (displayProduct.mediaURL) {
+        const fileRef = ref(storage, displayProduct.mediaURL);
+        try {
+          await deleteObject(fileRef);
+        } catch (err: any) {
+          if (err?.code === "storage/object-not-found") {
+            console.warn("Storage: 既に削除済みの可能性があります");
+          } else {
+            console.warn("Storage削除エラー（続行します）:", err);
+          }
+        }
+      }
+      await deleteDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id));
+      router.back();
+    } catch (e) {
+      console.error(e);
+      alert("削除に失敗しました");
+    }
+  };
+
+  const handleAddToCart = () => {
+    if (navigatingBack) return; // 連打対策
+
+    // 内部値は JPY 税込で扱う（表示は多通貨でも OK）
+    const unitIncl =
+      (displayProduct as any).priceIncl ??
+      (typeof displayProduct.price === "number"
+        ? displayProduct.price
+        : toInclYen(Number(displayProduct.price || 0), TAX_RATE));
+
+    if (!Number.isFinite(unitIncl) || unitIncl <= 0) {
+      alert("価格が設定されていません");
+      return;
+    }
+
+    const count = Math.max(1, qty);
+
+    // 多言語タイトルを使用してカートへ投入
+    const localizedName = pickLocalized(displayProduct, uiLang).title;
+
+    addToCart({
+      productId: displayProduct.id,
+      name: localizedName, // ← ここを多言語化
+      unitAmount: unitIncl,
+      qty: count,
+      imageUrl: displayProduct.mediaURL,
+    });
+
+    // トーストにも多言語名を反映
+    setAddedToast({ name: localizedName, qty: count });
+
+    setTimeout(() => setAddedToast(null), TOAST_DURATION_MS);
+
+    setNavigatingBack(true);
+    setTimeout(() => {
+      router.back();
+    }, TOAST_DURATION_MS);
+  };
+
+  function CartToast({
+    open,
+    name,
+    qty,
+    imageUrl,
+    toastText,
+    durationMs = 5000,
+  }: {
+    open: boolean;
+    name: string;
+    qty: number;
+    imageUrl?: string;
+    toastText: string;
+    durationMs?: number;
+  }) {
+    return (
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            initial={{ y: -40, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -30, opacity: 0, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 250, damping: 22 }}
+            className="fixed top-20 left-1/2 z-50 -translate-x-1/2"
+          >
+            <div
+              className={[
+                "flex items-center gap-4 px-5 py-4 rounded-2xl shadow-2xl ring-1 backdrop-blur-md w-[90vw] max-w-md sm:max-w-lg",
+                "bg-white text-gray-800 ring-gray-200",
+              ].join(" ")}
+            >
+              <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-gray-200 shadow-md">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl || "/images/placeholder.jpg"}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500 animate-scaleIn" />
+                  <span>{toastText}</span>
+                </div>
+                <p className="mt-1 text-sm opacity-90 truncate">
+                  {name} ×{qty}
+                </p>
+
+                <div className="mt-2 h-1 bg-gray-200 rounded-full overflow-hidden">
+                  <motion.div
+                    key="progress"
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{
+                      duration: durationMs / 1000,
+                      ease: "easeInOut",
+                    }}
+                    className="h-full bg-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  if (!displayProduct) {
+    return (
+      <main className="min-h-screen flex items-center justify-center pt-24">
+        <CardSpinner />
+      </main>
+    );
+  }
+
+  const loc = pickLocalized(displayProduct, uiLang);
+
+  // 表示は常に税込：priceIncl があればそれ、なければ price を使い、最終手段で計算
+  const displayIncl =
+    (displayProduct as any).priceIncl ??
+    (typeof displayProduct.price === "number"
+      ? displayProduct.price
+      : toInclYen(Number(displayProduct.price || 0), TAX_RATE));
+
+  // ★ 通貨変換して表示
+  const priceText = formatPriceByLang(displayIncl, uiLang, rates);
+
+  // ★ トーストの多言語文言（商品名を含む）
+  const toastText = addedToCartText(uiLang, loc.title);
 
   return (
-    <main className="max-w-5xl mx-auto p-4 pt-10">
+    <main className="min-h-screen flex items-start justify-center p-4 pt-24">
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
 
-      {/* ヘッダー */}
-      <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        {/* セクションピッカー */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-white text-outline opacity-70">表示カテゴリ:</label>
-          <div className="relative inline-block">
-            <select
-              className={clsx(
-                "border rounded px-3 py-2 pr-8",
-                "text-transparent caret-transparent selection:bg-transparent",
-                "appearance-none"
-              )}
-              value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
-            >
-              <option value="all">{ALL_CATEGORY_T[uiLang] ?? ALL_CATEGORY_T.ja}</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {sectionTitleLoc(s, uiLang)}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white text-outline"
-            >
-              {currentSectionLabel}
-            </span>
-          </div>
-        </div>
-
-        {isAdmin && (
-          <button
-            onClick={() => setShowSecModal(true)}
-            className="px-3 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700"
-          >
-            セクション管理
-          </button>
+      {/* 追加完了トースト */}
+      <div
+        aria-live="polite"
+        className={clsx(
+          "fixed left-1/2 -translate-x-1/2 top-16 z-40",
+          addedToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2",
+          "transition-all duration-300"
+        )}
+      >
+        {addedToast && (
+          <CartToast
+            open={!!addedToast}
+            name={addedToast?.name || ""}
+            qty={addedToast?.qty || 1}
+            imageUrl={displayProduct.mediaURL}
+            toastText={toastText}
+            durationMs={TOAST_DURATION_MS}
+          />
         )}
       </div>
 
-      {/* セクション管理モーダル */}
-      {showSecModal && (
-        <SectionManagerModal
-          open={showSecModal}
-          onClose={() => setShowSecModal(false)}
-          sections={sections}
-          saving={saving}
-          newSecName={newSecName}
-          setNewSecName={setNewSecName}
-          onAddSection={async (titleJa) => {
-            const t = await translateSectionTitleAll(titleJa);
-            await addSection(titleJa, t);
-          }}
-          onRemoveSection={removeSection}
-          onReorderSection={reorderSections}
-        />
-      )}
-
-      {/* 商品一覧（DnD） */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-        modifiers={[restrictToWindowEdges]}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3 }}
+        className={clsx(
+          "border rounded-lg overflow-hidden shadow relative transition-colors duration-200",
+          "w-full max-w-md",
+          "bg-gradient-to-b",
+          "mt-5",
+          gradient,
+          isDark ? "bg-black/40 text-white" : "bg-white"
+        )}
       >
-        <SortableContext items={list.map((p) => p.id)} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {list.map((p) => {
-              const loc = displayOf(p, uiLang);
+        {isAdmin && (
+          <div className="absolute top-2 right-2 z-20 flex items-center gap-2">
+            {/* 公開/非公開バッジ */}
+            <span
+              className={clsx(
+                "px-2 py-1 rounded text-xs font-semibold",
+                displayProduct.published !== false
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-200 text-gray-700"
+              )}
+            >
+              {displayProduct.published !== false ? "公開" : "非公開"}
+            </span>
 
-              // <<<<<< ここで“必ず税込”に正規化して表示 >>>>>>
-              const amountJPY = deriveInclJPY(p);
-              const { text, approx } = formatPriceFromJPY(amountJPY, uiLang, rates);
-
-              return (
-                <SortableItem key={p.id} product={p}>
-                  {({ listeners, attributes, isDragging }) => (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                      transition={{ duration: 0.3 }}
-                      onClick={() => {
-                        if (isDragging) return;
-                        router.push(`/products/${p.id}`);
-                      }}
-                      className={clsx(
-                        "flex flex-col h-full border shadow relative transition-colors duration-200 rounded-2xl",
-                        "bg-gradient-to-b",
-                        gradient,
-                        isDragging ? "bg-yellow-100" : "bg-transparent",
-                        "backdrop-blur-sm",
-                        "ring-1 ring-white/10"
-                      )}
-                    >
-                      {auth.currentUser !== null && (
-                        <div
-                          {...attributes}
-                          {...listeners}
-                          onClick={(e) => e.stopPropagation()}
-                          onContextMenu={(e) => e.preventDefault()}
-                          draggable={false}
-                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3"
-                          role="button"
-                          aria-label="並び替え"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
-                            <Pin className="text-black" />
-                          </div>
-                        </div>
-                      )}
-
-                      <ProductMedia src={p.mediaURL} type={p.mediaType} className="rounded-t-xl" />
-
-                      <div className="p-1 space-y-1">
-                        <h2 className="text-white text-outline">
-                          {loc.title || (p as any).title || "（無題）"}
-                        </h2>
-                        <p className="text-white text-outline">
-                          {approx ? "≈ " : ""}
-                          {text}（{taxT.incl}）
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </SortableItem>
-              );
-            })}
+            <button
+              onClick={() => setShowEdit(true)}
+              className="px-2 py-1 bg-blue-600 text-white text-md rounded shadow disabled:opacity-50"
+              type="button"
+            >
+              編集
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-2 py-1 bg-red-600 text-white text-md rounded shadow disabled:opacity-50"
+              type="button"
+            >
+              削除
+            </button>
           </div>
-        </SortableContext>
-      </DndContext>
+        )}
 
-      {/* 新規商品追加ボタン */}
-      {isAdmin && formMode === null && (
-        <button
-          onClick={openAdd}
-          aria-label="新規追加"
-          disabled={uploading}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
-        >
-          <Plus size={28} />
-        </button>
-      )}
+        {/* メディア */}
+        {displayProduct.mediaType === "video" ? (
+          <video
+            src={displayProduct.mediaURL}
+            muted
+            playsInline
+            autoPlay
+            loop
+            preload="auto"
+            className="w-full aspect-square object-cover"
+          />
+        ) : (
+          <div className="relative w-full aspect-square">
+            <Image
+              src={displayProduct.mediaURL || "/images/placeholder.jpg"}
+              alt={loc.title || displayProduct.title}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              unoptimized
+            />
+          </div>
+        )}
 
-      {/* 新規/編集モーダル（中央表示） */}
-      {isAdmin && formMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        {/* テキスト */}
+        <div className="p-4 space-y-3">
+          <h1 className={clsx("text-lg font-bold", isDark && "text-white")}>
+            {loc.title}
+          </h1>
+          <p className={clsx("font-semibold", isDark && "text-white")}>
+            {priceText}（{taxT.incl}）
+          </p>
+          {loc.body && (
+            <p
+              className={clsx(
+                "text-sm whitespace-pre-wrap leading-relaxed",
+                isDark && "text-white"
+              )}
+            >
+              {loc.body}
+            </p>
+          )}
+
+          {/* 数量ステッパー + カート */}
+          <div className="flex items-center gap-2 pt-2">
+            <label className="text-sm sr-only">数量</label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => stepQty(-1)}
+                aria-label="数量を1減らす"
+                className="h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]"
+              >
+                −
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                aria-label="数量を入力"
+                className="w-20 h-11 border rounded-xl text-center text-lg"
+                value={String(qty)}
+                onChange={(e) => handleQtyInput(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => stepQty(1)}
+                aria-label="数量を1増やす"
+                className="h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]"
+              >
+                ＋
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={navigatingBack}
+              className="ml-auto h-11 px-4 rounded-xl bg-black text-white font-semibold disabled:opacity-50"
+              aria-label={cartBtnLabel}
+            >
+              {cartBtnLabel}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 編集モーダル（編集UIは税区分選べるが保存は税込統一＋両方保存） */}
+      {isAdmin && showEdit && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
-            <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "商品を編集" : "新規商品追加"}
-            </h2>
+            <h2 className="text-xl font-bold text-center">商品を編集</h2>
 
-            {formMode === "add" && (
-              <div className="flex flex-col gap-1">
-                <label className="text-sm">セクション（カテゴリー）</label>
-                <select
-                  value={formSectionId}
-                  onChange={(e) => setFormSectionId(e.target.value)}
-                  className="w-full border px-3 h-10 rounded bg-white"
-                >
-                  <option value="">未設定</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.base?.title ?? ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <input
-              type="text"
-              placeholder="商品名"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
-            />
-
-            <input
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="価格 (円)"
-              value={price}
-              onChange={(e) => setPrice(e.target.value === "" ? "" : Number(e.target.value))}
-              className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
-            />
-
-            <div className="flex gap-4">
-              <label>
-                <input type="radio" checked={taxIncluded} onChange={() => setTaxIncluded(true)} />
-                税込
-              </label>
-              <label>
-                <input type="radio" checked={!taxIncluded} onChange={() => setTaxIncluded(false)} />
-                税抜
+            {/* 公開/非公開 */}
+            <div className="flex items-center justify-between border rounded px-3 py-2">
+              <span className="text-sm">公開設定</span>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!published}
+                  onChange={(e) => setPublished(e.target.checked)}
+                />
+                <span className="text-sm">
+                  {published ? "公開（表示）" : "非公開（非表示）"}
+                </span>
               </label>
             </div>
 
-            <textarea
-              placeholder="紹介文"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              rows={4}
-              disabled={uploading}
-            />
-
-            {/* AI 紹介文生成（キーワード入力モーダル起動） */}
-            <button
-              onClick={() => setShowKeywordModal(true)}
-              disabled={uploading || aiLoading}
-              className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {aiLoading ? "生成中…" : "AIで紹介文を生成（キーワード指定）"}
-            </button>
-
-            <input
-              type="file"
-              accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                const isVideo = f.type.startsWith("video/");
-                if (!isVideo) {
-                  setFile(f);
-                  return;
-                }
-                const blobURL = URL.createObjectURL(f);
-                const vid = document.createElement("video");
-                vid.preload = "metadata";
-                vid.src = blobURL;
-                vid.onloadedmetadata = () => {
-                  URL.revokeObjectURL(blobURL);
-                  if (vid.duration > MAX_VIDEO_SEC) {
-                    alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
-                    (e.target as HTMLInputElement).value = "";
-                    return;
-                  }
-                  setFile(f);
-                };
-              }}
-              className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-              disabled={uploading}
-            />
-
-            {(formMode === "edit" && (editing as any)?.originalFileName) && (
-              <p className="text-sm text-gray-600">現在のファイル: {(editing as any).originalFileName}</p>
-            )}
-
             <div className="flex gap-2 justify-center">
               <button
-                onClick={saveProduct}
+                onClick={handleSave}
                 disabled={uploading}
                 className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+                type="button"
               >
-                {formMode === "edit" ? "更新" : "追加"}
+                更新
               </button>
               <button
-                onClick={closeForm}
+                onClick={() => !uploading && setShowEdit(false)}
                 disabled={uploading}
                 className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
+                type="button"
               >
                 閉じる
               </button>
@@ -755,16 +858,6 @@ export default function ProductsClient() {
           </div>
         </div>
       )}
-
-      {/* キーワード入力モーダル */}
-      <KeywordModal
-        open={showKeywordModal}
-        onClose={() => setShowKeywordModal(false)}
-        onSubmit={(kws) => {
-          setShowKeywordModal(false);
-          handleGenerateBody(kws);
-        }}
-      />
     </main>
   );
 }
