@@ -101,7 +101,7 @@ type ProductDoc = {
 };
 
 /* ===================== 定数 ===================== */
-const COL_PATH = `siteProducts/${SITE_KEY}/items`;
+const COL_PATH = `siteProjects/${SITE_KEY}/items`;
 const MAX_VIDEO_SEC = 60;
 
 /* ===================== ユーティリティ ===================== */
@@ -167,11 +167,12 @@ function SortableItem({
 }
 
 /* ===================== 本体 ===================== */
-export default function ProductsClient() {
+export default function ProjectsClient() {
   const router = useRouter();
 
   // 一覧・権限
   const [list, setList] = useState<ProductDoc[]>([]);
+  const [listLoaded, setListLoaded] = useState(false); // 👈 追加：初回購読完了フラグ
   const [isAdmin, setIsAdmin] = useState(false);
 
   // 言語
@@ -182,7 +183,6 @@ export default function ProductsClient() {
   const [editing, setEditing] = useState<ProductDoc | null>(null);
   const [titleJa, setTitleJa] = useState("");
   const [bodyJa, setBodyJa] = useState("");
-
 
   // メディア
   const [file, setFile] = useState<File | null>(null);
@@ -273,6 +273,7 @@ export default function ProductsClient() {
 
       setLastVisible(snap.docs.at(-1) ?? null);
       setHasMore(snap.docs.length === 20);
+      setListLoaded(true); // 👈 最初のスナップショット受信
     });
 
     return () => unsubscribe();
@@ -427,7 +428,7 @@ export default function ProductsClient() {
 
         const sref = storageRef(
           getStorage(),
-          `products/public/${SITE_KEY}/${id}.${ext}`
+          `projects/public/${SITE_KEY}/${id}.${ext}`
         );
         const task = uploadBytesResumable(sref, uploadFile, {
           contentType: isVideo ? file.type : "image/jpeg",
@@ -460,7 +461,7 @@ export default function ProductsClient() {
             await deleteObject(
               storageRef(
                 getStorage(),
-                `products/public/${SITE_KEY}/${id}.${oldExt}`
+                `projects/public/${SITE_KEY}/${id}.${oldExt}`
               )
             ).catch(() => {});
           }
@@ -534,98 +535,112 @@ export default function ProductsClient() {
     <main className="max-w-5xl mx-auto p-4 pt-20">
       <BusyOverlay uploadingPercent={progress} saving={saving} />
 
-      {/* 一覧 */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={list.map((p) => p.id)}
-          strategy={verticalListSortingStrategy}
+      {/* 空状態（初回ロード後に件数0なら表示） */}
+      {listLoaded && list.length === 0 ? (
+        <div className="mt-16 flex items-center justify-center">
+          <div className="rounded-2xl border bg-white/30 backdrop-blur px-6 py-8 text-center shadow">
+            <p className="text-black">準備中...</p>
+            {isAdmin && (
+              <p className="text-gray-400 text-sm mt-1">
+                右下の「＋」から新規追加できます
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* 一覧 */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
-            {list.map((p) => {
-              const loc = displayOf(p, uiLang);
-              const storeName = p.storeLink?.storeId
-                ? storeOptions.find((s) => s.id === p.storeLink!.storeId)?.title
-                : undefined;
-              return (
-                <SortableItem key={p.id} product={p}>
-                  {({ listeners, attributes, isDragging }) => (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                      transition={{ duration: 0.3 }}
-                      onClick={() => router.push(`/products/${p.id}`)}
-                      className="relative cursor-pointer h-full"
-                    >
-                      {/* DnD ハンドル */}
-                      {auth.currentUser && (
+          <SortableContext
+            items={list.map((p) => p.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-2 items-stretch">
+              {list.map((p) => {
+                const loc = displayOf(p, uiLang);
+                const storeName = p.storeLink?.storeId
+                  ? storeOptions.find((s) => s.id === p.storeLink!.storeId)?.title
+                  : undefined;
+                return (
+                  <SortableItem key={p.id} product={p}>
+                    {({ listeners, attributes, isDragging }) => (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ duration: 0.3 }}
+                        onClick={() => router.push(`/projects/${p.id}`)}
+                        className="relative cursor-pointer h-full"
+                      >
+                        {/* DnD ハンドル */}
+                        {auth.currentUser && (
+                          <div
+                            {...attributes}
+                            {...listeners}
+                            onClick={(e) => e.stopPropagation()}
+                            onContextMenu={(e) => e.preventDefault()}
+                            draggable={false}
+                            className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3 touch-none"
+                            role="button"
+                            aria-label="並び替え"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
+                              <Pin />
+                            </div>
+                          </div>
+                        )}
+
                         <div
-                          {...attributes}
-                          {...listeners}
-                          onClick={(e) => e.stopPropagation()}
-                          onContextMenu={(e) => e.preventDefault()}
-                          draggable={false}
-                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3 touch-none"
-                          role="button"
-                          aria-label="並び替え"
+                          className={clsx(
+                            "flex h-full flex-col border rounded-lg overflow-hidden shadow-xl transition-colors duration-200",
+                            "bg-gradient-to-b",
+                            gradient,
+                            isDragging ? "bg-yellow-100" : "bg-white",
+                            !isDragging && "hover:shadow-lg"
+                          )}
                         >
-                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
-                            <Pin />
+                          {/* メディア */}
+                          <ProductMedia
+                            src={p.mediaURL}
+                            type={p.mediaType}
+                            alt={loc.title || "project"}
+                            className="shadow-lg"
+                          />
+
+                          {/* 情報 */}
+                          <div className="p-3 space-y-1">
+                            <h2 className="text-white text-outline">
+                              {loc.title || "（無題）"}
+                            </h2>
+
+                            {/* 店舗名＋Googleマップ */}
+                            {p.storeLink?.placeId && (
+                              <a
+                                href={mapsUrlFromPlaceId(p.storeLink.placeId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-700 underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {storeName
+                                  ? `${storeName} をGoogleマップで見る`
+                                  : "Googleマップで見る"}
+                              </a>
+                            )}
                           </div>
                         </div>
-                      )}
-
-                      <div
-                        className={clsx(
-                          "flex h-full flex-col border rounded-lg overflow-hidden shadow-xl transition-colors duration-200",
-                          "bg-gradient-to-b",
-                          gradient,
-                          isDragging ? "bg-yellow-100" : "bg-white",
-                          !isDragging && "hover:shadow-lg"
-                        )}
-                      >
-                        {/* メディア */}
-                        <ProductMedia
-                          src={p.mediaURL}
-                          type={p.mediaType}
-                          alt={loc.title || "product"}
-                          className="shadow-lg"
-                        />
-
-                        {/* 情報 */}
-                        <div className="p-3 space-y-1">
-                          <h2 className="text-white text-outline">
-                            {loc.title || "（無題）"}
-                          </h2>
-
-                          {/* 店舗名＋Googleマップ */}
-                          {p.storeLink?.placeId && (
-                            <a
-                              href={mapsUrlFromPlaceId(p.storeLink.placeId)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-700 underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {storeName
-                                ? `${storeName} をGoogleマップで見る`
-                                : "Googleマップで見る"}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </SortableItem>
-              );
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
+                      </motion.div>
+                    )}
+                  </SortableItem>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
 
       {/* 追加 FAB */}
       {isAdmin && !formMode && (

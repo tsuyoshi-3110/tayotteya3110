@@ -31,7 +31,6 @@ import { auth, db } from "@/lib/firebase";
 import type { FieldValue } from "firebase/firestore";
 
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import { ThemeKey, THEMES } from "@/lib/themes";
 import CardSpinner from "./CardSpinner";
 import { Button } from "./ui/button";
 
@@ -57,6 +56,7 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 import StoreReviews from "./StoreReviews";
+import { BusyOverlay } from "./BusyOverlay";
 
 /* ======================== 定数/型 ======================== */
 const STORE_COL = `siteStores/${SITE_KEY}/items`;
@@ -221,11 +221,6 @@ export default function StoresClient() {
   const [worksAlbumTag, setWorksAlbumTag] = useState<string>("works");
 
   const gradient = useThemeGradient(); // isDark 判定に使用
-  const isDark = useMemo(() => {
-    const darkThemes: ThemeKey[] = ["brandG", "brandH", "brandI"];
-    if (!gradient) return false;
-    return darkThemes.some((k) => gradient === THEMES[k]);
-  }, [gradient]);
 
   const colRef: CollectionReference<DocumentData> = useMemo(
     () => collection(db, STORE_COL),
@@ -590,6 +585,7 @@ export default function StoresClient() {
 
   return (
     <main className="max-w-5xl mx-auto p-4 mt-20">
+      <BusyOverlay uploadingPercent={progress} saving={submitFlag && !uploading} />
       {/* ===== Google連携（管理者のみ見える） ===== */}
       {isAdmin && (
         <div className="mb-6 rounded-lg border bg-white/70 p-4 shadow-sm">
@@ -701,12 +697,12 @@ export default function StoresClient() {
                       locDescription={loc.description ?? ""}
                       isAdmin={isAdmin}
                       isDragging={isDragging}
-                      isDark={isDark}
                       listeners={listeners}
                       attributes={attributes}
                       onEdit={openEdit}
                       onRemove={removeStore}
                       googleEnabled={googleEnabled}
+                      gradientClass={`bg-gradient-to-b ${gradient}`}
                     />
                   )}
                 </SortableStoreItem>
@@ -760,6 +756,20 @@ export default function StoresClient() {
                 <label className="text-sm font-medium text-gray-700">
                   紹介文（任意）
                 </label>
+                <button
+                  type="button"
+                  className="text-xs text-indigo-600 underline disabled:opacity-50"
+                  onClick={() => {
+                    if (!name.trim() || !address.trim()) {
+                      alert("店舗名と住所を先に入力してください");
+                      return;
+                    }
+                    setShowAIModal(true);
+                  }}
+                  disabled={uploading || submitFlag}
+                >
+                  AIで紹介文を生成
+                </button>
               </div>
               <textarea
                 placeholder="紹介文（日本語）"
@@ -771,22 +781,23 @@ export default function StoresClient() {
               />
             </div>
 
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="inline-flex items-center gap-2 rounded-md w-full h-10 bg-purple-500 hover:bg-purple-600 active:scale-[0.98] text-white"
-              onClick={() => {
-                if (!name.trim() || !address.trim()) {
-                  alert("店舗名と住所を先に入力してください");
-                  return;
-                }
-                setShowAIModal(true);
-              }}
-              disabled={uploading || submitFlag}
-            >
-              AIで紹介文を生成
-            </Button>
+            {/* 口コミ表示ON/OFF（個別） */}
+            <div className="mb-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showReviews}
+                  onChange={(e) => setShowReviews(e.target.checked)}
+                  disabled={uploading || submitFlag}
+                />
+                <span>この店舗で Google 口コミを表示する</span>
+              </label>
+              {!editingStore?.geo?.placeId && (
+                <div className="mt-1 text-xs text-gray-500">
+                  ※ Place ID が未設定の場合は、ONでも表示されません。
+                </div>
+              )}
+            </div>
 
             {/* 画像 */}
             <div className="mb-3">
@@ -955,12 +966,12 @@ interface StoreCardProps {
   locDescription: string;
   isAdmin: boolean;
   isDragging: boolean;
-  isDark: boolean;
   listeners: any;
   attributes: any;
   onEdit: (store: StoreDoc) => void;
   onRemove: (store: StoreDoc) => void;
   googleEnabled: boolean;
+  gradientClass: string;
 }
 
 function StoreCard({
@@ -975,6 +986,7 @@ function StoreCard({
   onEdit,
   onRemove,
   googleEnabled,
+  gradientClass,
 }: StoreCardProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -150px 0px" });
@@ -993,78 +1005,26 @@ function StoreCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={clsx(
-        "rounded-lg shadow relative mt-6 overflow-hidden",
-        isDragging ? "bg-yellow-100" : "bg-white/30"
+        "relative overflow-visible rounded-lg shadow mt-6", // ★ ここを overflow-visible に変更（ピンがはみ出しても表示）
+        "bg-gradient-to-b",
+        isDragging ? "bg-yellow-100" : gradientClass
       )}
     >
-      {/* ====== ヘッダー行（ドラッグハンドル + 管理者操作） ====== */}
-      {(auth.currentUser !== null || isAdmin) && (
-        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-2">
-          {/* ドラッグハンドル */}
-          {auth.currentUser !== null && (
-            <div
-              {...attributes}
-              {...listeners}
-              onTouchStart={(e) => e.preventDefault()}
-              className="cursor-grab active:cursor-grabbing touch-none select-none"
-            >
-              <div className="w-8 h-8 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow ring-1 ring-black/10 backdrop-blur">
-                <Pin className="w-4 h-4" />
-              </div>
-            </div>
-          )}
-
-          {/* 管理者用操作群 */}
-          {isAdmin && (
-            <div className="flex flex-wrap items-center gap-2">
-              {/* 口コミ表示トグル */}
-              <label
-                className={clsx(
-                  "flex items-center gap-1 rounded px-2 py-1 text-xs ring-1",
-                  "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
-                  !s.geo?.placeId && "opacity-50"
-                )}
-                title={
-                  s.geo?.placeId
-                    ? "この店舗の口コミ表示を切替"
-                    : "Place ID が未設定です"
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={s.showReviews ?? true}
-                  onChange={async (e) => {
-                    await updateDoc(doc(db, STORE_COL, s.id), {
-                      showReviews: e.target.checked,
-                      updatedAt: serverTimestamp(),
-                    });
-                  }}
-                  disabled={!s.geo?.placeId}
-                />
-                <span>口コミ表示</span>
-              </label>
-
-              {/* 編集/削除 */}
-              <button
-                className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
-                onClick={() => onEdit(s)}
-              >
-                編集
-              </button>
-              <button
-                className="px-2 py-1 bg-red-600 text-white rounded text-xs"
-                onClick={() => onRemove(s)}
-              >
-                削除
-              </button>
-            </div>
-          )}
+      {auth.currentUser !== null && (
+        <div
+          {...attributes}
+          {...listeners}
+          onTouchStart={(e) => e.preventDefault()}
+          className="absolute -top-5 left-1/2 -translate-x-1/2 z-30 cursor-grab active:cursor-grabbing touch-none select-none"
+        >
+          <div className="w-10 h-10 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow-md ring-1 ring-black/10 backdrop-blur">
+            <Pin className="w-5 h-5" />
+          </div>
         </div>
       )}
 
-      {/* ====== 画像エリア ====== */}
       {s.imageURL && (
-        <div className="relative w-full aspect-[1/1] overflow-hidden">
+        <div className="relative w-full aspect-[1/1] overflow-hidden rounded-t-lg">
           <Image
             src={s.imageURL}
             alt={locName || s.name}
@@ -1075,11 +1035,8 @@ function StoreCard({
         </div>
       )}
 
-      {/* ====== 本文エリア ====== */}
-      <div className={clsx("p-4 space-y-2")}>
-        <h2 className="text-xl font-semibold whitespace-pre-wrap text-white text-outline">
-          {locName}
-        </h2>
+      <div className={clsx("p-4 space-y-2", "text-white text-outline")}>
+        <h2 className="text-xl font-semibold whitespace-pre-wrap">{locName}</h2>
 
         <div className="text-sm">
           {primaryAddr && (
@@ -1087,10 +1044,7 @@ function StoreCard({
               href={buildMapsHref(s)}
               target="_blank"
               rel="noopener noreferrer"
-              className={clsx(
-                "underline",
-                "text-blue-700 hover:text-blue-900 "
-              )}
+              className={clsx("underline")}
             >
               {primaryAddr}
             </a>
@@ -1103,12 +1057,10 @@ function StoreCard({
         </div>
 
         {locDescription && (
-          <p className="text-sm whitespace-pre-wrap text-white text-outline">
-            {locDescription}
-          </p>
+          <p className="text-sm whitespace-pre-wrap">{locDescription}</p>
         )}
 
-        {/* 口コミ表示 */}
+        {/* ★ 店舗個別フラグ + グローバル + placeId が揃ったときだけ表示 */}
         {canShowReviews && (
           <StoreReviews
             placeId={s.geo!.placeId!}
@@ -1116,7 +1068,7 @@ function StoreCard({
           />
         )}
 
-        {/* 管理者向けヒント */}
+        {/* 管理者向け：geo未設定や非表示時のヒント */}
         {isAdmin && !s.geo?.placeId && (
           <div className="mt-2 text-xs text-amber-600">
             ※ この店舗は <code>geo.placeId</code>{" "}
@@ -1129,6 +1081,50 @@ function StoreCard({
           </div>
         )}
       </div>
+
+      {/* 管理者用：右上操作群（個別トグル付き） */}
+      {isAdmin && (
+        <div className="absolute top-2 right-2 flex gap-2 items-center">
+          <label
+            className={clsx(
+              "flex items-center gap-1 rounded px-2 py-1 text-xs ring-1",
+              "bg-white/80 text-gray-800 ring-black/10 backdrop-blur",
+              !s.geo?.placeId && "opacity-50"
+            )}
+            title={
+              s.geo?.placeId
+                ? "この店舗の口コミ表示を切替"
+                : "Place ID が未設定です"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={s.showReviews ?? true}
+              onChange={async (e) => {
+                await updateDoc(doc(db, STORE_COL, s.id), {
+                  showReviews: e.target.checked,
+                  updatedAt: serverTimestamp(),
+                });
+              }}
+              disabled={!s.geo?.placeId}
+            />
+            口コミ表示
+          </label>
+
+          <button
+            className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+            onClick={() => onEdit(s)}
+          >
+            編集
+          </button>
+          <button
+            className="px-2 py-1 bg-red-600 text-white rounded text-sm"
+            onClick={() => onRemove(s)}
+          >
+            削除
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 }

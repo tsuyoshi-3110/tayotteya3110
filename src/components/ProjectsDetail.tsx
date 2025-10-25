@@ -20,8 +20,6 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  collection,
-  getDocs,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -53,8 +51,6 @@ type ProductDoc = Product & {
   // 施工実績 ←→ 店舗の紐づけ（任意）
   storeLink?: { storeId: string; placeId?: string };
 };
-
-type StorePick = { id: string; title: string; placeId?: string };
 
 /* ---------- 多言語ユーティリティ ---------- */
 function pickLocalized(
@@ -98,15 +94,10 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
     .map((r) => r.value);
 }
 
-function mapsUrlFromPlaceId(placeId: string) {
-  // queryは任意文字列でOK。placeId優先で地点を開く
-  return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
-    placeId
-  )}`;
-}
+
 
 /* ---------- 本体 ---------- */
-export default function ProductDetail({ product }: { product: Product }) {
+export default function ProjectsDetail({ product }: { product: Product }) {
   const router = useRouter();
 
   // 権限
@@ -131,10 +122,6 @@ export default function ProductDetail({ product }: { product: Product }) {
   const [titleJa, setTitleJa] = useState(product.title ?? "");
   const [bodyJa, setBodyJa] = useState(product.body ?? "");
 
-  // 紐づく店舗選択
-  const [storeOptions, setStoreOptions] = useState<StorePick[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
-
   // メディア
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -152,7 +139,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   useEffect(() => {
     (async () => {
       // 商品読み直し
-      const docRef = doc(db, "siteProducts", SITE_KEY, "items", product.id);
+      const docRef = doc(db, "siteProjects", SITE_KEY, "items", product.id);
       const snap = await getDoc(docRef);
       const d = snap.data() as any;
       if (d) {
@@ -160,22 +147,8 @@ export default function ProductDetail({ product }: { product: Product }) {
         setDocData(merged);
         setTitleJa(merged.base?.title ?? merged.title ?? "");
         setBodyJa(merged.base?.body ?? merged.body ?? "");
-        setSelectedStoreId(merged.storeLink?.storeId ?? "");
       }
 
-      // 店舗候補（name と placeId）
-      const storesSnap = await getDocs(
-        collection(db, `siteStores/${SITE_KEY}/items`)
-      );
-      const opts: StorePick[] = storesSnap.docs.map((x) => {
-        const v = x.data() as any;
-        return {
-          id: x.id,
-          title: v?.base?.name || v?.name || "(無題の店舗)",
-          placeId: v?.geo?.placeId,
-        };
-      });
-      setStoreOptions(opts);
     })();
   }, [product.id, product]);
 
@@ -214,7 +187,7 @@ export default function ProductDetail({ product }: { product: Product }) {
     if (!titleJa.trim()) return alert("タイトルは必須です");
     setSaving(true);
     try {
-      const docRef = doc(db, "siteProducts", SITE_KEY, "items", product.id);
+      const docRef = doc(db, "siteProjects", SITE_KEY, "items", product.id);
 
       let mediaURL = docData.mediaURL;
       let mediaType: MediaType = (docData.mediaType as MediaType) ?? "image";
@@ -243,9 +216,10 @@ export default function ProductDetail({ product }: { product: Product }) {
               initialQuality: 0.8,
             });
 
+        // ▼ 保存先を projects に統一
         const sRef = storageRef(
           getStorage(),
-          `products/public/${SITE_KEY}/${product.id}.${ext}`
+          `projects/public/${SITE_KEY}/${product.id}.${ext}`
         );
         const task = uploadBytesResumable(sRef, uploadFile, {
           contentType: isVideo ? file.type : "image/jpeg",
@@ -272,12 +246,7 @@ export default function ProductDetail({ product }: { product: Product }) {
       const t = await translateAll(titleJa.trim(), bodyJa.trim());
       const base = { title: titleJa.trim(), body: bodyJa.trim() };
 
-      // 店舗リンク（選択されていれば placeId を拾う）
-      let storeLink: ProductDoc["storeLink"] | undefined;
-      if (selectedStoreId) {
-        const picked = storeOptions.find((o) => o.id === selectedStoreId);
-        storeLink = { storeId: selectedStoreId, placeId: picked?.placeId };
-      }
+
 
       await updateDoc(docRef, {
         base,
@@ -286,7 +255,6 @@ export default function ProductDetail({ product }: { product: Product }) {
         body: base.body,
         mediaURL,
         mediaType,
-        ...(storeLink ? { storeLink } : { storeLink: null }), // 未選択なら解除
         updatedAt: serverTimestamp(),
       });
 
@@ -298,7 +266,6 @@ export default function ProductDetail({ product }: { product: Product }) {
         body: base.body,
         mediaURL,
         mediaType,
-        ...(storeLink ? { storeLink } : { storeLink: undefined }),
       }));
 
       setShowEdit(false);
@@ -313,28 +280,33 @@ export default function ProductDetail({ product }: { product: Product }) {
 
   // 削除
   const handleDelete = async () => {
-    if (!confirm(`「${docData.title}」を削除しますか？`)) return;
+    // ▼ タイトルの null を避ける
+    const titleSafe = docData.base?.title ?? docData.title ?? "(無題)";
+    if (!confirm(`「${titleSafe}」を削除しますか？`)) return;
+
     const storage = getStorage();
+
+    // ▼ Firestore 側も siteProjects に統一
     await deleteDoc(
-      doc(db, "siteProducts", SITE_KEY, "items", product.id)
+      doc(db, "siteProjects", SITE_KEY, "items", product.id)
     ).catch(() => {});
+
     try {
-      const folderRef = storageRef(storage, `products/public/${SITE_KEY}`);
+      // ▼ Storage フォルダも projects に統一
+      const folderRef = storageRef(storage, `projects/public/${SITE_KEY}`);
       const listing = await listAll(folderRef);
       const mine = listing.items.filter((i) =>
         i.name.startsWith(`${product.id}.`)
       );
       await Promise.all(mine.map((item) => deleteObject(item).catch(() => {})));
     } catch {}
+
     router.back();
   };
 
   if (!gradient) return null;
 
-  // 紐づいた店舗の表示名
-  const linkedStoreName = docData.storeLink?.storeId
-    ? storeOptions.find((s) => s.id === docData.storeLink!.storeId)?.title
-    : undefined;
+
 
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
@@ -377,7 +349,7 @@ export default function ProductDetail({ product }: { product: Product }) {
           <div className="relative w-full aspect-square">
             <Image
               src={docData.mediaURL}
-              alt={display.title || docData.title}
+              alt={display.title || docData.title || "project"}
               fill
               className="object-cover"
               sizes="100vw"
@@ -408,22 +380,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             </p>
           )}
 
-          {/* 🔗 店舗リンク／Googleマップ */}
-          {docData.storeLink?.placeId && (
-            <a
-              href={mapsUrlFromPlaceId(docData.storeLink.placeId)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={clsx(
-                "inline-block text-sm underline mt-1",
-                "text-blue-700 hover:text-blue-900"
-              )}
-            >
-              {linkedStoreName
-                ? `${linkedStoreName} をGoogleマップで見る`
-                : "Googleマップで見る"}
-            </a>
-          )}
+         
         </div>
       </motion.div>
 

@@ -1,7 +1,7 @@
 // components/common/Header.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,14 +27,18 @@ import { doc, onSnapshot } from "firebase/firestore";
 type Keys =
   | "home"
   | "menuTitle"
-  | "products"
+  | "projects" // ★ 追加：旧 products（施工実績）
+  | "products" // ★ 新設：商品一覧
+  | "productsEC" // EC
+  | "cart" // EC
+  | "shipping" // EC 管理
   | "staffs"
   | "pricing"
   | "areas"
   | "stores"
   | "story"
   | "blog"
-  | "news" // ★ 追加
+  | "news"
   | "company"
   | "reserve"
   | "contact"
@@ -48,14 +52,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   ja: {
     menuTitle: "メニュー",
     home: "ホーム",
-    products: "施工実績",
+    projects: "施工実績", // ← 旧 products をこちらへ
+    products: "商品一覧", // ← 新しい products
+    productsEC: "オンラインショップ",
+    cart: "カート",
+    shipping: "EC管理",
     staffs: "スタッフ",
     pricing: "料金",
     areas: "対応エリア",
     stores: "店舗一覧",
     story: "私たちの思い",
     blog: "ブログ",
-    news: "お知らせ", // ★ 追加
+    news: "お知らせ",
     company: "会社概要",
     reserve: "ご予約はこちら",
     contact: "お問い合わせ",
@@ -68,14 +76,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   en: {
     menuTitle: "Menu",
     home: "Home",
-    products: "Projects",
+    projects: "Projects",
+    products: "Products",
+    productsEC: "Online Store",
+    cart: "Cart",
+    shipping: "Shipping Management",
     staffs: "Staff",
     pricing: "Pricing",
     areas: "Service Areas",
     stores: "Store List",
     story: "Our Story",
     blog: "Blog",
-    news: "News", // ★ 追加
+    news: "News",
     company: "Company Profile",
     reserve: "Book Here",
     contact: "Contact",
@@ -88,14 +100,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   zh: {
     menuTitle: "菜单",
     home: "首页",
-    products: "施工案例",
+    projects: "施工案例",
+    products: "商品一览",
+    productsEC: "网店",
+    cart: "购物车",
+    shipping: "EC管理",
     staffs: "员工",
     pricing: "价格",
     areas: "服务区域",
     stores: "门店列表",
     story: "我们的理念",
     blog: "博客",
-    news: "公告", // ★ 追加（お知らせ）
+    news: "公告",
     company: "公司简介",
     reserve: "点击预约",
     contact: "联系我们",
@@ -108,14 +124,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   "zh-TW": {
     menuTitle: "選單",
     home: "首頁",
-    products: "施工案例",
+    projects: "施工案例",
+    products: "商品一覽",
+    productsEC: "網路商店",
+    cart: "購物車",
+    shipping: "EC管理",
     staffs: "員工",
     pricing: "價格",
     areas: "服務範圍",
     stores: "門市列表",
     story: "我們的理念",
     blog: "部落格",
-    news: "最新消息", // ★ 追加
+    news: "最新消息",
     company: "公司簡介",
     reserve: "預約請點此",
     contact: "聯絡我們",
@@ -128,14 +148,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   ko: {
     menuTitle: "메뉴",
     home: "홈",
-    products: "시공 사례",
+    projects: "시공 사례",
+    products: "상품 목록",
+    productsEC: "온라인 스토어",
+    cart: "장바구니",
+    shipping: "배송 관리",
     staffs: "스태프",
     pricing: "요금",
     areas: "서비스 지역",
     stores: "매장 목록",
     story: "우리의 이야기",
     blog: "블로그",
-    news: "공지사항", // ★ 追加
+    news: "공지사항",
     company: "회사 소개",
     reserve: "예약하기",
     contact: "문의하기",
@@ -148,14 +172,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   fr: {
     menuTitle: "Menu",
     home: "Accueil",
-    products: "Réalisations",
+    projects: "Réalisations",
+    products: "Produits",
+    productsEC: "Boutique en ligne",
+    cart: "Panier",
+    shipping: "Gestion des expéditions",
     staffs: "Équipe",
     pricing: "Tarifs",
     areas: "Zones desservies",
     stores: "Liste des magasins",
     story: "Notre histoire",
     blog: "Blog",
-    news: "Actualités", // ★ 追加
+    news: "Actualités",
     company: "Profil de l’entreprise",
     reserve: "Réserver ici",
     contact: "Contact",
@@ -168,14 +196,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   es: {
     menuTitle: "Menú",
     home: "Inicio",
-    products: "Proyectos",
+    projects: "Proyectos",
+    products: "Productos",
+    productsEC: "Tienda en línea",
+    cart: "Carrito",
+    shipping: "Gestión de envíos",
     staffs: "Equipo",
     pricing: "Precios",
     areas: "Áreas de servicio",
     stores: "Lista de tiendas",
     story: "Nuestra historia",
     blog: "Blog",
-    news: "Noticias", // ★ 追加
+    news: "Noticias",
     company: "Perfil de la empresa",
     reserve: "Reservar aquí",
     contact: "Contacto",
@@ -188,14 +220,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   de: {
     menuTitle: "Menü",
     home: "Startseite",
-    products: "Referenzen",
+    projects: "Referenzen",
+    products: "Produkte",
+    productsEC: "Online-Shop",
+    cart: "Warenkorb",
+    shipping: "Versandverwaltung",
     staffs: "Team",
     pricing: "Preise",
     areas: "Einsatzgebiete",
     stores: "Filialübersicht",
     story: "Unsere Geschichte",
     blog: "Blog",
-    news: "Neuigkeiten", // ★ 追加
+    news: "Neuigkeiten",
     company: "Unternehmensprofil",
     reserve: "Hier buchen",
     contact: "Kontakt",
@@ -208,14 +244,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   pt: {
     menuTitle: "Menu",
     home: "Início",
-    products: "Projetos",
+    projects: "Projetos",
+    products: "Produtos",
+    productsEC: "Loja Online",
+    cart: "Carrinho",
+    shipping: "Gerenciamento de Envio",
     staffs: "Equipe",
     pricing: "Preços",
     areas: "Áreas de atendimento",
     stores: "Lista de lojas",
     story: "Nossa história",
     blog: "Blog",
-    news: "Notícias", // ★ 追加
+    news: "Notícias",
     company: "Perfil da empresa",
     reserve: "Reservar aqui",
     contact: "Contato",
@@ -228,14 +268,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   it: {
     menuTitle: "Menu",
     home: "Home",
-    products: "Progetti",
+    projects: "Progetti",
+    products: "Prodotti",
+    productsEC: "Negozio online",
+    cart: "Carrello",
+    shipping: "Gestione spedizioni",
     staffs: "Staff",
     pricing: "Prezzi",
     areas: "Aree servite",
     stores: "Elenco negozi",
     story: "La nostra storia",
     blog: "Blog",
-    news: "Notizie", // ★ 追加
+    news: "Notizie",
     company: "Profilo aziendale",
     reserve: "Prenota qui",
     contact: "Contatto",
@@ -248,14 +292,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   ru: {
     menuTitle: "Меню",
     home: "Главная",
-    products: "Наши работы",
+    projects: "Наши работы",
+    products: "Товары",
+    productsEC: "Интернет-магазин",
+    cart: "Корзина",
+    shipping: "Управление доставкой",
     staffs: "Сотрудники",
     pricing: "Цены",
     areas: "Районы обслуживания",
     stores: "Список магазинов",
     story: "Наша история",
     blog: "Блог",
-    news: "Новости", // ★ 追加
+    news: "Новости",
     company: "О компании",
     reserve: "Онлайн-запись",
     contact: "Контакты",
@@ -268,14 +316,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   th: {
     menuTitle: "เมนู",
     home: "หน้าแรก",
-    products: "ผลงาน",
+    projects: "ผลงาน",
+    products: "รายการสินค้า",
+    productsEC: "ร้านค้าออนไลน์",
+    cart: "ตะกร้าสินค้า",
+    shipping: "การจัดการการจัดส่ง",
     staffs: "ทีมงาน",
     pricing: "ราคา",
     areas: "พื้นที่ให้บริการ",
     stores: "รายชื่อร้านค้า",
     story: "เรื่องราวของเรา",
     blog: "บล็อก",
-    news: "ข่าวสาร", // ★ 追加
+    news: "ข่าวสาร",
     company: "ข้อมูลบริษัท",
     reserve: "จองที่นี่",
     contact: "ติดต่อเรา",
@@ -288,14 +340,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   vi: {
     menuTitle: "Menu",
     home: "Trang chủ",
-    products: "Dự án đã làm",
+    projects: "Dự án đã làm",
+    products: "Sản phẩm",
+    productsEC: "Cửa hàng trực tuyến",
+    cart: "Giỏ hàng",
+    shipping: "Quản lý vận chuyển",
     staffs: "Nhân viên",
     pricing: "Bảng giá",
     areas: "Khu vực phục vụ",
     stores: "Danh sách cửa hàng",
     story: "Câu chuyện của chúng tôi",
     blog: "Blog",
-    news: "Tin tức", // ★ 追加
+    news: "Tin tức",
     company: "Hồ sơ công ty",
     reserve: "Đặt lịch tại đây",
     contact: "Liên hệ",
@@ -308,14 +364,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   id: {
     menuTitle: "Menu",
     home: "Beranda",
-    products: "Portofolio",
+    projects: "Portofolio",
+    products: "Produk",
+    productsEC: "Toko daring",
+    cart: "Keranjang",
+    shipping: "Manajemen Pengiriman",
     staffs: "Staf",
     pricing: "Harga",
     areas: "Area layanan",
     stores: "Daftar toko",
     story: "Kisah kami",
     blog: "Blog",
-    news: "Berita", // ★ 追加
+    news: "Berita",
     company: "Profil perusahaan",
     reserve: "Pesan di sini",
     contact: "Kontak",
@@ -328,14 +388,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   hi: {
     menuTitle: "मेनू",
     home: "होम",
-    products: "परियोजनाएँ",
+    projects: "परियोजनाएँ",
+    products: "उत्पाद",
+    productsEC: "ऑनलाइन स्टोर",
+    cart: "कार्ट",
+    shipping: "शिपिंग प्रबंधन",
     staffs: "स्टाफ़",
     pricing: "मूल्य",
     areas: "सेवा क्षेत्र",
     stores: "स्टोर सूची",
     story: "हमारी कहानी",
     blog: "ब्लॉग",
-    news: "समाचार", // ★ 追加
+    news: "समाचार",
     company: "कंपनी प्रोफ़ाइल",
     reserve: "यहाँ बुक करें",
     contact: "संपर्क करें",
@@ -348,14 +412,18 @@ const T: Record<UILang, Record<Keys, string>> = {
   ar: {
     menuTitle: "القائمة",
     home: "الصفحة الرئيسية",
-    products: "المشاريع المنجزة",
+    projects: "المشاريع المنجزة",
+    products: "قائمة المنتجات",
+    productsEC: "المتجر الإلكتروني",
+    cart: "عربة التسوق",
+    shipping: "إدارة الشحن",
     staffs: "الفريق",
     pricing: "الأسعار",
     areas: "مناطق الخدمة",
     stores: "قائمة المتاجر",
     story: "قصتنا",
     blog: "المدونة",
-    news: "الأخبار", // ★ 追加
+    news: "الأخبار",
     company: "نبذة عن الشركة",
     reserve: "احجز هنا",
     contact: "اتصل بنا",
@@ -374,44 +442,62 @@ const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 /* ===== メニュー定義 ===== */
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "home", href: "/" },
-  { key: "products", href: "/products" },
+  { key: "projects", href: "/projects" }, // ★ 旧 products の中身はこちらへ
+  { key: "products", href: "/products" }, // ★ 新しい商品一覧
+  { key: "productsEC", href: "/productsEC" },
+  { key: "cart", href: "/cart" },
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
   { key: "areas", href: "/areas" },
   { key: "stores", href: "/stores" },
   { key: "story", href: "/about" },
   { key: "blog", href: "/blog" },
-  { key: "news", href: "/news" }, // ★ 追加
+  { key: "news", href: "/news" },
   { key: "company", href: "/company" },
   { key: "contact", href: "/contact" },
   { key: "reserve", href: "/apply" },
   { key: "partners", href: "/jobApp" },
 ];
 
-/* Firestore の editable 設定の型（必要分のみ） */
 type EditableSettings = {
   visibleMenuKeys?: string[];
-  i18n?: {
-    enabled?: boolean;
-    langs?: UILang[]; // UI 表示を許可する言語（ja を含むことを推奨）
-  };
+  i18n?: { enabled?: boolean; langs?: UILang[] };
 };
 
 export default function Header({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const gradient = useThemeGradient();
   const logoUrl = useHeaderLogoUrl();
+
+  // Stripe 連携状態（必要ならここで利用）
+  const [stripeConnected, setStripeConnected] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/sellers/connect-status?siteKey=${encodeURIComponent(SITE_KEY)}`
+        );
+        const data = await res.json();
+        const ok = data?.connected === true || data?.status === "completed";
+        setStripeConnected(!!ok);
+      } catch {
+        setStripeConnected(false);
+      }
+    })();
+  }, []);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => setIsLoggedIn(!!user));
+    return () => unsub();
+  }, []);
+
   const { uiLang } = useUILang();
 
-  /* Firestore: 表示対象メニュー */
   const [visibleMenuKeys, setVisibleMenuKeys] = useState<string[]>(
     MENU_ITEMS.map((m) => m.key)
   );
-
-  /* Firestore: i18n（翻訳）設定を購読（ピッカー表示制御に使用） */
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
-
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
     const unsubscribe = onSnapshot(
@@ -420,10 +506,52 @@ export default function Header({ className = "" }: { className?: string }) {
         if (!snap.exists()) return;
         const data = snap.data() as EditableSettings;
 
+        // --- i18n 有効/無効 ---
+        const enabled =
+          typeof data.i18n?.enabled === "boolean"
+            ? (data.i18n.enabled as boolean)
+            : true;
+        setI18nEnabled(enabled);
+
+        // --- メニュー可視キー（互換補正込み）---
+        if (Array.isArray(data.visibleMenuKeys)) {
+          const raw = [...data.visibleMenuKeys];
+          let keys = [...raw];
+
+          // 互換：旧設定で "products"（商品一覧）だけが有効で "projects"（施工実績）が無い場合は足す
+          if (keys.includes("products") && !keys.includes("projects")) {
+            keys = Array.from(new Set(["projects", ...keys])); // 先頭に施工実績を追加（重複排除）
+          }
+
+          setVisibleMenuKeys(keys);
+
+          // Firestore 側も補正を反映（差分があるときのみ）
+          if (JSON.stringify(keys) !== JSON.stringify(raw)) {
+            import("firebase/firestore").then(({ setDoc }) => {
+              setDoc(ref, { visibleMenuKeys: keys }, { merge: true }).catch(
+                console.error
+              );
+            });
+          }
+        }
+      },
+      (error) => {
+        console.error("メニュー/翻訳設定購読エラー:", error);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const ref = doc(db, "siteSettingsEditable", SITE_KEY);
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data() as EditableSettings;
         if (Array.isArray(data.visibleMenuKeys)) {
           setVisibleMenuKeys(data.visibleMenuKeys);
         }
-
         const enabled =
           typeof data.i18n?.enabled === "boolean" ? data.i18n!.enabled! : true;
         setI18nEnabled(enabled);
@@ -435,30 +563,30 @@ export default function Header({ className = "" }: { className?: string }) {
     return () => unsubscribe();
   }, []);
 
-  /* ログイン状態 */
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) =>
-      setIsLoggedIn(!!user)
-    );
-    return () => unsubscribe();
-  }, []);
-
-  /* グラデーション */
   const gradientClass = gradient
     ? `bg-gradient-to-b ${gradient}`
     : "bg-gray-100";
 
-  /* ダーク判定（テーマキーから） */
-  const darkKeys: ThemeKey[] = ["brandH", "brandG", "brandI"];
-  const currentKey = (Object.entries(THEMES).find(
-    ([, v]) => v === gradient
-  )?.[0] ?? null) as ThemeKey | null;
-  const isDark = currentKey ? darkKeys.includes(currentKey) : false;
+  const isDark = useMemo(() => {
+    const darkKeys: ThemeKey[] = ["brandH", "brandG", "brandI"];
+    if (!gradient) return false;
+    return darkKeys.some((k) => gradient === THEMES[k]);
+  }, [gradient]);
 
-  /* i18n：RTL 言語ならスライドの文脈方向を反転 */
   const rtl = uiLang === "ar";
 
-  /* 管理者リンクの3タップ検出 */
+  // 日本語固定ラベル
+  const JP_ALWAYS = new Set<Keys>([
+    "timeline",
+    "community",
+    "analytics",
+    "shipping",
+    "admin",
+  ]);
+  const labelOf = (k: Keys) =>
+    JP_ALWAYS.has(k) ? T.ja[k] : (T[uiLang] ?? T.ja)[k];
+
+  // 管理者リンク 3タップ
   const [showAdminLink, setShowAdminLink] = useState(false);
   const tapCountRef = useRef(0);
   const lastTapAtRef = useRef(0);
@@ -482,7 +610,6 @@ export default function Header({ className = "" }: { className?: string }) {
       lastTapAtRef.current = now;
       return;
     }
-
     tapCountRef.current += 1;
     lastTapAtRef.current = now;
 
@@ -524,7 +651,7 @@ export default function Header({ className = "" }: { className?: string }) {
         お掃除処たよって屋
       </Link>
 
-      {/* ハンバーガーメニュー */}
+      {/* ハンバーガー */}
       <div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -541,14 +668,13 @@ export default function Header({ className = "" }: { className?: string }) {
             </Button>
           </SheetTrigger>
 
-          {/* === スライド（「メニュー」を最上部に固定表示） === */}
+          {/* === スライド === */}
           <SheetContent
             side="right"
             className={clsx(
               "flex h-dvh min-h-0 flex-col p-0",
               gradient && "bg-gradient-to-b",
               gradient || "bg-gray-100",
-              // ▼ 色切替 + 線を太く + アイコンサイズを拡大（例: 28px）
               isDark
                 ? "[&>button]:text-white [&>button>svg]:!text-white [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
                 : "[&>button]:text-black [&>button>svg]:!text-black [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
@@ -562,7 +688,7 @@ export default function Header({ className = "" }: { className?: string }) {
               </SheetTitle>
             </SheetHeader>
 
-            {/* 中央メニュー（上下方向のセンターに配置） */}
+            {/* 中央メニュー（上下センター） */}
             <div
               className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:thin] px-6"
               onPointerDown={handleSecretTap}
@@ -577,7 +703,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     onClick={() => setOpen(false)}
                     className="text-lg text-white text-outline"
                   >
-                    {(T[uiLang] ?? T.ja)[key]}
+                    {labelOf(key as Keys)}
                   </Link>
                 ))}
               </nav>
@@ -590,7 +716,7 @@ export default function Header({ className = "" }: { className?: string }) {
               )}
             </div>
 
-            {/* フッター（下詰め） */}
+            {/* フッター */}
             <div className="border-t border-white/30 px-6 py-4">
               <div className="flex flex-col items-center gap-2">
                 {isLoggedIn && (
@@ -600,22 +726,31 @@ export default function Header({ className = "" }: { className?: string }) {
                       onClick={() => setOpen(false)}
                       className="text-center text-lg text-white text-outline"
                     >
-                      {(T[uiLang] ?? T.ja).timeline}
+                      {labelOf("timeline")}
                     </Link>
                     <Link
                       href="/community"
                       onClick={() => setOpen(false)}
                       className="text-center text-lg text-white text-outline"
                     >
-                      {(T[uiLang] ?? T.ja).community}
+                      {labelOf("community")}
                     </Link>
                     <Link
                       href="/analytics"
                       onClick={() => setOpen(false)}
                       className="text-center text-lg text-white text-outline"
                     >
-                      {(T[uiLang] ?? T.ja).analytics}
+                      {labelOf("analytics")}
                     </Link>
+                    {stripeConnected && (
+                      <Link
+                        href="/shipping"
+                        onClick={() => setOpen(false)}
+                        className="text-center text-lg text-white text-outline"
+                      >
+                        {labelOf("shipping")}
+                      </Link>
+                    )}
                   </>
                 )}
 
@@ -625,7 +760,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     onClick={() => setOpen(false)}
                     className="text-center text-lg text-white text-outline"
                   >
-                    {(T[uiLang] ?? T.ja).admin}
+                    {labelOf("admin")}
                   </Link>
                 )}
               </div>

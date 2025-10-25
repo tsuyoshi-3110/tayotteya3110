@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore"; // 👈 authも使う
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 // 各表示セクションのインポート
-import ProductsClient from "./ProductsClient";
+import ProductsClient from "./ProjectsClient";
 import StaffClient from "./StaffClient";
 import AreasClient from "./AreasClient";
 import StoresClient from "./StoresClient";
@@ -42,8 +42,8 @@ function renderSection(key: string) {
       return <StoresClient />;
     case "story":
       return <AboutClient />;
-       case "news":
-      return <NewsClient />
+    case "news":
+      return <NewsClient />;
     default:
       return null;
   }

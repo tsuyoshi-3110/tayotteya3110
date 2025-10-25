@@ -1,6 +1,6 @@
 // app/products/page.tsx
 import type { Metadata } from "next";
-import ProductsClient from "@/components/products/ProductsClient";
+import ProductsECClient from "@/components/productsEC/ProductsECClient";
 
 const title = "メニュー一覧｜甘味処 よって屋";
 const description =
@@ -34,5 +34,5 @@ export const metadata: Metadata = {
 };
 
 export default function ProductsPage() {
-  return <ProductsClient />;
+  return <ProductsECClient />;
 }

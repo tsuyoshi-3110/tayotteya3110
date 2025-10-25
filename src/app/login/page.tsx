@@ -10,7 +10,7 @@ import {
 import { FirebaseError } from "firebase/app";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { LucideLogIn, LogOut, AlertCircle, Globe } from "lucide-react";
+import { LucideLogIn, LogOut, AlertCircle, Globe, Box } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -34,60 +34,174 @@ import { Loader } from "@googlemaps/js-api-loader";
 
 // Firestore ref
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
+const SELLER_REF = doc(db, "siteSellers", SITE_KEY);
 
-type MetaDoc = {
-  themeGradient?: ThemeKey;
-  visibleMenuKeys?: string[];
-  activeMenuKeys?: string[]; // トップ表示用
-  i18n?: {
-    enabled?: boolean; // 翻訳/多言語UIの有効・無効
-    langs?: UILang[]; // 使用するUI言語
-  };
-  address?: {
-    postalCode?: string;
-    region?: string;
-    locality?: string;
-    street?: string;
-    countryCode?: string;
-    lat?: number;
-    lng?: number;
-  };
-  googleSync?: {
-    enabled: boolean;
-    accountEmail?: string;
-    locationId?: string;
-    lastSyncAt?: number;
-    worksAutoSyncEnabled?: boolean;
-    worksAlbumTag?: string;
-  };
-};
+/* =========================
+   Stripe Connect カード（住所設定ボタン込み）
+========================= */
+function StripeConnectCard() {
+  const [loading, setLoading] = useState(false);
+  const [connectStatus, setConnectStatus] = useState<
+    "unknown" | "notStarted" | "inProgress" | "completed" | "error"
+  >("unknown");
+  const [connectId, setConnectId] = useState<string | null>(null);
 
-const MENU_ITEMS: { key: string; label: string }[] = [
-  { key: "home", label: "ホーム" },
-  { key: "products", label: "施工実績" },
-  { key: "staffs", label: "スタッフ" },
-  { key: "pricing", label: "料金" },
-  { key: "areas", label: "対応エリア" },
-  { key: "stores", label: "店舗一覧" },
-  { key: "story", label: "私たちの思い" },
-  { key: "blog", label: "ブログ" },
-  { key: "news", label: "お知らせ" },
-  { key: "company", label: "会社概要" },
-  { key: "contact", label: "無料相談・お問合せ" },
-  { key: "reserve", label: "ご予約はこちら" },
-  { key: "partners", label: "協力業者募集！" },
-];
+  const sellerId = SITE_KEY; // docID = siteKey
 
-// トップ表示候補は限定
-const TOP_DISPLAYABLE_ITEMS = [
-  "products",
-  "pricing",
-  "staffs",
-  "areas",
-  "stores",
-  "story",
-  "news"
-];
+  const fetchStatus = async () => {
+    try {
+      setConnectStatus("unknown");
+      const res = await fetch(
+        `/api/sellers/connect-status?siteKey=${encodeURIComponent(sellerId)}`
+      );
+      const data: any = await res.json();
+      if (!res.ok) throw new Error(data?.error || "failed");
+      setConnectStatus((data?.status as typeof connectStatus) ?? "notStarted");
+      setConnectId(data?.connectAccountId ?? null);
+    } catch {
+      setConnectStatus("error");
+      setConnectId(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startOnboarding = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/stripe/create-onboarding-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sellerId, siteKey: SITE_KEY }),
+      });
+      const data: any = await res.json();
+      if (!res.ok || !data?.url) throw new Error(data?.error || "failed");
+      window.location.href = data.url;
+    } catch {
+      alert("Stripe連携の開始に失敗しました");
+      fetchStatus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="shadow-xl bg-white/50">
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold">
+          Stripe 連携（出店者アカウント）
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        <div className="text-sm space-y-1">
+          <div>
+            <span className="font-semibold">状態: </span>
+            {connectStatus === "unknown" && "確認中…"}
+            {connectStatus === "notStarted" && "未連携"}
+            {connectStatus === "inProgress" && "入力途中（未完了）"}
+            {connectStatus === "completed" && "連携完了"}
+            {connectStatus === "error" && "取得エラー"}
+          </div>
+          <div className="text-xs text-gray-600">
+            ConnectアカウントID:{" "}
+            {connectId ? <code className="break-all">{connectId}</code> : "—"}
+          </div>
+        </div>
+
+        {/* アクション行 */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <Button
+            onClick={startOnboarding}
+            disabled={loading}
+            className="w-full sm:flex-1 bg-black text-white"
+          >
+            {loading
+              ? "開始中..."
+              : connectStatus === "notStarted"
+              ? "Stripe連携を開始"
+              : "Stripe連携を続行"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={fetchStatus}
+            disabled={loading}
+            className="w-full sm:w-auto sm:min-w-[96px]"
+            title="状態を再取得"
+          >
+            再取得
+          </Button>
+        </div>
+
+        <p className="text-xs text-gray-600">
+          ボタンを押すとStripeのオンボーディング画面へ遷移します。完了後は
+          <code>/onboarding/return</code> に戻り、完了フラグが更新されます。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* =========================
+   Ship&co への導線カード（アカウント作成リンク）
+========================= */
+function ShipAndCoLinkCard() {
+  return (
+    <Card className="shadow-xl bg-white/70 backdrop-blur-sm border border-gray-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <Box size={18} />
+          出荷管理のご案内（Ship&co）
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-3 text-sm leading-relaxed text-gray-700">
+        <p>
+          商品の発送や集荷依頼、送り状の作成を行う際は、 外部サービス{" "}
+          <span className="font-medium">Ship&co（シップアンドコー）</span> を
+          ご利用いただくと便利です。
+        </p>
+
+        <p>
+          主要な運送会社（ヤマト・佐川・日本郵便など）に対応しており、
+          宛先情報を入力するだけでラベル発行や追跡管理までワンストップで行えます。
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+          <a
+            href="https://app.shipandco.com/welcome"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto"
+          >
+            <Button className="w-full">🚀 Ship&coを開く</Button>
+          </a>
+          <a
+            href="https://support.shipandco.com/hc/ja/articles/360001253013"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto"
+          >
+            <Button variant="outline" className="w-full">
+              使い方ガイドを見る
+            </Button>
+          </a>
+        </div>
+
+        <p className="text-xs text-gray-500 pt-2">
+          ※Ship&coは外部サイトです。無料登録でご利用いただけます。
+          <br />
+          Pageitの「注文一覧」からCSVを出力し、Ship&coに取り込むことで発送作業をスムーズに行えます。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 /* =========================
    日本語表記の言語ラベル
@@ -147,7 +261,9 @@ function I18nSettingsCard({
   onClearAll: () => void;
 }) {
   // 日本語を先頭に固定
-  const sorted = [...LANGS].sort((a: any, b: any) =>
+  type LangItem = (typeof LANGS)[number];
+
+  const sorted = Array.from(LANGS).sort((a: LangItem, b: LangItem) =>
     a.key === "ja"
       ? -1
       : b.key === "ja"
@@ -246,6 +362,41 @@ function I18nSettingsCard({
 }
 
 /* =========================
+   メニュー設定
+========================= */
+
+const MENU_ITEMS: { key: string; label: string }[] = [
+  { key: "home", label: "ホーム" },
+  { key: "projects", label: "施工実績" },
+  { key: "staffs", label: "スタッフ" },
+  { key: "pricing", label: "料金" },
+  { key: "areas", label: "対応エリア" },
+  { key: "stores", label: "店舗一覧" },
+  { key: "story", label: "私たちの思い" },
+  { key: "blog", label: "ブログ" },
+  { key: "news", label: "お知らせ" },
+  { key: "company", label: "会社概要" },
+  { key: "contact", label: "無料相談・お問合せ" },
+  { key: "reserve", label: "ご予約はこちら" },
+  { key: "partners", label: "協力業者募集！" },
+
+  // ▼ EC（追加分）
+  { key: "productsEC", label: "オンラインショップ" },
+  { key: "cart", label: "カート" },
+];
+
+// トップ表示候補は限定（※既存そのまま）
+const TOP_DISPLAYABLE_ITEMS = [
+  "products",
+  "pricing",
+  "staffs",
+  "areas",
+  "stores",
+  "story",
+  "news",
+];
+
+/* =========================
    ページ本体
 ========================= */
 export default function LoginPage() {
@@ -275,6 +426,9 @@ export default function LoginPage() {
   const [gmapsReady, setGmapsReady] = useState(false);
   const addrInputRef = useRef<HTMLInputElement | null>(null);
 
+  // EC: Connect（Stripe連携）完了状態
+  const [hasConnect, setHasConnect] = useState(false);
+
   // Google Maps API Key
   const mapsApiKey = useMemo(
     () => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
@@ -287,9 +441,9 @@ export default function LoginPage() {
       try {
         const snap = await getDoc(META_REF);
         if (!snap.exists()) return;
-        const data = snap.data() as MetaDoc;
+        const data = snap.data() as any;
 
-        if (data.themeGradient) setTheme(data.themeGradient);
+        if (data.themeGradient) setTheme(data.themeGradient as ThemeKey);
         if (Array.isArray(data.visibleMenuKeys))
           setVisibleKeys(data.visibleMenuKeys);
         if (Array.isArray(data.activeMenuKeys))
@@ -317,6 +471,32 @@ export default function LoginPage() {
     })();
   }, []);
 
+  /* ---------------- Connect 状態（EC可否） ---------------- */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/sellers/connect-status?siteKey=${encodeURIComponent(SITE_KEY)}`
+        );
+        const data: any = await res.json();
+        const completed = data?.status === "completed";
+        setHasConnect(!!completed);
+
+        // 未連携なら候補UIからショップ & カートを一時的に隠す（Firestoreには書かない）
+        if (!completed) {
+          setVisibleKeys((prev) =>
+            prev.filter((k) => k !== "productsEC" && k !== "cart")
+          );
+        }
+      } catch {
+        setHasConnect(false);
+        setVisibleKeys((prev) =>
+          prev.filter((k) => k !== "productsEC" && k !== "cart")
+        );
+      }
+    })();
+  }, []);
+
   /* ---------------- 認証（オーナー判定） ---------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -332,7 +512,7 @@ export default function LoginPage() {
           return;
         }
         const data = snap.data();
-        if (data.ownerId !== firebaseUser.uid) {
+        if ((data as any).ownerId !== firebaseUser.uid) {
           setError("このアカウントには管理権限がありません。");
           await signOut(auth);
           return;
@@ -449,6 +629,20 @@ export default function LoginPage() {
     );
   };
 
+  // ▼ EC可否トグル時に seller の onboardingCompleted を即時反映
+  const setOnboardingCompleted = async (next: boolean) => {
+    await setDoc(
+      SELLER_REF,
+      { stripe: { onboardingCompleted: next } },
+      { merge: true }
+    );
+    await updateDoc(SELLER_REF, { "stripe.onboardingCompleted": next }).catch(
+      () => {
+        /* setDocで反映済み */
+      }
+    );
+  };
+
   /* ---------------- Google Maps Places 初期化 ---------------- */
   useEffect(() => {
     if (!mapsApiKey) return;
@@ -542,8 +736,64 @@ export default function LoginPage() {
                   {/* 候補チェック */}
                   <div>
                     <SectionTitle>メニュー候補の設定</SectionTitle>
+
+                    {/* ▼ ECまとめチェック（ショップ & カート） */}
+                    <div className="mb-3">
+                      <label className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          disabled={!hasConnect}
+                          checked={
+                            visibleKeys.includes("productsEC") &&
+                            visibleKeys.includes("cart")
+                          }
+                          onChange={async (e) => {
+                            const checked = e.target.checked;
+
+                            try {
+                              await setOnboardingCompleted(checked);
+                            } catch (err) {
+                              console.error(
+                                "Failed to toggle onboardingCompleted:",
+                                err
+                              );
+                              alert(
+                                "販売状態の更新に失敗しました。もう一度お試しください。"
+                              );
+                              return;
+                            }
+
+                            setVisibleKeys((prev) => {
+                              const base = new Set(prev);
+                              base.delete("productsEC");
+                              base.delete("cart");
+                              if (checked && hasConnect) {
+                                base.add("productsEC");
+                                base.add("cart");
+                              }
+                              const next = Array.from(base);
+                              // Firestoreに反映
+                              handleVisibleKeysChange(next);
+                              return next;
+                            });
+                          }}
+                        />
+                        <div className={!hasConnect ? "opacity-60" : ""}>
+                          <div>ネット販売（ショップ & カート）</div>
+                          {!hasConnect && (
+                            <div className="text-xs text-gray-500">
+                              Stripe連携が完了すると選択できます。
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* その他の候補（ECの2項目は除外） */}
                     <div className="space-y-1">
-                      {MENU_ITEMS.map((item) => (
+                      {MENU_ITEMS.filter(
+                        (item) => !["productsEC", "cart"].includes(item.key)
+                      ).map((item) => (
                         <label
                           key={item.key}
                           className="flex items-center gap-2"
@@ -604,7 +854,13 @@ export default function LoginPage() {
                 onClearAll={handleClearAllLangsExceptJa}
               />
 
-              {/* アカウント操作 */}
+              {/* Stripe Connect 連携カード */}
+              <StripeConnectCard />
+
+              {/* Ship&co への導線（Stripeの近くに設置） */}
+              {hasConnect && <ShipAndCoLinkCard />}
+
+              {/* アカウント操作（※既存そのまま） */}
               <Card className="shadow-xl bg白/50">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold">
@@ -612,7 +868,7 @@ export default function LoginPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-center">
-                  <p>{user.email} としてログイン中です。</p>
+                  <p>{user?.email} としてログイン中です。</p>
                   <button
                     onClick={() => setShowChangePassword(true)}
                     className="text-blue-500 hover:underline"
