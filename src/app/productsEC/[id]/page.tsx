@@ -27,5 +27,5 @@ export default function ProductPage() {
 
   if (!product) return <CardSpinner />;
 
-  return <ProductECDetail product={product} />;
+  return <ProductECDetail />;
 }
