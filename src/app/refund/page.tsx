@@ -40,13 +40,11 @@ const defaultPolicy = (): RefundPolicy => ({
   contentByLang: {
     ja: {
       title: "返品・返金ポリシー",
-      body:
-        "商品到着後14日以内にご連絡ください。未使用・未開封の商品に限り返品・交換を承ります（不良品は除く）。返送送料はお客様負担となります。詳しくは本ページの条件をご確認ください。",
+      body: "商品到着後14日以内にご連絡ください。未使用・未開封の商品に限り返品・交換を承ります（不良品は除く）。返送送料はお客様負担となります。詳しくは本ページの条件をご確認ください。",
     },
     en: {
       title: "Refund & Returns Policy",
-      body:
-        "Please contact us within 14 days of delivery. Returns or exchanges are accepted for unused and unopened items (except defective items). Return shipping cost is borne by the customer.",
+      body: "Please contact us within 14 days of delivery. Returns or exchanges are accepted for unused and unopened items (except defective items). Return shipping cost is borne by the customer.",
     },
   },
 });
@@ -54,7 +52,10 @@ const defaultPolicy = (): RefundPolicy => ({
 /* =========================
    言語テンプレ
 ========================= */
-function templateFor(lang: LangKey, p: RefundPolicy): { title: string; body: string } {
+function templateFor(
+  lang: LangKey,
+  p: RefundPolicy
+): { title: string; body: string } {
   const en = {
     title: "Refund & Returns Policy",
     body:
@@ -71,7 +72,9 @@ function templateFor(lang: LangKey, p: RefundPolicy): { title: string; body: str
           ? "determined case by case"
           : "borne by the customer"
       }. ` +
-      (p.restockingFeePct && p.restockingFeePct > 0 ? `A restocking fee of ${p.restockingFeePct}% may apply. ` : "") +
+      (p.restockingFeePct && p.restockingFeePct > 0
+        ? `A restocking fee of ${p.restockingFeePct}% may apply. `
+        : "") +
       (p.refundMethod === "store-credit"
         ? "Refunds are issued as store credit."
         : p.refundMethod === "exchange"
@@ -91,9 +94,15 @@ function templateFor(lang: LangKey, p: RefundPolicy): { title: string; body: str
           ? "不良・破損・誤配送のみ返品・交換を承ります。"
           : "未使用・未開封の商品に限り返品・交換を承ります（不良品はこの限りではありません）。") +
         ` 返送送料は${
-          p.shippingCharge === "seller" ? "当店負担" : p.shippingCharge === "case-by-case" ? "ケースにより異なります" : "お客様負担"
+          p.shippingCharge === "seller"
+            ? "当店負担"
+            : p.shippingCharge === "case-by-case"
+            ? "ケースにより異なります"
+            : "お客様負担"
         }です。` +
-        (p.restockingFeePct && p.restockingFeePct > 0 ? ` 返品手数料として商品代金の${p.restockingFeePct}%を差し引いて返金します。` : "") +
+        (p.restockingFeePct && p.restockingFeePct > 0
+          ? ` 返品手数料として商品代金の${p.restockingFeePct}%を差し引いて返金します。`
+          : "") +
         (p.refundMethod === "store-credit"
           ? " 返金はストアクレジットで行います。"
           : p.refundMethod === "exchange"
@@ -109,7 +118,10 @@ function templateFor(lang: LangKey, p: RefundPolicy): { title: string; body: str
    保存時：全言語を必ず埋める
 ========================= */
 function ensureAllLangs(src: RefundPolicy): RefundPolicy {
-  const next: RefundPolicy = { ...src, contentByLang: { ...src.contentByLang } };
+  const next: RefundPolicy = {
+    ...src,
+    contentByLang: { ...src.contentByLang },
+  };
   for (const { key } of LANGS) {
     const k = key as LangKey;
     if (!next.contentByLang[k] || !next.contentByLang[k].body) {
@@ -150,13 +162,20 @@ export default function RefundPage() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`/api/policies/refund?siteKey=${encodeURIComponent(SITE_KEY)}`, { cache: "no-store" });
+        const res = await fetch(
+          `/api/policies/refund?siteKey=${encodeURIComponent(SITE_KEY)}`,
+          { cache: "no-store" }
+        );
         if (!alive) return;
         if (res.ok) {
           const data = await res.json();
           const incoming: RefundPolicy | null = data?.policy ?? null;
           if (isAuthed) {
-            setPolicy(ensureAllLangs(incoming ? { ...defaultPolicy(), ...incoming } : defaultPolicy()));
+            setPolicy(
+              ensureAllLangs(
+                incoming ? { ...defaultPolicy(), ...incoming } : defaultPolicy()
+              )
+            );
           } else {
             setPolicy(incoming); // 公開は保存済み言語のみ
           }
@@ -177,7 +196,9 @@ export default function RefundPage() {
   // 公開ビューの表示言語（ヘッダーのピッカー優先）
   const effectiveLang: LangKey = useMemo(() => {
     const prefer = uiLang as LangKey;
-    const avail = policy ? (Object.keys(policy.contentByLang) as LangKey[]) : [];
+    const avail = policy
+      ? (Object.keys(policy.contentByLang) as LangKey[])
+      : [];
     if (!avail.length) return (prefer || "ja") as LangKey;
     if (avail.includes(prefer)) return prefer;
     if (avail.includes("ja" as LangKey)) return "ja";
@@ -186,8 +207,10 @@ export default function RefundPage() {
 
   // 編集は日本語のみ
   const EDIT_LANG: LangKey = "ja";
-  const updateField = <K extends keyof RefundPolicy>(key: K, value: RefundPolicy[K]) =>
-    setPolicy((p) => (p ? { ...p, [key]: value } : p));
+  const updateField = <K extends keyof RefundPolicy>(
+    key: K,
+    value: RefundPolicy[K]
+  ) => setPolicy((p) => (p ? { ...p, [key]: value } : p));
 
   const updateLangContentJa = (field: "title" | "body", value: string) =>
     setPolicy((p) =>
@@ -258,11 +281,15 @@ export default function RefundPage() {
     const dir: "rtl" | "ltr" = effectiveLang === "ar" ? "rtl" : "ltr";
     const title =
       (policy && policy.contentByLang?.[effectiveLang]?.title) ||
-      (policy ? policy.contentByLang?.[Object.keys(policy.contentByLang)[0]]?.title : "") ||
+      (policy
+        ? policy.contentByLang?.[Object.keys(policy.contentByLang)[0]]?.title
+        : "") ||
       "Refund Policy";
     const body =
       (policy && policy.contentByLang?.[effectiveLang]?.body) ||
-      (policy ? policy.contentByLang?.[Object.keys(policy.contentByLang)[0]]?.body : "") ||
+      (policy
+        ? policy.contentByLang?.[Object.keys(policy.contentByLang)[0]]?.body
+        : "") ||
       "";
 
     const updatedText = (() => {
@@ -270,18 +297,29 @@ export default function RefundPage() {
       const d = new Date(policy.updatedAt);
       return isNaN(d.getTime())
         ? null
-        : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+        : d.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
     })();
 
     return (
-      <main className="mx-auto max-w-3xl px-5 py-5 ml-5 mr-5 bg-white/50 mt-10 rounded-2xl" dir={dir}>
+      <main
+        className="mx-auto max-w-3xl px-5 py-5 ml-5 mr-5 bg-white/50 mt-10 rounded-2xl"
+        dir={dir}
+      >
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold break-words text-white text-outline">
             {title || "Refund & Returns Policy"}
           </h1>
         </div>
 
-        {updatedText && <p className="mt-1 text-xs text-gray-500">Last updated: {updatedText}</p>}
+        {updatedText && (
+          <p className="mt-1 text-xs text-gray-500">
+            Last updated: {updatedText}
+          </p>
+        )}
 
         {!policy ? (
           <div className="mt-6 rounded border bg-white p-4">
@@ -295,7 +333,9 @@ export default function RefundPage() {
           </div>
         ) : policy.enabled === false && !body ? (
           <div className="mt-6 rounded border bg-white p-4">
-            <p>現在、返金ポリシーは公開されていません。購入前に販売者へお問い合わせください。</p>
+            <p>
+              現在、返金ポリシーは公開されていません。購入前に販売者へお問い合わせください。
+            </p>
           </div>
         ) : (
           <article className="prose prose-sm sm:prose-base mt-6 max-w-none whitespace-pre-wrap">
@@ -323,7 +363,11 @@ export default function RefundPage() {
     const d = new Date(policy.updatedAt);
     return isNaN(d.getTime())
       ? null
-      : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+      : d.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
   })();
 
   const curJa = policy?.contentByLang?.[EDIT_LANG] ?? { title: "", body: "" };
@@ -333,12 +377,20 @@ export default function RefundPage() {
       {/* 上：公開ビュー（一般ユーザーが見る内容） */}
       <section className="bg-white/60 rounded-2xl p-5 border" dir={dir}>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold break-words">{pubTitle || "Refund & Returns Policy"}</h1>
+          <h1 className="text-2xl font-bold break-words">
+            {pubTitle || "Refund & Returns Policy"}
+          </h1>
           <span className="text-xs text-gray-500">（公開ビュー）</span>
         </div>
-        {updatedText && <p className="mt-1 text-xs text-gray-500">Last updated: {updatedText}</p>}
+        {updatedText && (
+          <p className="mt-1 text-xs text-gray-500">
+            Last updated: {updatedText}
+          </p>
+        )}
         <article className="prose prose-sm sm:prose-base mt-4 max-w-none whitespace-pre-wrap">
-          {policy?.enabled === false && !pubBody ? "現在、返金ポリシーは公開されていません。" : pubBody || "（本文未設定）"}
+          {policy?.enabled === false && !pubBody
+            ? "現在、返金ポリシーは公開されていません。"
+            : pubBody || "（本文未設定）"}
         </article>
       </section>
 
@@ -354,7 +406,9 @@ export default function RefundPage() {
           <section className="bg-white/80 backdrop-blur rounded-xl border p-5 space-y-4">
             <div className="text-sm text-gray-500 -mt-1 mb-1">
               編集言語：<strong>日本語（ja）</strong>
-              <span className="ml-2 text-gray-400">※ 保存時に他言語へ自動反映</span>
+              <span className="ml-2 text-gray-400">
+                ※ 保存時に他言語へ自動反映
+              </span>
             </div>
 
             <label className="flex items-center justify-between">
@@ -374,7 +428,12 @@ export default function RefundPage() {
                   type="number"
                   min={0}
                   value={policy.windowDays}
-                  onChange={(e) => updateField("windowDays", Math.max(0, Number(e.target.value || 0)))}
+                  onChange={(e) =>
+                    updateField(
+                      "windowDays",
+                      Math.max(0, Number(e.target.value || 0))
+                    )
+                  }
                   className="mt-1 rounded border px-3 py-2"
                 />
               </label>
@@ -386,7 +445,12 @@ export default function RefundPage() {
                   min={0}
                   max={100}
                   value={policy.restockingFeePct ?? 0}
-                  onChange={(e) => updateField("restockingFeePct", Math.min(100, Math.max(0, Number(e.target.value || 0))))}
+                  onChange={(e) =>
+                    updateField(
+                      "restockingFeePct",
+                      Math.min(100, Math.max(0, Number(e.target.value || 0)))
+                    )
+                  }
                   className="mt-1 rounded border px-3 py-2"
                 />
               </label>
@@ -396,12 +460,21 @@ export default function RefundPage() {
               対象条件
               <select
                 value={policy.eligibility}
-                onChange={(e) => updateField("eligibility", e.target.value as RefundPolicy["eligibility"])}
+                onChange={(e) =>
+                  updateField(
+                    "eligibility",
+                    e.target.value as RefundPolicy["eligibility"]
+                  )
+                }
                 className="mt-1 rounded border px-3 py-2"
               >
-                <option value="any">未使用・未開封なら可（不良は別扱い）</option>
+                <option value="any">
+                  未使用・未開封なら可（不良は別扱い）
+                </option>
                 <option value="defective-only">不良・破損・誤配送のみ可</option>
-                <option value="no-returns">お客様都合は不可（不良時のみ個別対応）</option>
+                <option value="no-returns">
+                  お客様都合は不可（不良時のみ個別対応）
+                </option>
                 <option value="unopened">未開封のみ可</option>
                 <option value="custom">カスタム（文面で明記）</option>
               </select>
@@ -411,7 +484,12 @@ export default function RefundPage() {
               返送送料負担
               <select
                 value={policy.shippingCharge}
-                onChange={(e) => updateField("shippingCharge", e.target.value as RefundPolicy["shippingCharge"])}
+                onChange={(e) =>
+                  updateField(
+                    "shippingCharge",
+                    e.target.value as RefundPolicy["shippingCharge"]
+                  )
+                }
                 className="mt-1 rounded border px-3 py-2"
               >
                 <option value="buyer">お客様負担</option>
@@ -424,7 +502,12 @@ export default function RefundPage() {
               返金手段
               <select
                 value={policy.refundMethod}
-                onChange={(e) => updateField("refundMethod", e.target.value as RefundPolicy["refundMethod"])}
+                onChange={(e) =>
+                  updateField(
+                    "refundMethod",
+                    e.target.value as RefundPolicy["refundMethod"]
+                  )
+                }
                 className="mt-1 rounded border px-3 py-2"
               >
                 <option value="original">元のお支払い方法へ返金</option>
@@ -447,7 +530,9 @@ export default function RefundPage() {
 
           {/* 右：日本語のみ編集＋プレビュー */}
           <section className="bg-white/80 backdrop-blur rounded-xl border p-5">
-            <div className="text-sm text-gray-500">言語別コンテンツ（日本語のみ編集）</div>
+            <div className="text-sm text-gray-500">
+              言語別コンテンツ（日本語のみ編集）
+            </div>
 
             <div className="mt-3 space-y-2">
               <label className="flex flex-col text-sm">
@@ -473,7 +558,11 @@ export default function RefundPage() {
               </label>
 
               <div className="flex gap-2">
-                <button type="button" onClick={insertTemplateJa} className="px-3 py-2 rounded bg-gray-100 border hover:bg-gray-200">
+                <button
+                  type="button"
+                  onClick={insertTemplateJa}
+                  className="px-3 py-2 rounded bg-gray-100 border hover:bg-gray-200"
+                >
                   日本語テンプレ挿入
                 </button>
                 <button
@@ -488,8 +577,12 @@ export default function RefundPage() {
 
               {/* プレビュー（日本語） */}
               <div className="mt-4">
-                <div className="text-sm text-gray-500 mb-2">プレビュー（日本語）</div>
-                <h2 className="text-lg font-semibold">{curJa.title || "（タイトル）"}</h2>
+                <div className="text-sm text-gray-500 mb-2">
+                  プレビュー（日本語）
+                </div>
+                <h2 className="text-lg font-semibold">
+                  {curJa.title || "（タイトル）"}
+                </h2>
                 <article className="prose prose-sm sm:prose-base mt-2 whitespace-pre-wrap">
                   {curJa.body || "（本文未設定）"}
                 </article>
