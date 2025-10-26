@@ -473,6 +473,18 @@ export async function POST(req: NextRequest) {
           "LT",
           "LV",
           "EE",
+          "HR",
+          "CY",
+          "LU",
+          "MT",
+          "SK",
+          "SI", // ← 追加（EU残り）
+          "IS",
+          "LI", // ← 追加（EFTA残り）
+          "AD",
+          "MC",
+          "SM",
+          "VA", // ← 追加（欧州マイクロステート）
           "NZ",
           "TH",
           "VN",
@@ -481,8 +493,8 @@ export async function POST(req: NextRequest) {
           "PH",
           "IN",
           "AE",
-          "CN", // 追加: 中国
-          "SA", // 追加: サウジアラビア
+          "CN",
+          "SA",
         ],
       },
 
