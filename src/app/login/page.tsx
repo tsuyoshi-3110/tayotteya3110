@@ -185,11 +185,7 @@ function ShipAndCoLinkCard() {
             target="_blank"
             rel="noopener noreferrer"
             className="w-full sm:w-auto"
-          >
-            <Button variant="outline" className="w-full">
-              使い方ガイドを見る
-            </Button>
-          </a>
+          ></a>
         </div>
 
         <p className="text-xs text-gray-500 pt-2">

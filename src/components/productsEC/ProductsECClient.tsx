@@ -71,6 +71,7 @@ import {
 // ★ 為替
 import { useFxRates } from "@/lib/fx/client";
 import FreeShippingBanner from "../FreeShippingBanner";
+import Link from "next/link";
 
 /* ======================== 型＆ユーティリティ ======================== */
 
@@ -103,6 +104,26 @@ const toExclYen = (incl: number, rate = TAX_RATE) =>
 
 const PAGE_SIZE = 20;
 const MAX_VIDEO_SEC = 30;
+
+// 多言語ラベルの近くに追加
+const REFUND_T: Record<UILang, string> = {
+  ja: "返品・返金ポリシー",
+  en: "Refund Policy",
+  zh: "退款与退货政策",
+  "zh-TW": "退款與退貨政策",
+  ko: "환불 및 반품 정책",
+  fr: "Politique de remboursement",
+  es: "Política de reembolsos",
+  de: "Richtlinie zu Rückerstattungen",
+  pt: "Política de reembolso",
+  it: "Politica di rimborso",
+  ru: "Политика возвратов",
+  th: "นโยบายการคืนเงิน",
+  vi: "Chính sách hoàn tiền",
+  id: "Kebijakan pengembalian dana",
+  hi: "रिफंड नीति",
+  ar: "سياسة الاسترجاع",
+};
 
 /* ===== ラベル多言語 ===== */
 const ALL_CATEGORY_T: Record<UILang, string> = {
@@ -299,6 +320,8 @@ export default function ProductsECClient() {
   const [ecStop, setEcStop] = useState(false);
   // 既存の state 群の近くに追加
   const [freeShipMinJPY, setFreeShipMinJPY] = useState<number>(0);
+
+  const REFUND_PATH = "/refund";
 
   // ▼ 一覧表示用フィルタ（価格>0 & 未ログインなら非公開除外）
   const displayList = useMemo(
@@ -895,6 +918,21 @@ export default function ProductsECClient() {
           >
             公式オンラインストア / Online Store
           </p>
+        </div>
+
+        <div className="mt-2">
+          <Link
+            href={REFUND_PATH}
+            className={clsx(
+              "inline-flex items-center gap-1 text-xs sm:text-sm underline decoration-dotted",
+              isDark
+                ? "text-white/90 hover:text-white"
+                : "text-gray-700 hover:text-gray-900"
+            )}
+          >
+            {REFUND_T[uiLang] ?? REFUND_T.ja}
+            <span aria-hidden>→</span>
+          </Link>
         </div>
       </header>
 

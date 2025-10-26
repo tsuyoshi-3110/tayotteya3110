@@ -50,8 +50,8 @@ const T: Record<UILang, Record<Keys, string>> = {
   ja: {
     menuTitle: "メニュー",
     home: "ホーム",
-    projects: "施工実績", // ← 旧 products をこちらへ
-    products: "商品一覧", // ← 新しい products
+    projects: "施工実績", 
+    products: "商品一覧",
     productsEC: "オンラインショップ",
     staffs: "スタッフ",
     pricing: "料金",
@@ -447,7 +447,7 @@ export default function Header({ className = "" }: { className?: string }) {
     MENU_ITEMS.map((m) => m.key)
   );
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
- 
+
 
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
