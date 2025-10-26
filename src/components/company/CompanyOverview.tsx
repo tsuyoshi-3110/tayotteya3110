@@ -54,6 +54,25 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
+// 追加：見出し「会社概要」の多言語マップ
+const COMPANY_OVERVIEW_T = {
+  ja: "会社概要",
+  en: "Company Overview",
+  zh: "公司概况",
+  "zh-TW": "公司概況",
+  ko: "회사 개요",
+  fr: "Présentation de l’entreprise",
+  es: "Información de la empresa",
+  de: "Unternehmensübersicht",
+  pt: "Visão geral da empresa",
+  it: "Panoramica aziendale",
+  ru: "Обзор компании",
+  th: "ภาพรวมบริษัท",
+  vi: "Tổng quan công ty",
+  id: "Gambaran Perusahaan",
+  hi: "कंपनी का परिचय",
+  ar: "نظرة عامة على الشركة",
+} as const;
 
 /* ========= 言語リスト（ja は base として保持） ========= */
 const LANGS = [
@@ -575,8 +594,7 @@ function InlineMediaEditor({
   const handleVideoCropped = async (blob: Blob) => {
     if (!pendingVideoFile) return;
     setVideoCropOpen(false);
-    const name =
-      pendingVideoFile.name.replace(/\.[^.]+$/, "") + "_cropped.mp4";
+    const name = pendingVideoFile.name.replace(/\.[^.]+$/, "") + "_cropped.mp4";
     const file = new File([blob], name, {
       type: "video/mp4",
       lastModified: Date.now(),
@@ -691,7 +709,8 @@ function InlineMediaEditor({
       </div>
 
       <p className="mt-2 text-xs text-white text-outline">
-        ※ 画像・動画ともにアップロード前に 1:1 でトリミングできます（動画は端末内で再エンコード）。
+        ※ 画像・動画ともにアップロード前に 1:1
+        でトリミングできます（動画は端末内で再エンコード）。
       </p>
     </div>
   );
@@ -967,6 +986,9 @@ export default function CompanyOverview() {
     heroMediaType: null,
   });
   const [isEditing, setIsEditing] = useState(false);
+  const headingText =
+    COMPANY_OVERVIEW_T[(uiLang as keyof typeof COMPANY_OVERVIEW_T) ?? "ja"] ??
+    COMPANY_OVERVIEW_T.ja;
 
   // ログイン監視
   useEffect(() => {
@@ -1146,6 +1168,9 @@ export default function CompanyOverview() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <h1 className="text-3xl font-semibold text-white text-outline mb-4">
+        {headingText}
+      </h1>
       {/* ===== 会社概要カード ===== */}
       <div className="relative rounded bg-white/10 backdrop-blur-md shadow-xl border border-white/50 ring-1 ring-black/5 p-0 overflow-hidden">
         {saving && <CardSpinner />}

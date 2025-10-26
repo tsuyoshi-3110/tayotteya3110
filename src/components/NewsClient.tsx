@@ -102,28 +102,38 @@ const PAGE_SIZE = 20;
 
 const DARK_KEYS: ThemeKeyGrad[] = ["brandG", "brandH", "brandI"];
 
+// 見出しの多言語マップ
+const NEWS_T = {
+  ja: "お知らせ",
+  en: "News",
+  zh: "新闻",
+  "zh-TW": "最新消息",
+  ko: "공지사항",
+  fr: "Actualités",
+  es: "Noticias",
+  de: "Neuigkeiten",
+  pt: "Novidades",
+  it: "Novità",
+  ru: "Новости",
+  th: "ข่าวสาร",
+  vi: "Tin tức",
+  id: "Berita",
+  hi: "समाचार",
+  ar: "الأخبار",
+} as const;
+
 /* =========================================================
       コンポーネント本体
 ========================================================= */
 export default function NewsClient() {
-  // ---- Hook は必ずトップレベルで呼ぶ（ESLint対応） ----
-  const uiLangState = useUILang() as unknown; // 返り値が配列/オブジェクトの両対応
-  let uiLang: LangKey = "ja";
-  if (Array.isArray(uiLangState)) {
-    uiLang = (uiLangState[0] as LangKey) ?? "ja";
-  } else if (
-    uiLangState &&
-    typeof uiLangState === "object" &&
-    "uiLang" in uiLangState
-  ) {
-    uiLang = (uiLangState as { uiLang?: LangKey }).uiLang ?? "ja";
-  }
-
+  const { uiLang } = useUILang();
   const gradient = useThemeGradient();
   const isDark = useMemo(
     () => !!gradient && DARK_KEYS.some((k) => THEMES[k] === gradient),
     [gradient]
   );
+
+  const headingText = NEWS_T[(uiLang as keyof typeof NEWS_T) ?? "ja"] ?? NEWS_T.ja;
 
   /* ---------- state ---------- */
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -331,17 +341,12 @@ export default function NewsClient() {
     setKeywords(["", "", ""]);
   };
 
-  // 一括翻訳：
-  // ① /api/translate-batch を試す
-  // ② 無ければ Promise.allSettled で各言語を並列翻訳（遅い問題を解消）
+  // 一括翻訳（並列実行）
   const translateAll = useCallback(async (title: string, body: string) => {
     const targets = (LANGS.map((l) => l.key) as LangKey[]).filter(
       (k) => k !== "ja"
     );
 
-
-
-    // 2) 個別翻訳を「並列」実行
     const requests = targets.map(async (lang) => {
       const res = await fetch("/api/translate", {
         method: "POST",
@@ -362,7 +367,7 @@ export default function NewsClient() {
       if (r.status === "fulfilled") {
         t[lang] = { title: r.value.title, body: r.value.body };
       } else {
-        // 失敗時は原文でフォールバック（欠落を作らない）
+        // 失敗時は原文でフォールバック
         t[lang] = { title, body };
       }
     });
@@ -379,7 +384,7 @@ export default function NewsClient() {
     setUploading(!!draftFile);
 
     try {
-      // アップロードと翻訳を並列実行
+      // アップロードと翻訳を並列
       const mediaPromise = (async (): Promise<
         Pick<NewsItem, "mediaUrl" | "mediaType">
       > => {
@@ -412,10 +417,7 @@ export default function NewsClient() {
 
       const translatePromise = translateAll(titleBase, bodyBase);
 
-      const [mediaPart, t] = await Promise.all([
-        mediaPromise,
-        translatePromise,
-      ]);
+      const [mediaPart, t] = await Promise.all([mediaPromise, translatePromise]);
 
       const baseFields = {
         titleBase: titleBase.trim(),
@@ -498,12 +500,15 @@ export default function NewsClient() {
       {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
       <BusyOverlay uploadingPercent={uploadPct} saving={saving || aiLoading} />
 
+      {/* 見出し（多言語） */}
+      <h1 className="text-3xl font-semibold text-white text-outline ">
+        {headingText}
+      </h1>
+
       {/* ===== 一覧 ===== */}
       <ul className="space-y-4 p-4">
         {items.length === 0 ? (
-          <li
-            className="p-6 rounded-lg shadow border bg-white/30 text-white text-outline"
-          >
+          <li className="p-6 rounded-lg shadow border bg-white/30 text-white text-outline">
             現在、お知らせはまだありません。
           </li>
         ) : (
@@ -537,7 +542,7 @@ export default function NewsClient() {
 
       {/* ===== 追加 / 編集モーダル（原文のみ入力） ===== */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify中心 bg-black/50 overflow-y-auto">
           <div
             className="bg-white rounded-lg p-6 w-full max-w-md space-y-4 my-8
                 max-h-[90vh] overflow-y-auto"
@@ -809,9 +814,11 @@ function NewsCard({
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
       exit={{ opacity: 0, y: 40 }}
-      className={`p-6 rounded-lg shadow border bg-white/30` }
+      className={`p-6 rounded-lg shadow border bg-white/30`}
     >
-      <h2 className="font-bold whitespace-pre-wrap text-white text-outline">{titleText}</h2>
+      <h2 className="font-bold whitespace-pre-wrap text-white text-outline">
+        {titleText}
+      </h2>
 
       {/* メディア（画像 / 動画） */}
       {item.mediaUrl && (
@@ -829,7 +836,9 @@ function NewsCard({
         />
       )}
 
-      <p className="mt-2 whitespace-pre-wrap  text-white text-outline">{bodyText}</p>
+      <p className="mt-2 whitespace-pre-wrap  text-white text-outline">
+        {bodyText}
+      </p>
 
       {/* 編集・削除ボタン（ログイン時のみ） */}
       {user && (

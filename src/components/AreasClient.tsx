@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import CardSpinner from "./CardSpinner";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
+import { UILang } from "@/lib/langsState";
 
 type ServiceArea = {
   address?: string; // ← JA 原文（編集対象）
@@ -26,6 +27,26 @@ type ServiceAreaT = {
   lang: LangKey;
   address?: string;
   note?: string;
+};
+
+// imports の下あたりに追加
+const AREAS_T: Record<UILang, { page: string; map: string }> = {
+  ja: { page: "対応エリア", map: "サービス範囲（地図表示）" },
+  en: { page: "Service Area", map: "Service Range (Map)" },
+  zh: { page: "服务范围", map: "服务区域（地图）" },
+  "zh-TW": { page: "服務範圍", map: "服務範圍（地圖）" },
+  ko: { page: "서비스 가능 지역", map: "서비스 범위(지도)" },
+  fr: { page: "Zone desservie", map: "Zone de service (carte)" },
+  es: { page: "Área de cobertura", map: "Ámbito de servicio (mapa)" },
+  de: { page: "Einsatzgebiet", map: "Servicebereich (Karte)" },
+  pt: { page: "Área de atendimento", map: "Âmbito de serviço (mapa)" },
+  it: { page: "Area di copertura", map: "Area di servizio (mappa)" },
+  ru: { page: "Зона обслуживания", map: "Зона обслуживания (карта)" },
+  th: { page: "พื้นที่ให้บริการ", map: "ขอบเขตการให้บริการ (แผนที่)" },
+  vi: { page: "Khu vực phục vụ", map: "Phạm vi dịch vụ (bản đồ)" },
+  id: { page: "Area layanan", map: "Cakupan layanan (peta)" },
+  hi: { page: "सेवा क्षेत्र", map: "सेवा दायरा (मानचित्र)" },
+  ar: { page: "نطاق الخدمة", map: "نطاق الخدمة (خريطة)" },
 };
 
 const SETTINGS_REF = doc(db, "siteSettingsEditable", SITE_KEY);
@@ -47,6 +68,8 @@ export default function AreasClient() {
 
   // 翻訳済み（表示用）
   const [tPacks, setTPacks] = useState<ServiceAreaT[]>([]);
+
+  const T = AREAS_T[uiLang] ?? AREAS_T.ja;
 
   // Google Maps
   const [gmapsReady, setGmapsReady] = useState(false);
@@ -82,7 +105,8 @@ export default function AreasClient() {
         const pub = await getDoc(PUBLIC_REF);
         const ownerId = pub.exists() ? (pub.data() as any)?.ownerId : undefined;
         setIsOwner(!!ownerId && ownerId === u.uid);
-      } finally {}
+      } finally {
+      }
     });
     return () => unsub();
   }, []);
@@ -265,7 +289,9 @@ export default function AreasClient() {
           lastResolvedAddrRef.current = raw;
           fitAfterPickRef.current = true;
         }
-      } catch {/* noop */}
+      } catch {
+        /* noop */
+      }
     }, 700);
     return () => clearTimeout(timer);
   }, [addr, gmapsReady]);
@@ -333,7 +359,10 @@ export default function AreasClient() {
         try {
           const gc = geocoderRef.current;
           if (gmapsReady && gc) {
-            const { results } = await gc.geocode({ address: raw, region: "jp" });
+            const { results } = await gc.geocode({
+              address: raw,
+              region: "jp",
+            });
             if (results?.[0]) {
               const loc = results[0].geometry.location;
               nextLat = loc.lat();
@@ -341,7 +370,9 @@ export default function AreasClient() {
               lastResolvedAddrRef.current = raw;
             }
           }
-        } catch {/* noop */}
+        } catch {
+          /* noop */
+        }
       }
 
       // 1) JA 原文 + 共有フィールド
@@ -390,12 +421,14 @@ export default function AreasClient() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 space-y-6">
-      <h1 className="text-3xl font-semibold text-white text-outline">対応エリア</h1>
+      <h1 className="text-3xl font-semibold text-white text-outline">
+        {T.page}
+      </h1>
 
       {/* 閲覧用（UI言語で表示を切替） */}
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">サービス範囲（地図表示）</CardTitle>
+          <CardTitle className="text-lg">{T.map}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {mapsError && <p className="text-sm text-red-600">{mapsError}</p>}
@@ -405,7 +438,9 @@ export default function AreasClient() {
               {Number.isFinite(radiusKm) ? `（半径 約${radiusKm}km）` : null}
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">拠点住所が未設定です。</p>
+            <p className="text-sm text-muted-foreground">
+              拠点住所が未設定です。
+            </p>
           )}
           {displayNote && (
             <p className="text-sm whitespace-pre-wrap">{displayNote}</p>
@@ -422,7 +457,7 @@ export default function AreasClient() {
       {isOwner && (
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg">編集（オーナーのみ / 日本語原文）</CardTitle>
+           <CardTitle className="text-lg">編集（オーナーのみ / 日本語原文）</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
@@ -438,7 +473,8 @@ export default function AreasClient() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  表示半径（km）：<span className="font-semibold">{radiusKm}</span>
+                  表示半径（km）：
+                  <span className="font-semibold">{radiusKm}</span>
                 </label>
                 <input
                   type="range"
@@ -466,12 +502,21 @@ export default function AreasClient() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button type="button" onClick={save} disabled={saving} aria-busy={saving}>
+              <Button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                aria-busy={saving}
+              >
                 {saving ? "保存中…" : "保存"}
               </Button>
-              {saveMsg && <span className="text-xs whitespace-pre-wrap">{saveMsg}</span>}
+              {saveMsg && (
+                <span className="text-xs whitespace-pre-wrap">{saveMsg}</span>
+              )}
               {!gmapsReady && !mapsError && (
-                <span className="text-xs text-muted-foreground">地図SDKの準備中…</span>
+                <span className="text-xs text-muted-foreground">
+                  地図SDKの準備中…
+                </span>
               )}
             </div>
           </CardContent>

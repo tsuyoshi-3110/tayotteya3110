@@ -66,6 +66,7 @@ import {
 // ✅ 共通 UI（オーバーレイ）
 import { BusyOverlay } from "./BusyOverlay";
 import { Input } from "./ui/input";
+import { UILang } from "@/lib/langsState";
 
 /* ==============================
    設定
@@ -128,6 +129,26 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
     .map((r) => r.value);
 }
 
+/* ===== ページ見出し（スタッフ） ===== */
+const PAGE_TITLE_T: Record<UILang, string> = {
+  ja: "スタッフ",
+  en: "Staff",
+  zh: "员工",
+  "zh-TW": "員工",
+  ko: "직원",
+  fr: "Équipe",
+  es: "Equipo",
+  de: "Team",
+  pt: "Equipe",
+  it: "Staff",
+  ru: "Команда",
+  th: "พนักงาน",
+  vi: "Đội ngũ",
+  id: "Tim",
+  hi: "टीम",
+  ar: "الفريق",
+};
+
 /* ==============================
    本体
 ============================== */
@@ -158,6 +179,8 @@ export default function StaffClient() {
 
   // 保存インジケータ
   const [saving, setSaving] = useState(false);
+
+  const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
 
   // テーマ
   const gradient = useThemeGradient();
@@ -488,8 +511,11 @@ export default function StaffClient() {
       {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
       <BusyOverlay uploadingPercent={progress} saving={saving} />
 
-      <h1 className="text-3xl font-semibold text-white text-outline mb-10">
-        スタッフ
+      <h1
+        className="text-3xl font-semibold text-white text-outline mb-10"
+        aria-label={pageTitle}
+      >
+        {pageTitle}
       </h1>
 
       {/* ====== 並べ替えリスト ====== */}

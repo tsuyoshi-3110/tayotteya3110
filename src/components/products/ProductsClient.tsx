@@ -50,6 +50,26 @@ import { useSections } from "@/hooks/useSections";
 import SectionManagerModal from "./SectionManagerModal";
 import { useFxRates } from "@/lib/fx/client";
 
+/* ===== ページ見出し（商品一覧） ===== */
+const PAGE_TITLE_T: Record<UILang, string> = {
+  ja: "商品一覧",
+  en: "Products",
+  zh: "商品一览",
+  "zh-TW": "商品一覽",
+  ko: "상품 목록",
+  fr: "Produits",
+  es: "Productos",
+  de: "Produkte",
+  pt: "Produtos",
+  it: "Prodotti",
+  ru: "Товары",
+  th: "รายการสินค้า",
+  vi: "Sản phẩm",
+  id: "Produk",
+  hi: "उत्पाद",
+  ar: "قائمة المنتجات",
+};
+
 /* ================= キーワード入力モーダル ================= */
 type KeywordModalProps = {
   open: boolean;
@@ -288,6 +308,7 @@ export default function ProductsClient() {
 
   /* 為替 */
   const { rates } = useFxRates();
+  const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
 
   /* ===== Firestore refs ===== */
   const productColRef: CollectionReference<DocumentData> = useMemo(
@@ -514,8 +535,11 @@ export default function ProductsClient() {
   return (
     <main className="max-w-5xl mx-auto p-4 pt-10">
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
-      <h1 className="text-3xl font-semibold text-white text-outline">
-        商品一覧
+      <h1
+        className="text-3xl font-semibold text-white text-outline"
+        aria-label={pageTitle}
+      >
+        {pageTitle}
       </h1>
 
       {/* ヘッダー */}

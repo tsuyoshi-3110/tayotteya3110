@@ -37,6 +37,7 @@ import {
 
 // ✅ 共通 BusyOverlay
 import { BusyOverlay } from "./BusyOverlay";
+import { UILang } from "@/lib/langsState";
 
 /* ───────── 定数 ───────── */
 const STORAGE_PATH = `sitePages/${SITE_KEY}/about`;
@@ -91,6 +92,25 @@ async function buildAllTranslations(baseText: string): Promise<AboutDoc["t"]> {
   return out;
 }
 
+const ABOUT_T: Record<UILang, { heading: string }> = {
+  ja: { heading: "私たちの思い" },
+  en: { heading: "About us" },
+  zh: { heading: "关于我们" },
+  "zh-TW": { heading: "關於我們" },
+  ko: { heading: "회사 소개" },
+  fr: { heading: "À propos" },
+  es: { heading: "Sobre nosotros" },
+  de: { heading: "Über uns" },
+  pt: { heading: "Sobre nós" },
+  it: { heading: "Chi siamo" },
+  ru: { heading: "О нас" },
+  th: { heading: "เกี่ยวกับเรา" },
+  vi: { heading: "Về chúng tôi" },
+  id: { heading: "Tentang kami" },
+  hi: { heading: "हमारे बारे में" },
+  ar: { heading: "نبذة عنا" },
+};
+
 /* ───────── 本体 ───────── */
 export default function AboutClient() {
   const { uiLang } = useUILang();
@@ -103,6 +123,8 @@ export default function AboutClient() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState<AboutDoc | null>(null);
+
+  const T = ABOUT_T[uiLang] ?? ABOUT_T.ja;
 
   const displayText = useMemo(
     () => pickLocalized(docData, uiLang),
@@ -267,7 +289,7 @@ export default function AboutClient() {
       <BusyOverlay uploadingPercent={uploadProgress} saving={saving} />
 
       <h1 className="text-3xl font-semibold text-white text-outline mb-8">
-        私たちの思い
+        {T.heading}
       </h1>
 
       {/* 表示カード */}

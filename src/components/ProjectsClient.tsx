@@ -101,6 +101,26 @@ type ProductDoc = {
   };
 };
 
+/* ===== ページ見出し（施工実績） ===== */
+const PAGE_TITLE_T: Record<UILang, string> = {
+  ja: "施工実績",
+  en: "Projects",
+  zh: "项目案例",
+  "zh-TW": "施工實績",
+  ko: "시공 실적",
+  fr: "Réalisations",
+  es: "Proyectos",
+  de: "Projekte",
+  pt: "Projetos",
+  it: "Progetti",
+  ru: "Проекты",
+  th: "ผลงาน",
+  vi: "Dự án",
+  id: "Proyek",
+  hi: "परियोजनाएँ",
+  ar: "المشاريع",
+};
+
 /* ===================== 定数 ===================== */
 const COL_PATH = `siteProjects/${SITE_KEY}/items`;
 const MAX_VIDEO_SEC = 60;
@@ -205,6 +225,8 @@ export default function ProjectsClient() {
   // 店舗選択
   const [storeOptions, setStoreOptions] = useState<StorePick[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+
+  const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
 
   // テーマ
   const gradient = useThemeGradient();
@@ -541,8 +563,11 @@ export default function ProjectsClient() {
     <main className="max-w-5xl mx-auto p-4 pt-5">
       <BusyOverlay uploadingPercent={progress} saving={saving} />
 
-      <h1 className="text-3xl font-semibold text-white text-outline">
-        施工実績
+      <h1
+        className="text-3xl font-semibold text-white text-outline"
+        aria-label={pageTitle}
+      >
+        {pageTitle}
       </h1>
 
       {/* 空状態（初回ロード後に件数0なら表示） */}

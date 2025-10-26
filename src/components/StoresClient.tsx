@@ -57,11 +57,31 @@ import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 import StoreReviews from "./StoreReviews";
 import { BusyOverlay } from "./BusyOverlay";
+import { UILang } from "@/lib/langsState";
 
 /* ======================== 定数/型 ======================== */
 const STORE_COL = `siteStores/${SITE_KEY}/items`;
 const STORAGE_PATH = `stores/public/${SITE_KEY}`;
 const META_EDIT_REF = doc(db, "siteSettingsEditable", SITE_KEY);
+
+const STORES_T: Record<UILang, { page: string }> = {
+  ja: { page: "店舗一覧" },
+  en: { page: "Stores" },
+  zh: { page: "门店一览" },
+  "zh-TW": { page: "門市一覽" },
+  ko: { page: "매장 목록" },
+  fr: { page: "Magasins" },
+  es: { page: "Tiendas" },
+  de: { page: "Filialen" },
+  pt: { page: "Lojas" },
+  it: { page: "Negozi" },
+  ru: { page: "Магазины" },
+  th: { page: "สาขา" },
+  vi: { page: "Cửa hàng" },
+  id: { page: "Toko" },
+  hi: { page: "दुकानें" },
+  ar: { page: "المتاجر" },
+};
 
 type Store = {
   id: string;
@@ -219,6 +239,8 @@ export default function StoresClient() {
   const [worksAutoSyncEnabled, setWorksAutoSyncEnabled] =
     useState<boolean>(false);
   const [worksAlbumTag, setWorksAlbumTag] = useState<string>("works");
+
+  const T = STORES_T[uiLang] ?? STORES_T.ja;
 
   const gradient = useThemeGradient(); // isDark 判定に使用
 
@@ -590,8 +612,8 @@ export default function StoresClient() {
         saving={submitFlag && !uploading}
       />
 
-      <h1 className="text-3xl font-semibold text-white text-outline ">
-        店舗一覧
+      <h1 className="text-3xl font-semibold text-white text-outline">
+        {T.page}
       </h1>
 
       {/* ===== Google連携（管理者のみ見える） ===== */}

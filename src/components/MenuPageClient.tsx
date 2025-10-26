@@ -47,11 +47,31 @@ import {
 } from "@dnd-kit/sortable";
 
 import { getExt, getVideoMetaFromFile, getImageSize } from "@/lib/media";
-import { Pin } from "lucide-react";
+import { Pin, Plus } from "lucide-react";
 
 // ▼ UI言語（jotai）とサポート言語一覧
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 import { LANGS } from "@/lib/langs";
+
+/* ===== 見出し・ボタンの多言語 ===== */
+const PAGE_TITLE_T: Record<UILang, string> = {
+  ja: "料金",
+  en: "Pricing",
+  zh: "价格",
+  "zh-TW": "價格",
+  ko: "요금",
+  fr: "Tarifs",
+  es: "Precios",
+  de: "Preise",
+  pt: "Preços",
+  it: "Prezzi",
+  ru: "Цены",
+  th: "ราคา",
+  vi: "Giá",
+  id: "Harga",
+  hi: "कीमतें",
+  ar: "الأسعار",
+};
 
 /* =========================
    Firestore保存用の型（title は任意）
@@ -174,6 +194,8 @@ export default function MenuPageClient() {
 
   // UI 言語（表示用）
   const { uiLang } = useUILang();
+
+  const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
 
   // DnD センサー（クリック5px移動 / 長押し開始）
   const sensors = useSensors(
@@ -494,14 +516,27 @@ export default function MenuPageClient() {
   return (
     <div className="relative">
       <div className={wrapperClass}>
+        {/* 右下：＋セクションを追加（日本語固定ツールチップ） */}
         {isLoggedIn && (
-          <Button className="mb-4" onClick={() => setShowModal(true)}>
-            ＋ セクションを追加
-          </Button>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            aria-label="セクションを追加"
+            title="セクションを追加"
+            className="fixed bottom-6 right-6 z-50
+               w-14 h-14 rounded-full bg-blue-600 text-white
+               shadow-lg hover:bg-blue-700 active:scale-95
+               flex items-center justify-center leading-none p-0"
+          >
+            <Plus size={28} strokeWidth={2.5} className="block" />
+          </button>
         )}
 
-        <h1 className="text-3xl font-semibold text-white text-outline mb-10">
-          料金
+        <h1
+          className="text-3xl font-semibold text-white text-outline mb-10"
+          aria-label={pageTitle}
+        >
+          {pageTitle}
         </h1>
 
         {/* 並び替えコンテナ */}

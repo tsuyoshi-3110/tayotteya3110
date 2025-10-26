@@ -26,8 +26,28 @@ import { deleteObject, ref as storageRef } from "firebase/storage";
 import clsx from "clsx";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, ThemeKey } from "@/lib/themes";
+import { UILang, useUILang } from "@/lib/langsState";
 
 const PAGE_SIZE = 20;
+
+const BLOG_T: Record<UILang, string> = {
+  ja: "ブログ",
+  en: "Blog",
+  zh: "博客",
+  "zh-TW": "部落格",
+  ko: "블로그",
+  fr: "Blog",
+  es: "Blog",
+  de: "Blog",
+  pt: "Blog",
+  it: "Blog",
+  ru: "Блог",
+  th: "บล็อก",
+  vi: "Blog",
+  id: "Blog",
+  hi: "ब्लॉग",
+  ar: "المدونة",
+};
 
 export default function BlogListPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -38,6 +58,8 @@ export default function BlogListPage() {
   const [noMore, setNoMore] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const { uiLang } = useUILang();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, setUser);
@@ -157,7 +179,9 @@ export default function BlogListPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
-    
+      <h1 className="text-3xl font-semibold text-white text-outline">
+        {BLOG_T[uiLang] ?? BLOG_T.ja}
+      </h1>
 
       {posts.length === 0 && !loading ? (
         <p
