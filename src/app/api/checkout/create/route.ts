@@ -435,7 +435,7 @@ export async function POST(req: NextRequest) {
       mode: "payment",
       line_items,
       locale,
-      allow_promotion_codes: true,
+      allow_promotion_codes: false,
       customer_creation: "always",
       phone_number_collection: { enabled: true },
       billing_address_collection: "required",
