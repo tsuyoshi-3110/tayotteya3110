@@ -514,11 +514,15 @@ export default function ProductsClient() {
   return (
     <main className="max-w-5xl mx-auto p-4 pt-10">
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
+      <h1 className="text-3xl font-semibold text-white text-outline">
+        商品一覧
+      </h1>
 
       {/* ヘッダー */}
-      <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div className="mb-10 mt-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         {/* セクションピッカー */}
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 ">
           <label className="text-sm text-white text-outline opacity-70">
             表示カテゴリ:
           </label>

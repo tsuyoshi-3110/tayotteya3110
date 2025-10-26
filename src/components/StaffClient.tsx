@@ -484,9 +484,13 @@ export default function StaffClient() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto p-4 pt-20">
+    <main className="max-w-5xl mx-auto p-4 pt-5">
       {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
       <BusyOverlay uploadingPercent={progress} saving={saving} />
+
+      <h1 className="text-3xl font-semibold text-white text-outline mb-10">
+        スタッフ
+      </h1>
 
       {/* ====== 並べ替えリスト ====== */}
       <DndContext

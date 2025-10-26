@@ -389,20 +389,32 @@ export default function ProductsECClient() {
 
   // 追加：在庫購読（siteKey単位）
   useEffect(() => {
+    if (!isAdmin) {
+      // ★ 未ログインで読まない
+      setStockMap({});
+      return;
+    }
     const qRef = query(
       collection(db, "stock"),
       where("siteKey", "==", SITE_KEY)
     );
-    const unsub = onSnapshot(qRef, (snap) => {
-      const m: Record<string, number> = {};
-      snap.docs.forEach((d) => {
-        const data = d.data() as any;
-        if (data?.productId) m[data.productId] = Number(data.stockQty ?? 0);
-      });
-      setStockMap(m);
-    });
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        const m: Record<string, number> = {};
+        snap.docs.forEach((d) => {
+          const data = d.data() as any;
+          if (data?.productId) m[data.productId] = Number(data.stockQty ?? 0);
+        });
+        setStockMap(m);
+      },
+      (err) => {
+        console.warn("[stock] snapshot error", err);
+        setStockMap({});
+      }
+    );
     return () => unsub();
-  }, []);
+  }, [isAdmin]);
 
   /* ========== セクション購読 ========== */
   useEffect(() => {

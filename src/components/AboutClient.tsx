@@ -266,6 +266,10 @@ export default function AboutClient() {
       {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
       <BusyOverlay uploadingPercent={uploadProgress} saving={saving} />
 
+      <h1 className="text-3xl font-semibold text-white text-outline mb-8">
+        私たちの思い
+      </h1>
+
       {/* 表示カード */}
       <motion.div
         initial={{ opacity: 0, y: 10, scale: 0.98 }}

@@ -71,6 +71,7 @@ import {
   VIDEO_MIME_TYPES,
   extFromMime,
 } from "@/lib/fileTypes";
+import { ThemeKey, THEMES } from "@/lib/themes";
 
 /* ===================== 型 ===================== */
 type MediaType = "image" | "video";
@@ -207,6 +208,11 @@ export default function ProjectsClient() {
 
   // テーマ
   const gradient = useThemeGradient();
+
+  const isDark = useMemo(() => {
+    const darkKeys: ThemeKey[] = ["brandG", "brandH", "brandI"];
+    return gradient && darkKeys.some((k) => gradient === THEMES[k]);
+  }, [gradient]);
 
   // Firestore 参照
   const colRef: CollectionReference<DocumentData> = useMemo(
@@ -532,21 +538,23 @@ export default function ProjectsClient() {
 
   /* ===================== JSX ===================== */
   return (
-    <main className="max-w-5xl mx-auto p-4 pt-20">
+    <main className="max-w-5xl mx-auto p-4 pt-5">
       <BusyOverlay uploadingPercent={progress} saving={saving} />
+
+      <h1 className="text-3xl font-semibold text-white text-outline">
+        施工実績
+      </h1>
 
       {/* 空状態（初回ロード後に件数0なら表示） */}
       {listLoaded && list.length === 0 ? (
-        <div className="mt-16 flex items-center justify-center">
-          <div className="rounded-2xl border bg-white/30 backdrop-blur px-6 py-8 text-center shadow">
-            <p className="text-black">準備中...</p>
-            {isAdmin && (
-              <p className="text-gray-400 text-sm mt-1">
-                右下の「＋」から新規追加できます
-              </p>
-            )}
-          </div>
-        </div>
+        <p
+          className={clsx(
+            "text-sm",
+            isDark ? "text-white/70" : "text-muted-foreground"
+          )}
+        >
+          準備中...
+        </p>
       ) : (
         /* 一覧 */
         <DndContext
@@ -562,7 +570,8 @@ export default function ProjectsClient() {
               {list.map((p) => {
                 const loc = displayOf(p, uiLang);
                 const storeName = p.storeLink?.storeId
-                  ? storeOptions.find((s) => s.id === p.storeLink!.storeId)?.title
+                  ? storeOptions.find((s) => s.id === p.storeLink!.storeId)
+                      ?.title
                   : undefined;
                 return (
                   <SortableItem key={p.id} product={p}>

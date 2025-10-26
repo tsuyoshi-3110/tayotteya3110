@@ -390,7 +390,7 @@ export default function AreasClient() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 space-y-6">
-      <h1 className="text-2xl font-semibold text-white text-outline">対応エリア</h1>
+      <h1 className="text-3xl font-semibold text-white text-outline">対応エリア</h1>
 
       {/* 閲覧用（UI言語で表示を切替） */}
       <Card className="shadow-md">

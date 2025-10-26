@@ -6,19 +6,21 @@ import { doc, getDoc } from "firebase/firestore"; // 👈 authも使う
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 // 各表示セクションのインポート
-import ProductsClient from "./ProjectsClient";
+import ProductsClient from "./products/ProductsClient";
 import StaffClient from "./StaffClient";
 import AreasClient from "./AreasClient";
 import StoresClient from "./StoresClient";
 import AboutClient from "./AboutClient";
 import MenuPageClient from "./MenuPageClient";
 import NewsClient from "./NewsClient";
+import ProjectsClient from "./ProjectsClient";
 
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
 // トップ表示対象に限定
 const MENU_ITEMS: { key: string; label: string }[] = [
-  { key: "products", label: "施工実績" },
+  { key: "products", label: "商品一覧" },
+  { key: "projects", label: "施工実績" },
   { key: "pricing", label: "メニュー" },
   { key: "staffs", label: "スタッフ" },
   { key: "areas", label: "対応エリア" },
@@ -32,6 +34,8 @@ function renderSection(key: string) {
   switch (key) {
     case "products":
       return <ProductsClient />;
+    case "products":
+      return <ProjectsClient />;
     case "pricing":
       return <MenuPageClient />;
     case "staffs":

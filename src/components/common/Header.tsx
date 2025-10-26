@@ -447,49 +447,7 @@ export default function Header({ className = "" }: { className?: string }) {
     MENU_ITEMS.map((m) => m.key)
   );
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
-  useEffect(() => {
-    const ref = doc(db, "siteSettingsEditable", SITE_KEY);
-    const unsubscribe = onSnapshot(
-      ref,
-      (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data() as EditableSettings;
-
-        // --- i18n 有効/無効 ---
-        const enabled =
-          typeof data.i18n?.enabled === "boolean"
-            ? (data.i18n.enabled as boolean)
-            : true;
-        setI18nEnabled(enabled);
-
-        // --- メニュー可視キー（互換補正込み）---
-        if (Array.isArray(data.visibleMenuKeys)) {
-          const raw = [...data.visibleMenuKeys];
-          let keys = [...raw];
-
-          // 互換：旧設定で "products"（商品一覧）だけが有効で "projects"（施工実績）が無い場合は足す
-          if (keys.includes("products") && !keys.includes("projects")) {
-            keys = Array.from(new Set(["projects", ...keys])); // 先頭に施工実績を追加（重複排除）
-          }
-
-          setVisibleMenuKeys(keys);
-
-          // Firestore 側も補正を反映（差分があるときのみ）
-          if (JSON.stringify(keys) !== JSON.stringify(raw)) {
-            import("firebase/firestore").then(({ setDoc }) => {
-              setDoc(ref, { visibleMenuKeys: keys }, { merge: true }).catch(
-                console.error
-              );
-            });
-          }
-        }
-      },
-      (error) => {
-        console.error("メニュー/翻訳設定購読エラー:", error);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
+ 
 
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);

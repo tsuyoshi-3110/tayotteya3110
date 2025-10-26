@@ -585,7 +585,15 @@ export default function StoresClient() {
 
   return (
     <main className="max-w-5xl mx-auto p-4 mt-20">
-      <BusyOverlay uploadingPercent={progress} saving={submitFlag && !uploading} />
+      <BusyOverlay
+        uploadingPercent={progress}
+        saving={submitFlag && !uploading}
+      />
+
+      <h1 className="text-3xl font-semibold text-white text-outline ">
+        店舗一覧
+      </h1>
+
       {/* ===== Google連携（管理者のみ見える） ===== */}
       {isAdmin && (
         <div className="mb-6 rounded-lg border bg-white/70 p-4 shadow-sm">

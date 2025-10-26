@@ -91,11 +91,19 @@ type SortableItemProps = {
 
 /* 並び替えアイテム */
 function SortableSectionItem({ id, children }: SortableItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
     transition,
     zIndex: isDragging ? 50 : "auto",
   };
@@ -129,9 +137,13 @@ async function translateOne(text: string, target: UILang): Promise<string> {
 }
 
 /** 日本語を基準に全言語へ翻訳して上書き用の i18n マップを作る */
-async function buildTitleI18n(baseJa: string): Promise<Partial<Record<UILang, string>>> {
+async function buildTitleI18n(
+  baseJa: string
+): Promise<Partial<Record<UILang, string>>> {
   const entries = await Promise.all(
-    ALL_UI_LANGS.map(async (lng) => [lng, await translateOne(baseJa, lng)] as const)
+    ALL_UI_LANGS.map(
+      async (lng) => [lng, await translateOne(baseJa, lng)] as const
+    )
   );
   return Object.fromEntries(entries);
 }
@@ -147,7 +159,9 @@ export default function MenuPageClient() {
 
   // 追加モーダル用: メディア選択
   const [newMediaFile, setNewMediaFile] = useState<File | null>(null);
-  const [newMediaObjectUrl, setNewMediaObjectUrl] = useState<string | null>(null);
+  const [newMediaObjectUrl, setNewMediaObjectUrl] = useState<string | null>(
+    null
+  );
   const [creating, setCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -164,7 +178,9 @@ export default function MenuPageClient() {
   // DnD センサー（クリック5px移動 / 長押し開始）
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    })
   );
 
   /* 認証フラグ */
@@ -175,7 +191,8 @@ export default function MenuPageClient() {
 
   useEffect(() => {
     if (!showHelp) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setShowHelp(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setShowHelp(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showHelp]);
@@ -195,8 +212,7 @@ export default function MenuPageClient() {
           // 念のため、日本語ベースの title があれば ja にセット
           ...(raw.title ? { ja: raw.title } : {}),
         };
-        const titleForUI =
-          titleI18n[uiLang] || titleI18n.ja || raw.title || ""; // ← 必ず string
+        const titleForUI = titleI18n[uiLang] || titleI18n.ja || raw.title || ""; // ← 必ず string
         return {
           id: d.id,
           ...raw,
@@ -229,11 +245,17 @@ export default function MenuPageClient() {
       try {
         const { duration } = await getVideoMetaFromFile(file);
         if (duration > 31) {
-          alert(`動画は30秒以内にしてください。（選択：約${Math.round(duration)}秒）`);
+          alert(
+            `動画は30秒以内にしてください。（選択：約${Math.round(
+              duration
+            )}秒）`
+          );
           return;
         }
       } catch {
-        alert("動画の長さを取得できませんでした。別のファイルをお試しください。");
+        alert(
+          "動画の長さを取得できませんでした。別のファイルをお試しください。"
+        );
         return;
       }
     }
@@ -298,9 +320,15 @@ export default function MenuPageClient() {
         let orientation: "portrait" | "landscape" = "landscape";
 
         if (isVideo) {
-          const { duration, width, height } = await getVideoMetaFromFile(newMediaFile);
+          const { duration, width, height } = await getVideoMetaFromFile(
+            newMediaFile
+          );
           if (duration > 31) {
-            alert(`動画は30秒以内にしてください。（選択: 約${Math.round(duration)}秒）`);
+            alert(
+              `動画は30秒以内にしてください。（選択: 約${Math.round(
+                duration
+              )}秒）`
+            );
             return;
           }
           durationSec = Math.round(duration);
@@ -374,7 +402,10 @@ export default function MenuPageClient() {
   };
 
   /* ============ タイトル更新：常に全言語翻訳で上書き ============ */
-  const handleTitleUpdateAllLangs = async (section: UIMenuSection, baseTitle: string) => {
+  const handleTitleUpdateAllLangs = async (
+    section: UIMenuSection,
+    baseTitle: string
+  ) => {
     const baseJa = baseTitle.trim();
     if (!baseJa) return;
 
@@ -456,7 +487,9 @@ export default function MenuPageClient() {
     );
   }, [newMediaFile, newMediaObjectUrl]);
 
-  const wrapperClass = `p-4 max-w-2xl mx-auto pt-20 ${isLoggedIn ? "pb-20" : ""}`;
+  const wrapperClass = `p-4 max-w-2xl mx-auto pt-20 ${
+    isLoggedIn ? "pb-20" : ""
+  }`;
 
   return (
     <div className="relative">
@@ -467,9 +500,20 @@ export default function MenuPageClient() {
           </Button>
         )}
 
+        <h1 className="text-3xl font-semibold text-white text-outline mb-10">
+          料金
+        </h1>
+
         {/* 並び替えコンテナ */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={sections.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <div className="flex flex-col gap-4 sm:gap-6 md:gap-8">
               {sections.map((section) => (
                 <SortableSectionItem key={section.id} id={section.id}>
@@ -494,13 +538,19 @@ export default function MenuPageClient() {
                           section={section}
                           isLoggedIn={isLoggedIn}
                           // ★ タイトル更新は常に全言語翻訳で上書き
-                          onTitleUpdate={(t) => handleTitleUpdateAllLangs(section, t)}
+                          onTitleUpdate={(t) =>
+                            handleTitleUpdateAllLangs(section, t)
+                          }
                           onDeleteSection={() => {
-                            setSections((prev) => prev.filter((s) => s.id !== section.id));
+                            setSections((prev) =>
+                              prev.filter((s) => s.id !== section.id)
+                            );
                           }}
                           onSectionPatch={(patch) => {
                             setSections((prev) =>
-                              prev.map((s) => (s.id === section.id ? { ...s, ...patch } : s))
+                              prev.map((s) =>
+                                s.id === section.id ? { ...s, ...patch } : s
+                              )
                             );
                           }}
                         />
@@ -531,7 +581,12 @@ export default function MenuPageClient() {
                 <div className="text-sm font-medium mb-1">メディア（任意）</div>
                 {previewNode}
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={pickMedia} disabled={creating}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={pickMedia}
+                    disabled={creating}
+                  >
                     画像/動画を選択（動画は30秒まで）
                   </Button>
                   {newMediaFile && (
@@ -539,7 +594,8 @@ export default function MenuPageClient() {
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (newMediaObjectUrl) URL.revokeObjectURL(newMediaObjectUrl);
+                        if (newMediaObjectUrl)
+                          URL.revokeObjectURL(newMediaObjectUrl);
                         setNewMediaFile(null);
                         setNewMediaObjectUrl(null);
                       }}
@@ -559,7 +615,11 @@ export default function MenuPageClient() {
               </div>
 
               <div className="flex justify-between sticky bottom-0 bg-white pt-4">
-                <Button variant="outline" onClick={() => setShowModal(false)} disabled={creating}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModal(false)}
+                  disabled={creating}
+                >
                   キャンセル
                 </Button>
                 <Button onClick={handleAddSection} disabled={creating}>
@@ -609,17 +669,21 @@ export default function MenuPageClient() {
                 <div className="space-y-3 text-sm text-blue-800">
                   <div>
                     <strong>1. 削除</strong> 行を<strong>左にスライド</strong>
-                    すると削除ボタンが表示されます。 行を<strong>右にスライド</strong>
+                    すると削除ボタンが表示されます。 行を
+                    <strong>右にスライド</strong>
                     すると編集ボタンが表示されます。
                   </div>
                   <div>
-                    <strong>2. 並び替え</strong> セクションや項目はドラッグ＆ドロップで順番を変更できます。
+                    <strong>2. 並び替え</strong>{" "}
+                    セクションや項目はドラッグ＆ドロップで順番を変更できます。
                   </div>
                   <div>
-                    <strong>3. メディア編集</strong> 「✎ セクション名/メディア」ボタンから画像や動画を追加・変更できます。
+                    <strong>3. メディア編集</strong> 「✎
+                    セクション名/メディア」ボタンから画像や動画を追加・変更できます。
                   </div>
                   <div>
-                    <strong>4. 保存</strong> 編集後は自動保存されます。保存が完了すると緑色の通知が表示されます。
+                    <strong>4. 保存</strong>{" "}
+                    編集後は自動保存されます。保存が完了すると緑色の通知が表示されます。
                   </div>
                 </div>
 

@@ -368,6 +368,7 @@ function I18nSettingsCard({
 const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "home", label: "ホーム" },
   { key: "projects", label: "施工実績" },
+  { key: "products", label: "商品一覧" },
   { key: "staffs", label: "スタッフ" },
   { key: "pricing", label: "料金" },
   { key: "areas", label: "対応エリア" },
