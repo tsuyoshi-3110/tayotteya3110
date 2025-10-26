@@ -35,7 +35,6 @@ import { Loader } from "@googlemaps/js-api-loader";
 // Firestore ref
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
-
 /* =========================
    Stripe Connect カード（住所設定ボタン込み）
 ========================= */
@@ -570,6 +569,17 @@ export default function LoginPage() {
   const handleVisibleKeysChange = async (newKeys: string[]) => {
     setVisibleKeys(newKeys);
     await setDoc(META_REF, { visibleMenuKeys: newKeys }, { merge: true });
+
+    // ★ ここで active も同期（候補外は落とす）
+    setActiveKeys((prev) => {
+      const next = prev.filter((k) => newKeys.includes(k));
+      if (next.length !== prev.length) {
+        setDoc(META_REF, { activeMenuKeys: next }, { merge: true }).catch(
+          console.error
+        );
+      }
+      return next;
+    });
   };
 
   const handleActiveKeysChange = async (newKeys: string[]) => {
