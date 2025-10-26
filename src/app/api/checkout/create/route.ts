@@ -12,9 +12,17 @@ const PLATFORM_FEE_RATE = 0.07;
 
 /* ---------- Lang 正規化 & 補助 ---------- */
 const CANON_MAP: Record<string, string> = {
-  jp: "ja", kr: "ko", cn: "zh", tw: "zh-TW", hk: "zh-HK",
-  "zh-hant": "zh-TW", zh_hant: "zh-TW", "zh-hans": "zh", zh_hans: "zh",
-  ptbr: "pt-BR", pt_br: "pt-BR",
+  jp: "ja",
+  kr: "ko",
+  cn: "zh",
+  tw: "zh-TW",
+  hk: "zh-HK",
+  "zh-hant": "zh-TW",
+  zh_hant: "zh-TW",
+  "zh-hans": "zh",
+  zh_hans: "zh",
+  ptbr: "pt-BR",
+  pt_br: "pt-BR",
 };
 function canonLang(code?: string | null) {
   const c = (code ?? "").replace(/_/g, "-").trim().toLowerCase();
@@ -27,32 +35,61 @@ function canonLang(code?: string | null) {
   return r ? `${b}-${r.toUpperCase()}` : b;
 }
 
-
 /* ---------- Checkout locale ---------- */
 type CheckoutLocale = Stripe.Checkout.SessionCreateParams.Locale;
 function normalizeCheckoutLocale(uiLang?: string | null): CheckoutLocale {
   const ok: CheckoutLocale[] = [
-    "auto","bg","cs","da","de","el","en","en-GB","es","es-419","et","fi","fil","fr","fr-CA",
-    "hr","hu","id","it","ja","ko","lt","lv","ms","mt","nb","nl","pl","pt","pt-BR","ro","ru",
-    "sk","sl","sv","th","tr","vi","zh","zh-HK","zh-TW",
+    "auto",
+    "bg",
+    "cs",
+    "da",
+    "de",
+    "el",
+    "en",
+    "en-GB",
+    "es",
+    "es-419",
+    "et",
+    "fi",
+    "fil",
+    "fr",
+    "fr-CA",
+    "hr",
+    "hu",
+    "id",
+    "it",
+    "ja",
+    "ko",
+    "lt",
+    "lv",
+    "ms",
+    "mt",
+    "nb",
+    "nl",
+    "pl",
+    "pt",
+    "pt-BR",
+    "ro",
+    "ru",
+    "sk",
+    "sl",
+    "sv",
+    "th",
+    "tr",
+    "vi",
+    "zh",
+    "zh-HK",
+    "zh-TW",
   ];
   const s = (uiLang ?? "").trim();
   if (!s) return "auto";
   if (s.toLowerCase() === "en") return "en-GB";
   const hit = ok.find((v) => v.toLowerCase() === s.toLowerCase());
   if (hit) return hit;
-  const base = ok.find((v) => v.toLowerCase() === s.split("-")[0].toLowerCase());
+  const base = ok.find(
+    (v) => v.toLowerCase() === s.split("-")[0].toLowerCase()
+  );
   return base ?? "auto";
-}
-
-/* ---------- Origin 制限 ---------- */
-function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return true;
-  const allowed: RegExp[] = [/\.yourdomain\.com$/, /^https:\/\/.+\.pageit\.jp$/, /^https:\/\/.+\.vercel\.app$/];
-  if (process.env.NODE_ENV !== "production") {
-    allowed.push(/^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/);
-  }
-  return allowed.some((re) => re.test(origin));
 }
 
 /* ---------- 文字列ヘルパ ---------- */
@@ -84,9 +121,7 @@ function pickProductNameFor(data: any, uiLang?: string | null): string {
     pickStr(data?.titles?.[L.split("-")[0]]);
   if (direct) return direct;
 
-  const en =
-    findInT("en") ||
-    pickStr(data?.titles?.en);
+  const en = findInT("en") || pickStr(data?.titles?.en);
   if (en) return en;
 
   return baseJa || "Item";
@@ -97,7 +132,7 @@ function collectLocalizedNames(data: any) {
   const out: Record<string, string> = {};
   const baseJa = pickStr(data?.base?.title) || pickStr(data?.title);
   if (baseJa) {
-    out["ja"] = baseJa;   // ← base は日本語として扱う
+    out["ja"] = baseJa; // ← base は日本語として扱う
     out["base"] = baseJa;
   }
   const rows: Array<{ lang?: string; title?: string; body?: string }> =
@@ -109,7 +144,11 @@ function collectLocalizedNames(data: any) {
   }
   return out;
 }
-function buildNamesMetaMinimal(selLang: string, names: Record<string, string>, display: string) {
+function buildNamesMetaMinimal(
+  selLang: string,
+  names: Record<string, string>,
+  display: string
+) {
   const sel = canonLang(selLang || "ja");
   const ja = names["ja"] || display;
   const baseSel = names[sel] || names[sel.split("-")[0]] || display;
@@ -136,17 +175,26 @@ async function fetchProductDocsChunked(siteKey: string, ids: string[]) {
 async function getSiteDoc<T = any>(col: string, id: string) {
   const ref = adminDb.collection(col).doc(id);
   const snap = await ref.get();
-  return { exists: snap.exists, data: snap.exists ? (snap.data() as T) : undefined };
+  return {
+    exists: snap.exists,
+    data: snap.exists ? (snap.data() as T) : undefined,
+  };
 }
 
 async function resolveShippingJPY(siteKey: string, uiLang?: string | null) {
-  const site = await getSiteDoc<Record<string, any>>("siteShippingPrices", siteKey);
+  const site = await getSiteDoc<Record<string, any>>(
+    "siteShippingPrices",
+    siteKey
+  );
   let table: Record<string, any> | undefined;
 
   if (site.exists) {
     table = site.data; // 存在する → 中身が空でも default へは行かない
   } else {
-    const def = await getSiteDoc<Record<string, any>>("siteShippingPrices", "default");
+    const def = await getSiteDoc<Record<string, any>>(
+      "siteShippingPrices",
+      "default"
+    );
     table = def.data || {};
   }
 
@@ -154,10 +202,16 @@ async function resolveShippingJPY(siteKey: string, uiLang?: string | null) {
     return { amountJPY: 0, langKeyUsed: canonLang(uiLang) };
   }
 
-  for (const k of [canonLang(uiLang), canonLang(uiLang).split("-")[0], "ja", "en"]) {
+  for (const k of [
+    canonLang(uiLang),
+    canonLang(uiLang).split("-")[0],
+    "ja",
+    "en",
+  ]) {
     if (!(k in table)) continue; // キーが無い時のみ次へ
     const n = Number(table[k]);
-    if (Number.isFinite(n) && n >= 0) return { amountJPY: Math.floor(n), langKeyUsed: k };
+    if (Number.isFinite(n) && n >= 0)
+      return { amountJPY: Math.floor(n), langKeyUsed: k };
   }
   return { amountJPY: 0, langKeyUsed: canonLang(uiLang) };
 }
@@ -176,9 +230,15 @@ async function resolveThresholdPolicy(siteKey: string, uiLang?: string | null) {
   const enabled = pol?.enabled !== false;
   const byLang: Record<string, any> = pol?.thresholdByLang || {};
   const defVal = Number(pol?.thresholdDefaultJPY ?? pol?.thresholdJPY) || 0; // 旧フィールド互換
-  for (const k of [canonLang(uiLang), canonLang(uiLang).split("-")[0], "ja", "en"]) {
+  for (const k of [
+    canonLang(uiLang),
+    canonLang(uiLang).split("-")[0],
+    "ja",
+    "en",
+  ]) {
     const n = Number(byLang?.[k]);
-    if (Number.isFinite(n) && n >= 0) return { enabled, thresholdJPY: Math.floor(n) };
+    if (Number.isFinite(n) && n >= 0)
+      return { enabled, thresholdJPY: Math.floor(n) };
   }
   return { enabled, thresholdJPY: Math.max(0, Math.floor(defVal)) };
 }
@@ -186,7 +246,8 @@ async function resolveThresholdPolicy(siteKey: string, uiLang?: string | null) {
 function shippingLabelFor(lang?: string | null) {
   const l = (lang || "").toLowerCase();
   if (l.startsWith("ja")) return "送料";
-  if (l.startsWith("zh-tw") || l.startsWith("zh-hant") || l.startsWith("zh-hk")) return "運費";
+  if (l.startsWith("zh-tw") || l.startsWith("zh-hant") || l.startsWith("zh-hk"))
+    return "運費";
   if (l.startsWith("zh")) return "运费";
   if (l.startsWith("ko")) return "배송비";
   if (l.startsWith("fr")) return "Frais de port";
@@ -203,30 +264,50 @@ function shippingLabelFor(lang?: string | null) {
 /* ====================== メイン ====================== */
 export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
-  if (!isAllowedOrigin(origin)) {
-    return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
-  }
+
   const corsHeaders = origin
-    ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true" }
+    ? {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+      }
     : undefined;
 
   let body: any;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400, headers: corsHeaders }
+    );
+  }
 
   const { siteKey, items, lang, origin: bodyOrigin } = body || {};
   if (!siteKey || !Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: "Bad request" }, { status: 400, headers: corsHeaders });
+    return NextResponse.json(
+      { error: "Bad request" },
+      { status: 400, headers: corsHeaders }
+    );
   }
 
   // Connect 口座
   const sellerSnap = await adminDb.collection("siteSellers").doc(siteKey).get();
   if (sellerSnap.exists && sellerSnap.get("ecStop") === true) {
-    return NextResponse.json({ error: "EC_STOPPED", message: "現在このショップのECは一時停止中です。" }, { status: 403, headers: corsHeaders });
+    return NextResponse.json(
+      {
+        error: "EC_STOPPED",
+        message: "現在このショップのECは一時停止中です。",
+      },
+      { status: 403, headers: corsHeaders }
+    );
   }
-  const sellerConnectId: string | null = sellerSnap.get("stripe.connectAccountId") || null;
+  const sellerConnectId: string | null =
+    sellerSnap.get("stripe.connectAccountId") || null;
   if (!sellerConnectId?.startsWith("acct_")) {
-    return NextResponse.json({ error: "Connect account missing" }, { status: 400, headers: corsHeaders });
+    return NextResponse.json(
+      { error: "Connect account missing" },
+      { status: 400, headers: corsHeaders }
+    );
   }
 
   const locale = normalizeCheckoutLocale(lang || "ja");
@@ -244,22 +325,36 @@ export async function POST(req: NextRequest) {
   const productDocs = await fetchProductDocsChunked(siteKey, ids);
 
   const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
-  const pendingItems: Array<{ id: string; name: string; quantity: number; unitAmountJPY: number }> = [];
+  const pendingItems: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    unitAmountJPY: number;
+  }> = [];
   let subtotalMinorJPY = 0;
 
   for (const docSnap of productDocs) {
     const data = docSnap.data() as any;
     const qty = qtyMap[docSnap.id] ?? 1;
-    const unitJPY = Math.max(0, Math.floor(Number(
-      data.priceIncl ?? data.price ?? data.priceTaxIncl ?? data.price_incl
-    ) || 0));
+    const unitJPY = Math.max(
+      0,
+      Math.floor(
+        Number(
+          data.priceIncl ?? data.price ?? data.priceTaxIncl ?? data.price_incl
+        ) || 0
+      )
+    );
     if (unitJPY <= 0) continue;
 
     // ★ ここが肝：日本語 UI のときは base.title を必ず使う
     const displayName = pickProductNameFor(data, lang);
 
     const names = collectLocalizedNames(data);
-    const namesMeta = buildNamesMetaMinimal(canonLang(lang || "ja"), names, displayName);
+    const namesMeta = buildNamesMetaMinimal(
+      canonLang(lang || "ja"),
+      names,
+      displayName
+    );
 
     line_items.push({
       quantity: qty,
@@ -268,24 +363,41 @@ export async function POST(req: NextRequest) {
         unit_amount: unitJPY,
         product_data: {
           name: displayName,
-          metadata: { productId: docSnap.id, siteKey, baseAmountJPY: String(unitJPY), ...namesMeta },
+          metadata: {
+            productId: docSnap.id,
+            siteKey,
+            baseAmountJPY: String(unitJPY),
+            ...namesMeta,
+          },
         },
       },
     });
 
-    pendingItems.push({ id: docSnap.id, name: displayName, quantity: qty, unitAmountJPY: unitJPY });
+    pendingItems.push({
+      id: docSnap.id,
+      name: displayName,
+      quantity: qty,
+      unitAmountJPY: unitJPY,
+    });
     subtotalMinorJPY += unitJPY * qty;
   }
 
   if (!line_items.length) {
-    return NextResponse.json({ error: "No purchasable items" }, { status: 400, headers: corsHeaders });
+    return NextResponse.json(
+      { error: "No purchasable items" },
+      { status: 400, headers: corsHeaders }
+    );
   }
 
   // 送料 & しきい値
   const { amountJPY: shipJPY } = await resolveShippingJPY(siteKey, lang);
-  const { enabled: freeEnabled, thresholdJPY } = await resolveThresholdPolicy(siteKey, lang);
+  const { enabled: freeEnabled, thresholdJPY } = await resolveThresholdPolicy(
+    siteKey,
+    lang
+  );
 
-  const isFree = freeEnabled && thresholdJPY > 0 && subtotalMinorJPY >= thresholdJPY;
+  const isFree =
+    freeEnabled && thresholdJPY > 0 && subtotalMinorJPY >= thresholdJPY;
   const shippingMinorJPY = isFree ? 0 : shipJPY;
 
   if (shippingMinorJPY > 0) {
@@ -296,7 +408,11 @@ export async function POST(req: NextRequest) {
         unit_amount: shippingMinorJPY,
         product_data: {
           name: shippingLabelFor(lang),
-          metadata: { type: "shipping", siteKey, baseAmountJPY: String(shippingMinorJPY) },
+          metadata: {
+            type: "shipping",
+            siteKey,
+            baseAmountJPY: String(shippingMinorJPY),
+          },
         },
       },
     });
@@ -305,12 +421,15 @@ export async function POST(req: NextRequest) {
   const grandTotalMinorJPY = subtotalMinorJPY + shippingMinorJPY;
   const platformFeeJPY = Math.floor(subtotalMinorJPY * PLATFORM_FEE_RATE);
 
-  const baseOrigin = bodyOrigin || origin || process.env.NEXT_PUBLIC_ORIGIN || "";
+  const baseOrigin =
+    bodyOrigin || origin || process.env.NEXT_PUBLIC_ORIGIN || "";
   const success_url = `${baseOrigin}/cart?session_id={CHECKOUT_SESSION_ID}&status=success`;
   const cancel_url = `${baseOrigin}/cart`;
 
   try {
-    const transferGroup = `grp_${siteKey}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const transferGroup = `grp_${siteKey}_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
 
     const session = await stripeConnect.checkout.sessions.create({
       mode: "payment",
@@ -340,24 +459,38 @@ export async function POST(req: NextRequest) {
       cancel_url,
     });
 
-    await adminDb.collection("pendingOrders").doc(session.id).set({
-      siteKey,
-      status: "pending",
-      items: pendingItems,
-      subtotalJPY: subtotalMinorJPY,
-      shippingJPY: shippingMinorJPY,
-      grandTotalJPY: grandTotalMinorJPY,
-      applicationFeeJPY: platformFeeJPY,
-      freeShipping: { enabled: freeEnabled, thresholdJPY, isFree },
-      uiLang: lang ?? "ja",
-      checkout: { sessionId: session.id, url: session.url, locale, sellerConnectId, transferGroup },
-      createdAt: new Date(),
-    });
+    await adminDb
+      .collection("pendingOrders")
+      .doc(session.id)
+      .set({
+        siteKey,
+        status: "pending",
+        items: pendingItems,
+        subtotalJPY: subtotalMinorJPY,
+        shippingJPY: shippingMinorJPY,
+        grandTotalJPY: grandTotalMinorJPY,
+        applicationFeeJPY: platformFeeJPY,
+        freeShipping: { enabled: freeEnabled, thresholdJPY, isFree },
+        uiLang: lang ?? "ja",
+        checkout: {
+          sessionId: session.id,
+          url: session.url,
+          locale,
+          sellerConnectId,
+          transferGroup,
+        },
+        createdAt: new Date(),
+      });
 
     return NextResponse.json({ url: session.url }, { headers: corsHeaders });
   } catch (e: any) {
-    console.error("[/api/checkout/create] error:", e?.message || e, { code: e?.type });
-    return NextResponse.json({ error: e?.message ?? "internal error" }, { status: 500, headers: corsHeaders });
+    console.error("[/api/checkout/create] error:", e?.message || e, {
+      code: e?.type,
+    });
+    return NextResponse.json(
+      { error: e?.message ?? "internal error" },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }
 
