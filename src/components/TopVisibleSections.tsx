@@ -14,10 +14,11 @@ import AboutClient from "./AboutClient";
 import MenuPageClient from "./MenuPageClient";
 import NewsClient from "./NewsClient";
 import ProjectsClient from "./ProjectsClient";
+import HoursClient from "./HoursClient";
 
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 
-// トップ表示候補に限定
+// トップ表示候補に限定（★ "hours" を追加）
 const TOP_DISPLAYABLE_ITEMS = [
   "products",
   "pricing",
@@ -26,6 +27,7 @@ const TOP_DISPLAYABLE_ITEMS = [
   "stores",
   "story",
   "news",
+  "hours",
 ] as const;
 
 const MENU_ITEMS: { key: string; label: string }[] = [
@@ -37,6 +39,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
   { key: "news", label: "お知らせ" },
+  { key: "hours", label: "営業時間" }, // ★ 追加
 ];
 
 function renderSection(key: string) {
@@ -57,6 +60,8 @@ function renderSection(key: string) {
       return <AboutClient />;
     case "news":
       return <NewsClient />;
+    case "hours":
+      return <HoursClient />;
     default:
       return null;
   }

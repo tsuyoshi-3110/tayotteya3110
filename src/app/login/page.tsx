@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { LucideLogIn, LogOut, AlertCircle, Globe, Box } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import ThemeSelector from "@/components/ThemeSelector";
 import { ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ImageLogoControls from "@/components/ImageLogoControls";
+import { Clock } from "lucide-react";
 
 // UI言語一覧（既存定義を利用）
 import { LANGS } from "@/lib/langs";
@@ -356,6 +357,312 @@ function I18nSettingsCard({
   );
 }
 
+
+// I18nSettingsCard の定義ブロックの直後あたりに丸ごと追加
+
+/* =========================
+   営業時間設定カード（追加）
+========================= */
+type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+type TimeRange = { start: string; end: string };
+type DayHours = { closed: boolean; ranges: TimeRange[] };
+type BusinessHours = {
+  enabled: boolean;
+  tz: string; // 例: "Asia/Tokyo"
+  days: Record<DayKey, DayHours>;
+  notes?: string;
+};
+
+const DAY_LABEL_JA: Record<DayKey, string> = {
+  mon: "月", tue: "火", wed: "水", thu: "木", fri: "金", sat: "土", sun: "日",
+};
+
+const DEFAULT_BH: BusinessHours = {
+  enabled: false,
+  tz: "Asia/Tokyo",
+  days: {
+    mon: { closed: false, ranges: [{ start: "09:00", end: "18:00" }] },
+    tue: { closed: false, ranges: [{ start: "09:00", end: "18:00" }] },
+    wed: { closed: false, ranges: [{ start: "09:00", end: "18:00" }] },
+    thu: { closed: false, ranges: [{ start: "09:00", end: "18:00" }] },
+    fri: { closed: false, ranges: [{ start: "09:00", end: "18:00" }] },
+    sat: { closed: true, ranges: [] },
+    sun: { closed: true, ranges: [] },
+  },
+  notes: "",
+};
+
+function BusinessHoursCard() {
+  const [bh, setBh] = useState<BusinessHours>(DEFAULT_BH);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const saveTimer = useRef<number | null>(null);
+
+  // 初期ロード
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDoc(META_REF);
+        const d = (snap.data() as any) ?? {};
+        const next: BusinessHours = {
+          ...DEFAULT_BH,
+          ...(d.businessHours || {}),
+          days: { ...DEFAULT_BH.days, ...(d.businessHours?.days || {}) },
+        };
+        (Object.keys(next.days) as DayKey[]).forEach((k) => {
+          const v = next.days[k];
+          if (!Array.isArray(v.ranges)) v.ranges = [];
+          v.ranges = v.ranges
+            .map((r) => ({
+              start: String(r?.start ?? "09:00").slice(0, 5),
+              end: String(r?.end ?? "18:00").slice(0, 5),
+            }))
+            .slice(0, 2);
+        });
+        setBh(next);
+      } catch (e) {
+        console.error("businessHours load error:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // 自動保存（600ms デバウンス）
+  const scheduleSave = (next: BusinessHours) => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(async () => {
+      try {
+        setSaving(true);
+        await setDoc(META_REF, { businessHours: next }, { merge: true });
+      } catch (e) {
+        console.error("businessHours save error:", e);
+        alert("営業時間の保存に失敗しました");
+      } finally {
+        setSaving(false);
+      }
+    }, 600) as unknown as number;
+  };
+
+  const updateBh = (patch: Partial<BusinessHours>) => {
+    const next = { ...bh, ...patch };
+    setBh(next);
+    scheduleSave(next);
+  };
+
+  const toggleDayClosed = (day: DayKey, closed: boolean) => {
+    const next = {
+      ...bh,
+      days: {
+        ...bh.days,
+        [day]: {
+          ...bh.days[day],
+          closed,
+          ranges: closed
+            ? []
+            : bh.days[day].ranges.length
+            ? bh.days[day].ranges
+            : [{ start: "09:00", end: "18:00" }],
+        },
+      },
+    };
+    setBh(next);
+    scheduleSave(next);
+  };
+
+  const setRange = (day: DayKey, idx: number, key: "start" | "end", val: string) => {
+    const ranges = [...(bh.days[day].ranges || [])];
+    while (ranges.length <= idx) ranges.push({ start: "09:00", end: "18:00" });
+    ranges[idx] = { ...ranges[idx], [key]: val.slice(0, 5) };
+    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    setBh(next);
+    scheduleSave(next);
+  };
+
+  const addRange = (day: DayKey) => {
+    const ranges = [...(bh.days[day].ranges || [])];
+    if (ranges.length >= 2) return;
+    ranges.push({ start: "13:00", end: "17:00" });
+    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    setBh(next);
+    scheduleSave(next);
+  };
+
+  const removeSecondRange = (day: DayKey) => {
+    const ranges = [...(bh.days[day].ranges || [])].slice(0, 1);
+    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    setBh(next);
+    scheduleSave(next);
+  };
+
+  const fmtPreview = (d: DayHours) => {
+    if (d.closed) return "休業";
+    if (!d.ranges?.length) return "—";
+    return d.ranges.map((r) => `${r.start}〜${r.end}`).join("／");
+  };
+
+  if (loading) {
+    return (
+      <Card className="shadow-xl bg-white/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Clock size={18} />
+            営業時間
+          </CardTitle>
+        </CardHeader>
+        <CardContent>読み込み中…</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="shadow-xl bg-white/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <Clock size={18} />
+          営業時間
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium">営業時間をサイト／AIで案内する</div>
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bh.enabled}
+              onChange={(e) => updateBh({ enabled: e.target.checked })}
+              className="h-4 w-4"
+            />
+            <span className="text-sm">{bh.enabled ? "ON" : "OFF"}</span>
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm w-28">タイムゾーン</label>
+          <select
+            value={bh.tz}
+            onChange={(e) => updateBh({ tz: e.target.value })}
+            className="border rounded px-2 py-1"
+          >
+            <option value="Asia/Tokyo">Asia/Tokyo（日本）</option>
+            <option value="UTC">UTC</option>
+          </select>
+          {saving && <span className="text-xs text-gray-500">保存中…</span>}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-600">
+                <th className="py-1 pr-2">曜日</th>
+                <th className="py-1 pr-2">休業</th>
+                <th className="py-1 pr-2">時間帯1</th>
+                <th className="py-1 pr-2">時間帯2</th>
+                <th className="py-1 pr-2">プレビュー</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(Object.keys(DAY_LABEL_JA) as DayKey[]).map((day) => {
+                const d = bh.days[day];
+                const r1 = d.ranges[0] || { start: "09:00", end: "18:00" };
+                const r2 = d.ranges[1];
+                return (
+                  <tr key={day} className="border-t">
+                    <td className="py-2 pr-2">{DAY_LABEL_JA[day]}</td>
+                    <td className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        checked={d.closed}
+                        onChange={(e) => toggleDayClosed(day, e.target.checked)}
+                      />
+                    </td>
+                    <td className="py-2 pr-2">
+                      {d.closed ? (
+                        <span className="text-gray-400">—</span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="time"
+                            value={r1.start}
+                            onChange={(e) => setRange(day, 0, "start", e.target.value)}
+                            className="border rounded px-2 py-1"
+                          />
+                          <span>〜</span>
+                          <input
+                            type="time"
+                            value={r1.end}
+                            onChange={(e) => setRange(day, 0, "end", e.target.value)}
+                            className="border rounded px-2 py-1"
+                          />
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {d.closed ? (
+                        <span className="text-gray-400">—</span>
+                      ) : r2 ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="time"
+                            value={r2.start}
+                            onChange={(e) => setRange(day, 1, "start", e.target.value)}
+                            className="border rounded px-2 py-1"
+                          />
+                          <span>〜</span>
+                          <input
+                            type="time"
+                            value={r2.end}
+                            onChange={(e) => setRange(day, 1, "end", e.target.value)}
+                            className="border rounded px-2 py-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-7 ml-2"
+                            onClick={() => removeSecondRange(day)}
+                          >
+                            2枠目を削除
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-7"
+                          disabled={d.closed}
+                          onClick={() => addRange(day)}
+                        >
+                          ＋ 2枠目を追加
+                        </Button>
+                      )}
+                    </td>
+                    <td className="py-2 pr-2 text-gray-600">{fmtPreview(d)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <label className="text-sm block mb-1">補足（祝日対応・臨時休業など）</label>
+          <textarea
+            className="w-full border rounded px-3 py-2 text-sm"
+            rows={3}
+            placeholder="例）祝日は不定期で休業の場合があります。事前にお問い合わせください。"
+            value={bh.notes ?? ""}
+            onChange={(e) => updateBh({ notes: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            ※ AI はここに書かれた注意書きも一緒に案内します。
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 /* =========================
    メニュー設定
 ========================= */
@@ -366,6 +673,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "products", label: "商品一覧" },
   { key: "staffs", label: "スタッフ" },
   { key: "pricing", label: "料金" },
+  { key: "hours", label: "営業時間" },
   { key: "areas", label: "対応エリア" },
   { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
@@ -382,7 +690,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "cart", label: "カート" },
 ];
 
-// トップ表示候補は限定（※既存そのまま）
+// トップ表示候補は限定（※既存そのまま）★ hours を追加
 const TOP_DISPLAYABLE_ITEMS = [
   "products",
   "pricing",
@@ -391,6 +699,7 @@ const TOP_DISPLAYABLE_ITEMS = [
   "stores",
   "story",
   "news",
+  "hours",
 ];
 
 /* =========================
@@ -425,6 +734,9 @@ export default function LoginPage() {
 
   // EC: Connect（Stripe連携）完了状態
   const [hasConnect, setHasConnect] = useState(false);
+
+  // 営業時間の有効/無効（購読で同期）
+  const [bhEnabled, setBhEnabled] = useState<boolean>(false);
 
   // Google Maps API Key
   const mapsApiKey = useMemo(
@@ -466,6 +778,38 @@ export default function LoginPage() {
         console.error("初期データ取得失敗:", e);
       }
     })();
+  }, []);
+
+  /* ---------------- 営業時間ON/OFFの購読（可視候補の自動追加／トップ表示の抑止） ---------------- */
+  useEffect(() => {
+    const unsub = onSnapshot(META_REF, (snap) => {
+      const data = (snap.data() as any) || {};
+      const enabled = data?.businessHours?.enabled === true;
+      setBhEnabled(enabled);
+
+      if (enabled) {
+        // ON時: visibleKeys に "hours" が無ければ追加
+        setVisibleKeys((prev) => {
+          if (prev.includes("hours")) return prev;
+          const next = [...prev, "hours"];
+          setDoc(META_REF, { visibleMenuKeys: next }, { merge: true }).catch(
+            console.error
+          );
+          return next;
+        });
+      } else {
+        // OFF時: トップ表示（activeKeys）からは必ず外す
+        setActiveKeys((prev) => {
+          if (!prev.includes("hours")) return prev;
+          const next = prev.filter((k) => k !== "hours");
+          setDoc(META_REF, { activeMenuKeys: next }, { merge: true }).catch(
+            console.error
+          );
+          return next;
+        });
+      }
+    });
+    return () => unsub();
   }, []);
 
   /* ---------------- Connect 状態（EC可否） ---------------- */
@@ -842,7 +1186,10 @@ export default function LoginPage() {
                         >
                           <input
                             type="checkbox"
-                            disabled={!visibleKeys.includes(item.key)} // 候補外は選べない
+                            disabled={
+                              !visibleKeys.includes(item.key) ||
+                              (item.key === "hours" && !bhEnabled)
+                            } // 候補外は選べない + 営業時間OFF時は無効
                             checked={activeKeys.includes(item.key)}
                             onChange={(e) => {
                               const newKeys = e.target.checked
@@ -868,6 +1215,8 @@ export default function LoginPage() {
                 onSelectAll={handleSelectAllLangs}
                 onClearAll={handleClearAllLangsExceptJa}
               />
+
+              <BusinessHoursCard />
 
               {/* Stripe Connect 連携カード */}
               <StripeConnectCard />
@@ -957,14 +1306,14 @@ export default function LoginPage() {
 
           {/* モーダル */}
           {showForgotPassword && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 bg黒/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <ForgotPassword onClose={() => setShowForgotPassword(false)} />
               </div>
             </div>
           )}
           {showForgotEmail && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 bg黒/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <ForgotEmail
                   onClose={() => setShowForgotEmail(false)}

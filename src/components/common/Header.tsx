@@ -45,7 +45,8 @@ type Keys =
   | "community"
   | "analytics"
   | "admin"
-  | "aiChat";
+  | "aiChat"
+  | "hours";
 
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
@@ -70,6 +71,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "分析",
     admin: "管理者ログイン",
     aiChat: "AIサポート",
+    hours: "営業時間",
   },
   en: {
     menuTitle: "Menu",
@@ -93,6 +95,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analytics",
     admin: "Administrator Login",
     aiChat: "AI Chat",
+    hours: "Hours",
   },
   zh: {
     menuTitle: "菜单",
@@ -116,6 +119,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "分析",
     admin: "管理员登录",
     aiChat: "AI聊天",
+    hours: "营业时间",
   },
   "zh-TW": {
     menuTitle: "選單",
@@ -139,6 +143,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "分析",
     admin: "管理者登入",
     aiChat: "AI聊天",
+    hours: "營業時間",
   },
   ko: {
     menuTitle: "메뉴",
@@ -162,6 +167,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "분석",
     admin: "관리자 로그인",
     aiChat: "AI 채팅",
+    hours: "영업시간",
   },
   fr: {
     menuTitle: "Menu",
@@ -185,6 +191,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analyses",
     admin: "Connexion administrateur",
     aiChat: "Chat IA",
+    hours: "Horaires",
   },
   es: {
     menuTitle: "Menú",
@@ -208,6 +215,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analítica",
     admin: "Inicio de sesión de administrador",
     aiChat: "Chat IA",
+    hours: "Horario",
   },
   de: {
     menuTitle: "Menü",
@@ -231,6 +239,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analytik",
     admin: "Administrator-Anmeldung",
     aiChat: "AI-Chat",
+    hours: "Öffnungszeiten",
   },
   pt: {
     menuTitle: "Menu",
@@ -254,6 +263,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Análises",
     admin: "Login do administrador",
     aiChat: "Chat IA",
+    hours: "Horário",
   },
   it: {
     menuTitle: "Menu",
@@ -277,6 +287,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analitiche",
     admin: "Accesso amministratore",
     aiChat: "Chat IA",
+    hours: "Orari",
   },
   ru: {
     menuTitle: "Меню",
@@ -300,6 +311,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Аналитика",
     admin: "Вход администратора",
     aiChat: "AI-чат",
+    hours: "Часы работы",
   },
   th: {
     menuTitle: "เมนู",
@@ -323,6 +335,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "วิเคราะห์",
     admin: "เข้าสู่ระบบผู้ดูแล",
     aiChat: "แชต AI",
+    hours: "เวลาเปิดทำการ",
   },
   vi: {
     menuTitle: "Menu",
@@ -346,6 +359,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Phân tích",
     admin: "Đăng nhập quản trị",
     aiChat: "Trò chuyện AI",
+    hours: "Giờ làm việc",
   },
   id: {
     menuTitle: "Menu",
@@ -369,6 +383,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "Analitik",
     admin: "Masuk admin",
     aiChat: "Obrolan AI",
+    hours: "Jam operasional",
   },
   hi: {
     menuTitle: "मेनू",
@@ -392,6 +407,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "विश्लेषण",
     admin: "प्रशासक लॉगिन",
     aiChat: "AI चैट",
+    hours: "समय",
   },
   ar: {
     menuTitle: "القائمة",
@@ -415,6 +431,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     analytics: "التحليلات",
     admin: "تسجيل دخول المسؤول",
     aiChat: "دردشة الذكاء الاصطناعي",
+    hours: "ساعات العمل",
   },
 };
 
@@ -431,6 +448,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
 
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
+  { key: "hours", href: "/hours" },
   { key: "areas", href: "/areas" },
   { key: "stores", href: "/stores" },
   { key: "story", href: "/about" },
@@ -446,6 +464,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
 type EditableSettings = {
   visibleMenuKeys?: string[];
   i18n?: { enabled?: boolean; langs?: UILang[] };
+  businessHours?: { enabled?: boolean }; // ★ 追加
 };
 
 export default function Header({ className = "" }: { className?: string }) {
@@ -468,22 +487,52 @@ export default function Header({ className = "" }: { className?: string }) {
 
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);
+
     const unsubscribe = onSnapshot(
       ref,
       (snap) => {
         if (!snap.exists()) return;
         const data = snap.data() as EditableSettings;
-        if (Array.isArray(data.visibleMenuKeys)) {
-          setVisibleMenuKeys(data.visibleMenuKeys);
-        }
-        const enabled =
-          typeof data.i18n?.enabled === "boolean" ? data.i18n!.enabled! : true;
-        setI18nEnabled(enabled);
+
+        // i18n ON/OFF
+        setI18nEnabled(
+          typeof data.i18n?.enabled === "boolean" ? data.i18n.enabled : true
+        );
+
+        // ヘッダーで許可しているキーだけを使う
+        const allowedKeys = new Set(MENU_ITEMS.map((m) => m.key));
+
+        // 1) Firestore の visibleMenuKeys があればそれをベースに
+        // 2) なければ、ヘッダーが持つ全メニューをベースに
+        const baseFromDoc = Array.isArray(data.visibleMenuKeys)
+          ? data.visibleMenuKeys.filter(
+              (k): k is (typeof MENU_ITEMS)[number]["key"] =>
+                allowedKeys.has(k as any)
+            )
+          : MENU_ITEMS.map((m) => m.key);
+
+        const nextSet = new Set(baseFromDoc);
+
+        // businessHours によって hours を強制加除
+        const bhEnabled = data.businessHours?.enabled === true;
+        if (bhEnabled) nextSet.add("hours");
+        else nextSet.delete("hours");
+
+        const next = Array.from(nextSet);
+
+        console.debug("[Header] visibleMenuKeys <-", {
+          fromDoc: data.visibleMenuKeys,
+          bhEnabled,
+          final: next,
+        });
+
+        setVisibleMenuKeys(next);
       },
       (error) => {
         console.error("メニュー/翻訳設定購読エラー:", error);
       }
     );
+
     return () => unsubscribe();
   }, []);
 
