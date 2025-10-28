@@ -53,7 +53,7 @@ export const L10N = {
     en: "For product prices, please check the Products page.",       // no link
   },
   priceDisclaimer: {
-    ja: "現地状況で変動する場合があります。確定は担当者にご確認ください。",
+    ja: "現地状況で変動する場合があります。",
     en: "Actual price may vary on site; please confirm with staff.",
   },
   scopeIntro: {

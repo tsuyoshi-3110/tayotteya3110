@@ -275,7 +275,6 @@ async function getProductsKnowledgeFromFirestore(siteKey: string) {
 ================================ */
 function looksLikeInventoryQuery(text: string): boolean {
   const t = (text || "").toLowerCase();
-  // 在庫の言い回しを広めに拾う
   return /在庫|入荷|売り切れ|品切れ|残り|在庫(確認|状況)|stock|sold\s*out/.test(
     t
   );
@@ -287,19 +286,29 @@ function looksLikeBookingIntent(text: string): boolean {
   return /(依頼|お願い|予約|申し込|申込|頼みたい|お願いしたい|対応可能|空いてますか|希望日時|毎週|曜|[0-9]{1,2}\s*時)/.test(t);
 }
 
-// 購入意図の検知（「〇〇が欲しい」「買いたい」「購入」など）
+// ★ サービスの「価格を知りたい」質問の検知（例: いくら/料金 + 清掃・工事など）
+function looksLikeServicePriceQuestion(text: string): boolean {
+  const s = (text || "").toLowerCase();
+  const price = /(いくら|料金|値段|費用|相場|価格|おいくら|金額|price)/.test(s);
+  const service = /(掃除|清掃|クリーニング|配管|排水|配水|エアコン|ハウス|レンジフード|換気扇|浴室|風呂|トイレ|キッチン|水回り|作業|工事|修理|点検|見積)/.test(
+    s
+  );
+  return price && service;
+}
+
+// 購入意図の検知（「買いたい」「購入」「カート」等）※「欲しい」は除外
 function looksLikePurchaseIntent(text: string): boolean {
   const t = (text || "").toLowerCase();
-  return /(買いたい|購入|注文|取り寄せ|ほしい|欲しい|カート|オンラインショップ|通販|買えますか|購入できますか)/.test(t);
+  return /(買いたい|購入|注文|取り寄せ|買えますか|購入できますか|カート|オンラインショップ|通販)/.test(
+    t
+  );
 }
 
 async function getInventoryKnowledge(siteKey: string, userQuery: string) {
   try {
     const mod = await import("@/lib/inventory");
-    // まずクエリで検索
     let items = await mod.searchInventory(siteKey, userQuery, 10);
 
-    // 0件ならノイズ語を除去して再検索
     if (!items.length) {
       const cleaned = String(userQuery || "")
         .replace(
@@ -309,7 +318,6 @@ async function getInventoryKnowledge(siteKey: string, userQuery: string) {
         .trim();
       if (cleaned) items = await mod.searchInventory(siteKey, cleaned, 10);
     }
-    // それでも0件なら全件から上位を注入
     if (!items.length) {
       const all = await mod.fetchInventory(siteKey);
       const prioritized = [
@@ -354,7 +362,7 @@ export async function POST(req: NextRequest) {
     const langName =
       LANG_NAME[uiLang] ?? LANG_NAME[AI_SITE.languages.default] ?? "日本語";
 
-    // 1) ナレッジ取得（base / owner / learned / keywords / ownerPrompt）
+    // 1) ナレッジ取得
     const baseDoc = adminDb.collection("aiKnowledge").doc("base");
     const ownerDoc = adminDb
       .collection("aiKnowledge")
@@ -385,7 +393,7 @@ export async function POST(req: NextRequest) {
       .filter((t) => t && t.length > 0)
       .join("\n\n");
 
-    // 2) 動的抽出（メニュー・料金 / 商品）
+    // 2) 動的抽出
     const [menuText, productsText] = await Promise.all([
       getMenuKnowledgeFromFirestore(siteKey),
       AI_SITE.retail
@@ -393,7 +401,7 @@ export async function POST(req: NextRequest) {
         : Promise.resolve(""),
     ]);
 
-    // 3) KB 検索（RAG）
+    // 3) KB（RAG）
     const kbHits = await retrieveKB({
       question: String(message),
       topK: 5,
@@ -404,13 +412,13 @@ export async function POST(req: NextRequest) {
       ? `【KB（RAG）】\n${hitsToPassages(kbHits).join("\n\n")}`
       : "";
 
-    // 4) 在庫（必要時のみ）
+    // 4) 在庫（必要時）
     const inventoryEnabled = looksLikeInventoryQuery(String(message));
     const inventoryText = inventoryEnabled
       ? await getInventoryKnowledge(siteKey, String(message))
       : "";
 
-    // 5) すべてのナレッジを結合
+    // 5) すべて結合
     const allKnowledge = [
       staticKnowledge,
       menuText,
@@ -421,7 +429,7 @@ export async function POST(req: NextRequest) {
       .filter((t) => t.length > 0)
       .join("\n\n");
 
-    // 6) System を構築（サイト設定を反映 + オーナー方針）
+    // 6) System（方針）
     const areas = AI_SITE.areasByLang[uiLang] ?? AI_SITE.areasByLang.en ?? "";
     const services = (
       AI_SITE.servicesByLang[uiLang] ??
@@ -479,19 +487,16 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n\n");
 
-    // ★ 追加：営業時間ポリシー（固定時間は言い切らず、希望日時を尋ねる）
     const hoursPolicy =
       uiLang === "ja"
         ? "【営業時間ポリシー】固定の営業時間は設けていません。営業時間を尋ねられた場合は、確定の時間は提示せず、「ご希望の日時をお知らせください。スタッフ確認のうえご案内します。」と回答する。"
         : "Hours policy: No fixed business hours. If asked about hours, do not state exact times; ask for the preferred date/time and explain that staff will confirm availability.";
 
-    // 予約ポリシー（依頼時の基本方針）
     const bookingPolicy =
       uiLang === "ja"
         ? "【予約ポリシー】依頼・予約希望・希望日時の提示があった場合は、確定の可否を即答せず、「ご依頼の場合は予約フォームに入力してください。送信後にスタッフが可否を確認してご連絡します。」と案内する。フォームは名称のみで示し、リンクは貼らない。"
         : "Booking policy: If the user requests a service or provides a preferred date/time, do not confirm availability. Instruct them to complete the booking form and explain staff will confirm after submission. Refer to the form by name only (no links).";
 
-    // ★ 新規：購入ポリシー（購入希望時の基本方針）
     const purchasePolicy =
       uiLang === "ja"
         ? "【購入ポリシー】「〇〇が欲しい」「購入したい」など購入意図がある場合は、必ず一文目で「オンラインショップからご購入ください。」と案内し、その後に1〜2文で在庫の確認方法や決済・配送の一般案内を添える。価格や在庫を断定しない。リンクは貼らない。"
@@ -522,7 +527,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n\n");
 
-    // ★ 強制テンプレ（依頼/購入は一文目を固定）
+    // ★ テンプレ群
     const bookingGuard =
       uiLang === "ja"
         ? "【予約誘導テンプレ】ユーザーが依頼/予約の意図を示した場合は、必ず一文目に次の固定文を出力する:「ご依頼の場合は予約フォームに入力してください。送信後にスタッフが可否を確認してご連絡します。」その後は1〜2文で希望日時や作業内容の記入を促すのみ。空き状況を断定しない。リンクは貼らない。"
@@ -533,15 +538,29 @@ export async function POST(req: NextRequest) {
         ? "【購入誘導テンプレ】ユーザーが購入意図を示した場合は、必ず一文目に次の固定文を出力する:「オンラインショップからご購入ください。」その後は1〜2文で支払い・配送・在庫確認方法などの一般案内のみを添える。価格や在庫を断定しない。リンクは貼らない。"
         : "Purchase guard: If the user shows a purchase intent, the very first sentence MUST be: “Please purchase via our online shop.” Then add 1–2 short sentences with general guidance (payment/shipping/stock check). Do not assert exact price/stock. No links.";
 
+    // ★ 追加：サービス価格の回答テンプレ（オンラインショップ誘導はしない）
+    const servicePriceGuard =
+      uiLang === "ja"
+        ? "【価格回答テンプレ（サービス）】価格や費用を尋ねられたら、まず一文目で簡潔に目安価格を回答する（例：『追い焚き配管クリーニングの目安は、¥xx,xxx（税込）です。』）。次に1文程度で現地状況等により変動する旨を添える。最後の一文で「確定の場合は予約フォームからお願いいたします。」と案内する。オンラインショップへの誘導・リンクは禁止。"
+        : "Service price guard: When asked about service pricing, first sentence should give a concise approximate price. Then add a brief note that it may vary by on-site conditions. End with: “If you’d like to proceed, please use the booking form.” Do not direct to the online shop; no links.";
+
     type ChatMsg = OpenAI.Chat.Completions.ChatCompletionMessageParam;
     const messages: ChatMsg[] = [{ role: "system", content: systemPolicy }];
 
-    // ★ 依頼/購入の意図に応じてガードを追加注入
     const msgText = String(message);
-    if (looksLikeBookingIntent(msgText)) {
+
+    // 意図に応じたガード注入（順序が重要）
+    const isBooking = looksLikeBookingIntent(msgText);
+    const isServicePrice = looksLikeServicePriceQuestion(msgText);
+    const isPurchase = looksLikePurchaseIntent(msgText);
+
+    if (isBooking) {
       messages.push({ role: "system", content: bookingGuard });
     }
-    if (looksLikePurchaseIntent(msgText)) {
+    if (isServicePrice) {
+      // サービスの価格質問時はオンラインショップに誘導しない
+      messages.push({ role: "system", content: servicePriceGuard });
+    } else if (isPurchase) {
       messages.push({ role: "system", content: purchaseGuard });
     }
 
@@ -561,7 +580,6 @@ export async function POST(req: NextRequest) {
         ? "すみません、うまく回答できませんでした。"
         : "Sorry, I couldn’t generate a proper answer.");
 
-    // 在庫セクションが何行注入されたか（切り分け用）
     const inventoryLines = (inventoryText.match(/\n-/g) || []).length;
 
     await adminDb.collection("aiChatLogs").add({
@@ -581,7 +599,6 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
     });
 
-    // 人手エスカレーション
     const needsHuman =
       /担当.?者に確認します|分かりません|確認の上ご案内|check with (?:the )?staff|confirm with (?:our )?staff|I(?:'| wi)ll confirm|I don't know/i.test(
         answer
