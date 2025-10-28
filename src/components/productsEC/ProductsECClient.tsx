@@ -73,6 +73,8 @@ import { useFxRates } from "@/lib/fx/client";
 import FreeShippingBanner from "../FreeShippingBanner";
 import Link from "next/link";
 
+import { useCart } from "@/lib/cart/CartContext";
+
 /* ======================== 型＆ユーティリティ ======================== */
 
 type MediaType = "image" | "video";
@@ -322,6 +324,13 @@ export default function ProductsECClient() {
   const [freeShipMinJPY, setFreeShipMinJPY] = useState<number>(0);
 
   const REFUND_PATH = "/refund";
+
+  const { items: cartItems, isHydrated: cartHydrated } = useCart();
+  const cartCount = useMemo(
+    () => cartItems.reduce((sum, it) => sum + it.qty, 0),
+    [cartItems]
+  );
+  const showCartBadge = cartHydrated && cartCount > 0;
 
   // ▼ 一覧表示用フィルタ（価格>0 & 未ログインなら非公開除外）
   const displayList = useMemo(
@@ -895,8 +904,8 @@ export default function ProductsECClient() {
                   "bg-white/95 hover:bg-white transition",
                   "focus:outline-none focus:ring-2 focus:ring-blue-400"
                 )}
-                aria-label="カートへ移動"
-                title="カートへ移動"
+                aria-label={`カートへ移動（${cartCount}点）`}
+                title={`カート（${cartCount}点）`}
               >
                 <ShoppingCart
                   className={clsx(
@@ -905,6 +914,14 @@ export default function ProductsECClient() {
                   )}
                   aria-hidden="true"
                 />
+                {showCartBadge && (
+                  <span
+                    className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center"
+                    aria-label={`カート内 ${cartCount} 点`}
+                  >
+                    {cartCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>

@@ -75,7 +75,10 @@ function qaToText(
   return body ? `【${label}】\n${body}` : "";
 }
 
-async function getKeywordsKnowledge(siteKey: string, max = AI_SITE.limits.keywords) {
+async function getKeywordsKnowledge(
+  siteKey: string,
+  max = AI_SITE.limits.keywords
+) {
   try {
     const ref = adminDb
       .collection("aiKnowledge")
@@ -91,21 +94,30 @@ async function getKeywordsKnowledge(siteKey: string, max = AI_SITE.limits.keywor
       .filter(Boolean)
       .slice(0, max)
       .map((s) => `- ${s}`);
-    return lines.length > 0 ? `【オーナーキーワード】\n${lines.join("\n")}` : "";
+    return lines.length > 0
+      ? `【オーナーキーワード】\n${lines.join("\n")}`
+      : "";
   } catch {
     return "";
   }
 }
 
 function extractPriceFromText(txt: string): string {
-  const m = String(txt).match(/(¥\s?\d{1,3}(?:,\d{3})+|\d{1,3}(?:,\d{3})+円|\d{4,})(?:\s?円)?/);
+  const m = String(txt).match(
+    /(¥\s?\d{1,3}(?:,\d{3})+|\d{1,3}(?:,\d{3})+円|\d{4,})(?:\s?円)?/
+  );
   if (!m) return "";
   const v = m[0].replace(/\s+/g, "");
   return /[円¥]/.test(v) ? v : `¥${Number(v).toLocaleString()}`;
 }
 
 function pickPrice(it: any): string {
-  const num = it?.priceIncl ?? it?.price ?? it?.priceWithTax ?? it?.priceTaxIncluded ?? it?.jpy;
+  const num =
+    it?.priceIncl ??
+    it?.price ??
+    it?.priceWithTax ??
+    it?.priceTaxIncluded ??
+    it?.jpy;
   if (typeof num === "number") return `¥${num.toLocaleString()}`;
 
   const cand =
@@ -114,16 +126,27 @@ function pickPrice(it: any): string {
     (typeof it?.priceLabel === "string" && it.priceLabel.trim());
   if (cand) return String(cand);
 
-  const blob = [it?.titleI18n?.ja, it?.title, it?.body, it?.shortDesc, it?.description, it?.note]
+  const blob = [
+    it?.titleI18n?.ja,
+    it?.title,
+    it?.body,
+    it?.shortDesc,
+    it?.description,
+    it?.note,
+  ]
     .filter(Boolean)
     .join(" ");
   return extractPriceFromText(blob);
 }
 
 function pickDuration(it: any): string {
-  const s = (typeof it?.durationText === "string" && it.durationText) || (it?.durationMin ? `${it.durationMin}分` : undefined);
+  const s =
+    (typeof it?.durationText === "string" && it.durationText) ||
+    (it?.durationMin ? `${it.durationMin}分` : undefined);
   if (s) return s;
-  const blob = [it?.shortDesc, it?.description, it?.body].filter(Boolean).join(" ");
+  const blob = [it?.shortDesc, it?.description, it?.body]
+    .filter(Boolean)
+    .join(" ");
   const m = blob.match(/(\d{1,3})\s*分/);
   return m ? `${m[1]}分` : "";
 }
@@ -142,21 +165,38 @@ async function getMenuKnowledgeFromFirestore(siteKey: string) {
 
     for (const d of secSnap.docs) {
       const s = d.data() as any;
-      const sectionTitle = (s?.titleI18n?.ja as string | undefined) ?? (s?.title as string | undefined);
+      const sectionTitle =
+        (s?.titleI18n?.ja as string | undefined) ??
+        (s?.title as string | undefined);
       if (!sectionTitle?.trim()) continue;
 
       const lines: string[] = [];
       try {
-        const itemsSnap = await d.ref.collection("items").orderBy("order", "asc").get();
+        const itemsSnap = await d.ref
+          .collection("items")
+          .orderBy("order", "asc")
+          .get();
 
         itemsSnap.forEach((itDoc) => {
           const it = itDoc.data() as any;
-          const name = (it?.titleI18n?.ja as string | undefined) ?? (it?.title as string | undefined) ?? "";
+          const name =
+            (it?.titleI18n?.ja as string | undefined) ??
+            (it?.title as string | undefined) ??
+            "";
           const priceStr = pickPrice(it);
           const durStr = pickDuration(it);
-          const note = String((it?.shortDesc as string | undefined) ?? (it?.description as string | undefined) ?? "");
+          const note = String(
+            (it?.shortDesc as string | undefined) ??
+              (it?.description as string | undefined) ??
+              ""
+          );
 
-          const line = [name ? `- ${name}` : "", priceStr ? `：${priceStr}` : "", durStr ? `／目安${durStr}` : "", note ? `／${note.slice(0, 50)}` : ""]
+          const line = [
+            name ? `- ${name}` : "",
+            priceStr ? `：${priceStr}` : "",
+            durStr ? `／目安${durStr}` : "",
+            note ? `／${note.slice(0, 50)}` : "",
+          ]
             .filter((t) => t.length > 0)
             .join("");
 
@@ -171,7 +211,11 @@ async function getMenuKnowledgeFromFirestore(siteKey: string) {
       }
     }
 
-    const capped = blocks.join("\n").split("\n").slice(0, AI_SITE.limits.menuLines).join("\n");
+    const capped = blocks
+      .join("\n")
+      .split("\n")
+      .slice(0, AI_SITE.limits.menuLines)
+      .join("\n");
     return capped.length > 0 ? `【メニュー・料金（自動抽出）】\n${capped}` : "";
   } catch (e) {
     console.error("menu knowledge fetch error:", e);
@@ -194,14 +238,31 @@ async function getProductsKnowledgeFromFirestore(siteKey: string) {
     const lines: string[] = [];
     itemsSnap.forEach((d) => {
       const it = d.data() as any;
-      const name = (it?.titleI18n?.ja as string | undefined) ?? (it?.title as string | undefined) ?? "";
+      const name =
+        (it?.titleI18n?.ja as string | undefined) ??
+        (it?.title as string | undefined) ??
+        "";
       const priceStr = pickPrice(it);
-      const desc = String((it?.base?.body as string | undefined) ?? (it?.body as string | undefined) ?? "").replace(/\s+/g, " ");
-      const line = [name ? `- ${name}` : "", priceStr ? `：${priceStr}` : "", desc ? `／${desc.slice(0, 60)}` : ""].filter(Boolean).join("");
+      const desc = String(
+        (it?.base?.body as string | undefined) ??
+          (it?.body as string | undefined) ??
+          ""
+      ).replace(/\s+/g, " ");
+      const line = [
+        name ? `- ${name}` : "",
+        priceStr ? `：${priceStr}` : "",
+        desc ? `／${desc.slice(0, 60)}` : "",
+      ]
+        .filter(Boolean)
+        .join("");
       if (line) lines.push(line);
     });
 
-    const body = lines.join("\n").split("\n").slice(0, AI_SITE.limits.productLines).join("\n");
+    const body = lines
+      .join("\n")
+      .split("\n")
+      .slice(0, AI_SITE.limits.productLines)
+      .join("\n");
     return body ? `【商品一覧（自動抽出）】\n${body}` : "";
   } catch (e) {
     console.error("products knowledge fetch error:", e);
@@ -215,7 +276,21 @@ async function getProductsKnowledgeFromFirestore(siteKey: string) {
 function looksLikeInventoryQuery(text: string): boolean {
   const t = (text || "").toLowerCase();
   // 在庫の言い回しを広めに拾う
-  return /在庫|入荷|売り切れ|品切れ|残り|在庫(確認|状況)|stock|sold\s*out/.test(t);
+  return /在庫|入荷|売り切れ|品切れ|残り|在庫(確認|状況)|stock|sold\s*out/.test(
+    t
+  );
+}
+
+// 依頼/予約の意図検知（日本語中心）
+function looksLikeBookingIntent(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  return /(依頼|お願い|予約|申し込|申込|頼みたい|お願いしたい|対応可能|空いてますか|希望日時|毎週|曜|[0-9]{1,2}\s*時)/.test(t);
+}
+
+// 購入意図の検知（「〇〇が欲しい」「買いたい」「購入」など）
+function looksLikePurchaseIntent(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  return /(買いたい|購入|注文|取り寄せ|ほしい|欲しい|カート|オンラインショップ|通販|買えますか|購入できますか)/.test(t);
 }
 
 async function getInventoryKnowledge(siteKey: string, userQuery: string) {
@@ -226,7 +301,12 @@ async function getInventoryKnowledge(siteKey: string, userQuery: string) {
 
     // 0件ならノイズ語を除去して再検索
     if (!items.length) {
-      const cleaned = String(userQuery || "").replace(/在庫|ありますか|個|残り|個数|数量|品切れ|売り切れ|入荷|sold\s*out|stock/gi, "").trim();
+      const cleaned = String(userQuery || "")
+        .replace(
+          /在庫|ありますか|個|残り|個数|数量|品切れ|売り切れ|入荷|sold\s*out|stock/gi,
+          ""
+        )
+        .trim();
       if (cleaned) items = await mod.searchInventory(siteKey, cleaned, 10);
     }
     // それでも0件なら全件から上位を注入
@@ -271,7 +351,8 @@ export async function POST(req: NextRequest) {
         ? rawUiLang
         : AI_SITE.languages.default;
 
-    const langName = LANG_NAME[uiLang] ?? LANG_NAME[AI_SITE.languages.default] ?? "日本語";
+    const langName =
+      LANG_NAME[uiLang] ?? LANG_NAME[AI_SITE.languages.default] ?? "日本語";
 
     // 1) ナレッジ取得（base / owner / learned / keywords / ownerPrompt）
     const baseDoc = adminDb.collection("aiKnowledge").doc("base");
@@ -286,13 +367,14 @@ export async function POST(req: NextRequest) {
       .collection("docs")
       .doc("learned");
 
-    const [baseItems, ownerItems, learnedItems, keywordsText, ownerPrompt] = await Promise.all([
-      getItems(baseDoc),
-      getItems(ownerDoc),
-      getItems(learnDoc),
-      getKeywordsKnowledge(siteKey),
-      getOwnerPrompt(siteKey),
-    ]);
+    const [baseItems, ownerItems, learnedItems, keywordsText, ownerPrompt] =
+      await Promise.all([
+        getItems(baseDoc),
+        getItems(ownerDoc),
+        getItems(learnDoc),
+        getKeywordsKnowledge(siteKey),
+        getOwnerPrompt(siteKey),
+      ]);
 
     const staticKnowledge = [
       qaToText("共通知識", baseItems, AI_SITE.limits.qaBase),
@@ -306,12 +388,21 @@ export async function POST(req: NextRequest) {
     // 2) 動的抽出（メニュー・料金 / 商品）
     const [menuText, productsText] = await Promise.all([
       getMenuKnowledgeFromFirestore(siteKey),
-      AI_SITE.retail ? getProductsKnowledgeFromFirestore(siteKey) : Promise.resolve(""),
+      AI_SITE.retail
+        ? getProductsKnowledgeFromFirestore(siteKey)
+        : Promise.resolve(""),
     ]);
 
     // 3) KB 検索（RAG）
-    const kbHits = await retrieveKB({ question: String(message), topK: 5, minScore: 0.35, siteKey });
-    const kbText = kbHits.length ? `【KB（RAG）】\n${hitsToPassages(kbHits).join("\n\n")}` : "";
+    const kbHits = await retrieveKB({
+      question: String(message),
+      topK: 5,
+      minScore: 0.35,
+      siteKey,
+    });
+    const kbText = kbHits.length
+      ? `【KB（RAG）】\n${hitsToPassages(kbHits).join("\n\n")}`
+      : "";
 
     // 4) 在庫（必要時のみ）
     const inventoryEnabled = looksLikeInventoryQuery(String(message));
@@ -320,20 +411,32 @@ export async function POST(req: NextRequest) {
       : "";
 
     // 5) すべてのナレッジを結合
-    const allKnowledge = [staticKnowledge, menuText, productsText, kbText, inventoryText]
+    const allKnowledge = [
+      staticKnowledge,
+      menuText,
+      productsText,
+      kbText,
+      inventoryText,
+    ]
       .filter((t) => t.length > 0)
       .join("\n\n");
 
     // 6) System を構築（サイト設定を反映 + オーナー方針）
     const areas = AI_SITE.areasByLang[uiLang] ?? AI_SITE.areasByLang.en ?? "";
-    const services = (AI_SITE.servicesByLang[uiLang] ?? AI_SITE.servicesByLang.en ?? []).join(
-      uiLang === "ja" ? "／" : " / "
-    );
+    const services = (
+      AI_SITE.servicesByLang[uiLang] ??
+      AI_SITE.servicesByLang.en ??
+      []
+    ).join(uiLang === "ja" ? "／" : " / ");
 
     const header =
       uiLang === "ja"
-        ? `あなたは「${AI_SITE.brand}」${AI_SITE.url ? `（${AI_SITE.url}）` : ""} 専属のサポートAIです。対象は **${areas}** のお客様。主なサービス：**${services}**。サイトID: ${siteKey}。`
-        : `You are the dedicated support AI for “${AI_SITE.brand}”${AI_SITE.url ? ` (${AI_SITE.url})` : ""}. Main service area: **${areas}**. Services: **${services}**. Site ID: ${siteKey}.`;
+        ? `あなたは「${AI_SITE.brand}」${
+            AI_SITE.url ? `（${AI_SITE.url}）` : ""
+          } 専属のサポートAIです。対象は **${areas}** のお客様。主なサービス：**${services}**。サイトID: ${siteKey}。`
+        : `You are the dedicated support AI for “${AI_SITE.brand}”${
+            AI_SITE.url ? ` (${AI_SITE.url})` : ""
+          }. Main service area: **${areas}**. Services: **${services}**. Site ID: ${siteKey}.`;
 
     const scope = t("scopeIntro", uiLang);
     const restrict = t("restrict", uiLang);
@@ -345,12 +448,11 @@ export async function POST(req: NextRequest) {
       uiLang === "ja" ? "\n- " : "\n- "
     );
 
-    const retailRule =
-      AI_SITE.retail
-        ? (uiLang === "ja"
-            ? "商品についての質問は、参照知識の範囲で簡潔に回答。十分な情報が無い場合や価格を確定できない場合は、最後に「商品一覧ページをご確認ください。」と案内（リンクは貼らない）。"
-            : "For product questions, answer briefly if knowledge exists; if insufficient or if the price cannot be confirmed, end with “Please check the Products page.” (no link).")
-        : "";
+    const retailRule = AI_SITE.retail
+      ? uiLang === "ja"
+        ? "商品についての質問は、参照知識の範囲で簡潔に回答。十分な情報が無い場合や価格を確定できない場合は、最後に「商品一覧ページをご確認ください。」と案内（リンクは貼らない）。"
+        : "For product questions, answer briefly if knowledge exists; if insufficient or if the price cannot be confirmed, end with “Please check the Products page.” (no link)."
+      : "";
 
     const languageLock =
       uiLang === "ja"
@@ -358,9 +460,21 @@ export async function POST(req: NextRequest) {
         : `Important: Respond **only in ${langName}** (${uiLang}). Do not mix languages.`;
 
     const ownerBlock = [
-      ownerPrompt.system ? (uiLang === "ja" ? `【オーナー方針】\n${ownerPrompt.system}` : `Owner Directives:\n${ownerPrompt.system}`) : "",
-      ownerPrompt.styleBullets?.length ? (uiLang === "ja" ? `【追加スタイル】\n- ${ownerPrompt.styleBullets.join("\n- ")}` : `Extra Style:\n- ${ownerPrompt.styleBullets.join("\n- ")}`) : "",
-      ownerPrompt.disclaimers?.length ? (uiLang === "ja" ? `【注意書き】\n- ${ownerPrompt.disclaimers.join("\n- ")}` : `Disclaimers:\n- ${ownerPrompt.disclaimers.join("\n- ")}`) : "",
+      ownerPrompt.system
+        ? uiLang === "ja"
+          ? `【オーナー方針】\n${ownerPrompt.system}`
+          : `Owner Directives:\n${ownerPrompt.system}`
+        : "",
+      ownerPrompt.styleBullets?.length
+        ? uiLang === "ja"
+          ? `【追加スタイル】\n- ${ownerPrompt.styleBullets.join("\n- ")}`
+          : `Extra Style:\n- ${ownerPrompt.styleBullets.join("\n- ")}`
+        : "",
+      ownerPrompt.disclaimers?.length
+        ? uiLang === "ja"
+          ? `【注意書き】\n- ${ownerPrompt.disclaimers.join("\n- ")}`
+          : `Disclaimers:\n- ${ownerPrompt.disclaimers.join("\n- ")}`
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -371,26 +485,68 @@ export async function POST(req: NextRequest) {
         ? "【営業時間ポリシー】固定の営業時間は設けていません。営業時間を尋ねられた場合は、確定の時間は提示せず、「ご希望の日時をお知らせください。スタッフ確認のうえご案内します。」と回答する。"
         : "Hours policy: No fixed business hours. If asked about hours, do not state exact times; ask for the preferred date/time and explain that staff will confirm availability.";
 
+    // 予約ポリシー（依頼時の基本方針）
+    const bookingPolicy =
+      uiLang === "ja"
+        ? "【予約ポリシー】依頼・予約希望・希望日時の提示があった場合は、確定の可否を即答せず、「ご依頼の場合は予約フォームに入力してください。送信後にスタッフが可否を確認してご連絡します。」と案内する。フォームは名称のみで示し、リンクは貼らない。"
+        : "Booking policy: If the user requests a service or provides a preferred date/time, do not confirm availability. Instruct them to complete the booking form and explain staff will confirm after submission. Refer to the form by name only (no links).";
+
+    // ★ 新規：購入ポリシー（購入希望時の基本方針）
+    const purchasePolicy =
+      uiLang === "ja"
+        ? "【購入ポリシー】「〇〇が欲しい」「購入したい」など購入意図がある場合は、必ず一文目で「オンラインショップからご購入ください。」と案内し、その後に1〜2文で在庫の確認方法や決済・配送の一般案内を添える。価格や在庫を断定しない。リンクは貼らない。"
+        : "Purchase policy: When the user wants to buy a product, the very first sentence must say: “Please purchase via our online shop.” Then add 1–2 short sentences with general guidance (stock/checkout/shipping) without asserting live price/stock. No links.";
+
     const systemPolicy = [
       header,
       languageLock,
       ownerBlock,
-      hoursPolicy, // ← ここだけ追加
+      hoursPolicy,
+      bookingPolicy,
+      purchasePolicy,
       uiLang === "ja" ? `【対応範囲】\n- ${scope}` : `Scope:\n- ${scope}`,
-      uiLang === "ja" ? `【禁止・制約】\n- ${restrict}` : `Restrictions:\n- ${restrict}`,
+      uiLang === "ja"
+        ? `【禁止・制約】\n- ${restrict}`
+        : `Restrictions:\n- ${restrict}`,
       uiLang === "ja"
         ? `【返答スタイル】\n- ${tone}\n- ${styleBullets}\n- 価格提示時は「目安：¥xx,xxx（税込）」形式とし、最後に「${priceDisclaimer}」を添えてください。`
         : `Style:\n- ${tone}\n- ${styleBullets}\n- When quoting prices, use “Approx: ¥xx,xxx (tax incl.)” and append: “${priceDisclaimer}”.`,
       retailRule,
       AI_SITE.retail ? productAdvice : "",
-      allKnowledge ? (uiLang === "ja" ? "以下の参照知識を活用して正確に回答してください。" : "Use the following reference knowledge to answer accurately.") : "",
+      allKnowledge
+        ? uiLang === "ja"
+          ? "以下の参照知識を活用して正確に回答してください。"
+          : "Use the following reference knowledge to answer accurately."
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");
 
+    // ★ 強制テンプレ（依頼/購入は一文目を固定）
+    const bookingGuard =
+      uiLang === "ja"
+        ? "【予約誘導テンプレ】ユーザーが依頼/予約の意図を示した場合は、必ず一文目に次の固定文を出力する:「ご依頼の場合は予約フォームに入力してください。送信後にスタッフが可否を確認してご連絡します。」その後は1〜2文で希望日時や作業内容の記入を促すのみ。空き状況を断定しない。リンクは貼らない。"
+        : "Booking guard: If the user shows booking intent, the very first sentence MUST be: “Please fill out the booking form. Our staff will confirm availability after submission.” Then add 1–2 short sentences prompting for preferred date/time and details. Do not claim availability. No links.";
+
+    const purchaseGuard =
+      uiLang === "ja"
+        ? "【購入誘導テンプレ】ユーザーが購入意図を示した場合は、必ず一文目に次の固定文を出力する:「オンラインショップからご購入ください。」その後は1〜2文で支払い・配送・在庫確認方法などの一般案内のみを添える。価格や在庫を断定しない。リンクは貼らない。"
+        : "Purchase guard: If the user shows a purchase intent, the very first sentence MUST be: “Please purchase via our online shop.” Then add 1–2 short sentences with general guidance (payment/shipping/stock check). Do not assert exact price/stock. No links.";
+
     type ChatMsg = OpenAI.Chat.Completions.ChatCompletionMessageParam;
     const messages: ChatMsg[] = [{ role: "system", content: systemPolicy }];
-    if (allKnowledge.length > 0) messages.push({ role: "system", content: allKnowledge });
+
+    // ★ 依頼/購入の意図に応じてガードを追加注入
+    const msgText = String(message);
+    if (looksLikeBookingIntent(msgText)) {
+      messages.push({ role: "system", content: bookingGuard });
+    }
+    if (looksLikePurchaseIntent(msgText)) {
+      messages.push({ role: "system", content: purchaseGuard });
+    }
+
+    if (allKnowledge.length > 0)
+      messages.push({ role: "system", content: allKnowledge });
     messages.push({ role: "user", content: String(message) });
 
     const completion = await openai.chat.completions.create({
@@ -426,9 +582,10 @@ export async function POST(req: NextRequest) {
     });
 
     // 人手エスカレーション
-    const needsHuman = /担当.?者に確認します|分かりません|確認の上ご案内|check with (?:the )?staff|confirm with (?:our )?staff|I(?:'| wi)ll confirm|I don't know/i.test(
-      answer
-    );
+    const needsHuman =
+      /担当.?者に確認します|分かりません|確認の上ご案内|check with (?:the )?staff|confirm with (?:our )?staff|I(?:'| wi)ll confirm|I don't know/i.test(
+        answer
+      );
     if (needsHuman) {
       try {
         const baseUrl = resolveBaseUrl(req);

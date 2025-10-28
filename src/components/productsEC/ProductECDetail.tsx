@@ -25,6 +25,8 @@ import {
   onSnapshot,
   query,
   orderBy,
+  where,
+  limit as fsLimit,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -192,7 +194,7 @@ const TAX_T: Record<UILang, { incl: string; excl: string }> = {
   vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
   id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
   hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "शامل الضريبة", excl: "غير شامل الضريبة" } as any,
+  ar: { incl: "شامل الضريبة", excl: "غير شامل الضريبة" } as any,
 };
 
 /* ====== 通貨表示（UI言語→通貨/ロケール） ====== */
@@ -251,7 +253,6 @@ function formatPriceByLang(
       maximumFractionDigits: 0,
     }).format(jpyIncl);
   }
-
   const major = jpyIncl * rate;
   return new Intl.NumberFormat(locale, {
     style: "currency",
@@ -259,6 +260,156 @@ function formatPriceByLang(
     maximumFractionDigits: ZERO_DECIMAL.has(ccy) ? 0 : 2,
   }).format(major);
 }
+
+/* ===== 在庫（クライアント Firestore） ===== */
+type StockRow = {
+  productId: string;
+  stockQty: number; // 在庫数
+  lowStockThreshold: number; // 在庫少なめのしきい値
+};
+type StockStatus = "in_stock" | "low" | "out";
+
+/** UI文言（在庫） */
+const STOCK_T: Record<
+  UILang,
+  {
+    in: string;
+    low: string;
+    out: string;
+    remain: (n: number) => string;
+    max: (n: number) => string;
+    addDisabled: string;
+  }
+> = {
+  ja: {
+    in: "在庫あり",
+    low: "在庫少なめ",
+    out: "在庫なし",
+    remain: (n: number) => `残り${n}点`,
+    max: (n: number) => `最大${n}個まで`,
+    addDisabled: "在庫なし",
+  },
+  en: {
+    in: "In stock",
+    low: "Low stock",
+    out: "Out of stock",
+    remain: (n: number) => `only ${n} left`,
+    max: (n: number) => `max ${n} pcs`,
+    addDisabled: "Out of stock",
+  },
+  zh: {
+    in: "有货",
+    low: "库存紧张",
+    out: "无货",
+    remain: (n: number) => `仅剩 ${n} 件`,
+    max: (n: number) => `最多 ${n} 件`,
+    addDisabled: "无货",
+  },
+  "zh-TW": {
+    in: "有現貨",
+    low: "庫存緊張",
+    out: "無庫存",
+    remain: (n: number) => `剩餘 ${n} 件`,
+    max: (n: number) => `最多 ${n} 件`,
+    addDisabled: "無庫存",
+  },
+  ko: {
+    in: "재고 있음",
+    low: "재고 적음",
+    out: "재고 없음",
+    remain: (n: number) => `잔여 ${n}개`,
+    max: (n: number) => `최대 ${n}개`,
+    addDisabled: "재고 없음",
+  },
+  fr: {
+    in: "En stock",
+    low: "Stock faible",
+    out: "En rupture",
+    remain: (n: number) => `plus que ${n}`,
+    max: (n: number) => `max ${n}`,
+    addDisabled: "En rupture",
+  },
+  es: {
+    in: "En stock",
+    low: "Stock bajo",
+    out: "Agotado",
+    remain: (n: number) => `solo ${n} restantes`,
+    max: (n: number) => `máx. ${n}`,
+    addDisabled: "Agotado",
+  },
+  de: {
+    in: "Auf Lager",
+    low: "Geringer Bestand",
+    out: "Nicht auf Lager",
+    remain: (n: number) => `nur noch ${n}`,
+    max: (n: number) => `max. ${n}`,
+    addDisabled: "Nicht auf Lager",
+  },
+  pt: {
+    in: "Em estoque",
+    low: "Estoque baixo",
+    out: "Sem estoque",
+    remain: (n: number) => `restam apenas ${n}`,
+    max: (n: number) => `máx. ${n}`,
+    addDisabled: "Sem estoque",
+  },
+  it: {
+    in: "Disponibile",
+    low: "Scorte limitate",
+    out: "Esaurito",
+    remain: (n: number) => `ne restano solo ${n}`,
+    max: (n: number) => `max ${n}`,
+    addDisabled: "Esaurito",
+  },
+  ru: {
+    in: "В наличии",
+    low: "Малый остаток",
+    out: "Нет в наличии",
+    remain: (n: number) => `осталось ${n}`,
+    max: (n: number) => `макс. ${n}`,
+    addDisabled: "Нет в наличии",
+  },
+  th: {
+    in: "มีสินค้า",
+    low: "สินค้าเหลือน้อย",
+    out: "สินค้าหมด",
+    remain: (n: number) => `เหลือ ${n} ชิ้น`,
+    max: (n: number) => `สูงสุด ${n} ชิ้น`,
+    addDisabled: "สินค้าหมด",
+  },
+  vi: {
+    in: "Còn hàng",
+    low: "Sắp hết",
+    out: "Hết hàng",
+    remain: (n: number) => `chỉ còn ${n}`,
+    max: (n: number) => `tối đa ${n}`,
+    addDisabled: "Hết hàng",
+  },
+  id: {
+    in: "Tersedia",
+    low: "Stok menipis",
+    out: "Habis",
+    remain: (n: number) => `tersisa ${n}`,
+    max: (n: number) => `maks ${n}`,
+    addDisabled: "Habis",
+  },
+  hi: {
+    in: "उपलब्ध",
+    low: "कम स्टॉक",
+    out: "स्टॉक समाप्त",
+    remain: (n: number) => `केवल ${n} बचा है`,
+    max: (n: number) => `अधिकतम ${n}`,
+    addDisabled: "स्टॉक समाप्त",
+  },
+  ar: {
+    in: "متوفر",
+    low: "كمية محدودة",
+    out: "غير متوفر",
+    remain: (n: number) => `متبقي ${n}`,
+    max: (n: number) => `حتى ${n}`,
+    addDisabled: "غير متوفر",
+  } as any,
+};
 
 export default function ProductECDetail({ product }: { product: Product }) {
   // 権限・テーマ
@@ -279,6 +430,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
   const { uiLang } = useUILang();
   const cartBtnLabel = addToCartLabel(uiLang); // 多言語ラベル
   const taxT = TAX_T[uiLang] ?? TAX_T.ja;
+  const stockText = STOCK_T[uiLang] ?? STOCK_T.ja;
   const { rates } = useFxRates();
 
   // 表示用
@@ -321,19 +473,90 @@ export default function ProductECDetail({ product }: { product: Product }) {
     name: string;
     qty: number;
   }>(null);
-  const stepQty = (delta: number) =>
-    setQty((n) => Math.max(1, Math.min(999, (Number(n) || 1) + delta)));
-  const handleQtyInput = (v: string) => {
+  const handleQtyInput = (v: string, max: number | null) => {
     if (v === "") return setQty(1);
     const n = Number(String(v).replace(/[^\d]/g, ""));
     if (!Number.isFinite(n)) return;
-    setQty(Math.max(1, Math.min(999, n)));
+    const upper = max == null ? 999 : Math.max(1, max);
+    setQty(Math.max(1, Math.min(upper, n)));
   };
 
   // セクション選択
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
     (product as any).sectionId ?? null
   );
+
+  // ===== 在庫購読 =====
+  const [stock, setStock] = useState<StockRow | null>(null);
+  const [stockLoaded, setStockLoaded] = useState(false);
+
+  useEffect(() => {
+    // stock コレクションから siteKey + productId で購読
+    const stockCol = collection(db, "stock");
+    const qy = query(
+      stockCol,
+      where("siteKey", "==", SITE_KEY),
+      where("productId", "==", product.id),
+      fsLimit(1)
+    );
+    const unsub = onSnapshot(
+      qy,
+      (snap) => {
+        const d = snap.docs[0];
+        if (d) {
+          const s = d.data() as any;
+          setStock({
+            productId: String(s.productId ?? product.id),
+            stockQty: Math.max(0, Number(s.stockQty ?? 0) || 0),
+            lowStockThreshold: Math.max(
+              0,
+              Number(s.lowStockThreshold ?? 0) || 0
+            ),
+          });
+        } else {
+          setStock(null); // 在庫データが無い→表示しない＆制限しない
+        }
+        setStockLoaded(true);
+      },
+      () => setStockLoaded(true)
+    );
+    return () => unsub();
+  }, [product.id]);
+
+  // 在庫に合わせて数量をクランプ
+  useEffect(() => {
+    if (!stockLoaded) return;
+    if (stock && stock.stockQty >= 0) {
+      const max = stock.stockQty;
+      if (max <= 0) {
+        setQty(1);
+      } else {
+        setQty((n) => Math.max(1, Math.min(n, max)));
+      }
+    }
+  }, [stockLoaded, stock]);
+
+  // 数量ステップ（在庫を超えない）
+  const stepQty = (delta: number) => {
+    const max = stock ? stock.stockQty : null;
+    setQty((n) => {
+      const next = (Number(n) || 1) + delta;
+      const upper = max == null ? 999 : Math.max(1, max);
+      return Math.max(1, Math.min(upper, next));
+    });
+  };
+
+  // 在庫ステータス
+  const stockStatus: StockStatus | null = useMemo(() => {
+    if (!stock) return null;
+    if (stock.stockQty <= 0) return "out";
+    if (stock.stockQty <= stock.lowStockThreshold) return "low";
+    return "in_stock";
+  }, [stock]);
+
+  const isOut = stockStatus === "out";
+  // const isLow = stockStatus === "low"; // ← 未使用のため削除
+  const maxAllowed = stock ? stock.stockQty : null;
 
   // 初期化
   useEffect(() => {
@@ -529,6 +752,24 @@ export default function ProductECDetail({ product }: { product: Product }) {
   const handleAddToCart = () => {
     if (navigatingBack) return; // 連打対策
 
+    // 在庫制限チェック
+    const max = stock ? stock.stockQty : null;
+    if (max != null) {
+      if (max <= 0) {
+        alert(stockText.addDisabled);
+        return;
+      }
+      if (qty > max) {
+        // 念のためダブルチェック
+        alert(
+          (uiLang === "ja"
+            ? `在庫は最大 ${max} 個までです`
+            : `Up to ${max} pcs in stock`) as string
+        );
+        return;
+      }
+    }
+
     // 内部値は JPY 税込で扱う（表示は多通貨でも OK）
     const unitIncl =
       (displayProduct as any).priceIncl ??
@@ -548,7 +789,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
     addToCart({
       productId: displayProduct.id,
-      name: localizedName, // ← ここを多言語化
+      name: localizedName,
       unitAmount: unitIncl,
       qty: count,
       imageUrl: displayProduct.mediaURL,
@@ -556,7 +797,6 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
     // トーストにも多言語名を反映
     setAddedToast({ name: localizedName, qty: count });
-
     setTimeout(() => setAddedToast(null), TOAST_DURATION_MS);
 
     setNavigatingBack(true);
@@ -659,6 +899,42 @@ export default function ProductECDetail({ product }: { product: Product }) {
   // ★ トーストの多言語文言（商品名を含む）
   const toastText = addedToCartText(uiLang, loc.title);
 
+  // 在庫の表示要素（在庫データがある場合のみ）
+  const renderStockBadge = () => {
+    if (!stockLoaded || !stock) return null;
+
+    const qtyLeft = stock.stockQty;
+    if (qtyLeft <= 0) {
+      return (
+        <p className="text-sm font-medium text-red-600" aria-live="polite">
+          {stockText.out}
+        </p>
+      );
+    }
+    if (qtyLeft <= stock.lowStockThreshold) {
+      return (
+        <p className="text-sm font-medium text-amber-600" aria-live="polite">
+          {stockText.low}
+          <span className="ml-2 opacity-90">
+            （{stockText.remain(qtyLeft)}）
+          </span>
+        </p>
+      );
+    }
+    return (
+      <p className="text-sm font-medium text-green-600" aria-live="polite">
+        {stockText.in}
+      </p>
+    );
+  };
+
+  const disableMinus = qty <= 1 || (maxAllowed != null && maxAllowed <= 0);
+  const disablePlus =
+    (maxAllowed != null && (maxAllowed <= 0 || qty >= maxAllowed)) || false;
+  const disableAdd =
+    navigatingBack ||
+    (maxAllowed != null && (maxAllowed <= 0 || qty > maxAllowed));
+
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
@@ -758,9 +1034,15 @@ export default function ProductECDetail({ product }: { product: Product }) {
           <h1 className={clsx("text-lg font-bold", isDark && "text-white")}>
             {loc.title}
           </h1>
+
+          {/* 価格 */}
           <p className={clsx("font-semibold", isDark && "text-white")}>
             {priceText}（{taxT.incl}）
           </p>
+
+          {/* 在庫バッジ（在庫データがある時のみ表示） */}
+          {renderStockBadge()}
+
           {loc.body && (
             <p
               className={clsx(
@@ -779,8 +1061,12 @@ export default function ProductECDetail({ product }: { product: Product }) {
               <button
                 type="button"
                 onClick={() => stepQty(-1)}
+                disabled={disableMinus}
                 aria-label="数量を1減らす"
-                className="h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]"
+                className={clsx(
+                  "h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]",
+                  disableMinus && "opacity-50 cursor-not-allowed"
+                )}
               >
                 −
               </button>
@@ -791,26 +1077,41 @@ export default function ProductECDetail({ product }: { product: Product }) {
                 aria-label="数量を入力"
                 className="w-20 h-11 border rounded-xl text-center text-lg"
                 value={String(qty)}
-                onChange={(e) => handleQtyInput(e.target.value)}
+                onChange={(e) => handleQtyInput(e.target.value, maxAllowed)}
               />
               <button
                 type="button"
                 onClick={() => stepQty(1)}
+                disabled={disablePlus}
                 aria-label="数量を1増やす"
-                className="h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]"
+                className={clsx(
+                  "h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]",
+                  disablePlus && "opacity-50 cursor-not-allowed"
+                )}
               >
                 ＋
               </button>
             </div>
 
+            {/* “最大◯個まで”の案内（在庫がある時だけ） */}
+            {maxAllowed != null && maxAllowed > 0 && (
+              <span className="ml-1 text-xs text-gray-500">
+                {stockText.max(maxAllowed)}
+              </span>
+            )}
+
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={navigatingBack}
-              className="ml-auto h-11 px-4 rounded-xl bg-black text-white font-semibold disabled:opacity-50"
+              disabled={disableAdd}
+              className={clsx(
+                "ml-auto h-11 px-4 rounded-xl font-semibold disabled:opacity-50",
+                isDark ? "bg-white text-black" : "bg-black text-white",
+                disableAdd && "cursor-not-allowed"
+              )}
               aria-label={cartBtnLabel}
             >
-              {cartBtnLabel}
+              {isOut ? stockText.addDisabled : cartBtnLabel}
             </button>
           </div>
         </div>
@@ -819,7 +1120,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
       {/* 編集モーダル（編集UIは税区分選べるが保存は税込統一＋両方保存） */}
       {isAdmin && showEdit && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
+          <div className="w-full max-w-md bg白 rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-bold text-center">商品を編集</h2>
 
             {/* 公開/非公開 */}
