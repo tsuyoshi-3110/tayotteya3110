@@ -45,7 +45,7 @@ type Keys =
   | "community"
   | "analytics"
   | "admin"
-  | "aiChat"; // ★ 追加：AIチャット
+  | "aiChat";
 
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
@@ -69,7 +69,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "コミュニティ",
     analytics: "分析",
     admin: "管理者ログイン",
-    aiChat: "AIチャット",
+    aiChat: "AIサポート",
   },
   en: {
     menuTitle: "Menu",
