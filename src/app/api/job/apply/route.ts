@@ -16,7 +16,7 @@ const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REFRESH_TOKEN,
-  SENDER_EMAIL,
+  GOOGLE_SENDER_EMAIL,
   OPENAI_API_KEY,
 } = process.env;
 
@@ -113,7 +113,10 @@ ${JSON.stringify({ body: text })}
     if (!translated || translated === text) return null;
     return translated;
   } catch (e) {
-    console.warn("[job/apply] translateBodyToJaIfNeeded failed:", (e as any)?.message || e);
+    console.warn(
+      "[job/apply] translateBodyToJaIfNeeded failed:",
+      (e as any)?.message || e
+    );
     return null;
   }
 }
@@ -211,7 +214,7 @@ export async function POST(req: NextRequest) {
     !GOOGLE_CLIENT_ID ||
     !GOOGLE_CLIENT_SECRET ||
     !GOOGLE_REFRESH_TOKEN ||
-    !SENDER_EMAIL
+    !GOOGLE_SENDER_EMAIL
   ) {
     return NextResponse.json(
       { error: "メール送信設定(env)が不足しています" },
@@ -224,9 +227,9 @@ export async function POST(req: NextRequest) {
     let ownerEmail = await resolveOwnerEmail();
     if (!ownerEmail) {
       console.warn(
-        "[job/apply] ownerEmail を Firestore から取得できませんでした。SENDER_EMAIL を宛先に使用します。"
+        "[job/apply] ownerEmail を Firestore から取得できませんでした。GOOGLE_SENDER_EMAIL を宛先に使用します。"
       );
-      ownerEmail = SENDER_EMAIL!;
+      ownerEmail = GOOGLE_SENDER_EMAIL!;
     }
 
     // 6) OAuth2 アクセストークン
@@ -256,7 +259,7 @@ export async function POST(req: NextRequest) {
       service: "gmail",
       auth: {
         type: "OAuth2",
-        user: SENDER_EMAIL,
+        user: GOOGLE_SENDER_EMAIL,
         clientId: GOOGLE_CLIENT_ID,
         clientSecret: GOOGLE_CLIENT_SECRET,
         refreshToken: GOOGLE_REFRESH_TOKEN,
@@ -378,7 +381,7 @@ export async function POST(req: NextRequest) {
 
     // 10) 送信
     await transport.sendMail({
-      from: `ご依頼フォーム <${SENDER_EMAIL}>`,
+      from: `ご依頼フォーム <${GOOGLE_SENDER_EMAIL}>`,
       to: ownerEmail,
       replyTo: email, // 受信側がそのまま返信できる
       subject: useNew ? subjectNew : subjectOld,

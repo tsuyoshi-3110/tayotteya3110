@@ -373,6 +373,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "news", label: "お知らせ" },
   { key: "company", label: "会社概要" },
   { key: "contact", label: "無料相談・お問合せ" },
+  { key: "aiChat", label: "AIチャット" }, // ★ 追加
   { key: "reserve", label: "ご予約はこちら" },
   { key: "partners", label: "協力業者募集！" },
 

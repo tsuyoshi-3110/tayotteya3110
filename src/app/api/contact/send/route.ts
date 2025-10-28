@@ -4,7 +4,9 @@ import { adminDb } from "@/lib/firebase-admin";
 import OpenAI from "openai";
 
 const SENDER =
-  process.env.GOOGLE_SENDER_EMAIL || process.env.SENDER_EMAIL || "";
+  process.env.GOOGLE_GOOGLE_SENDER_EMAIL ||
+  process.env.GOOGLE_SENDER_EMAIL ||
+  "";
 const CONTACT_TO_FALLBACK = process.env.CONTACT_TO || SENDER;
 
 // ----- helpers -----

@@ -44,13 +44,14 @@ type Keys =
   | "timeline"
   | "community"
   | "analytics"
-  | "admin";
+  | "admin"
+  | "aiChat"; // ★ 追加：AIチャット
 
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
     menuTitle: "メニュー",
     home: "ホーム",
-    projects: "施工実績", 
+    projects: "施工実績",
     products: "商品一覧",
     productsEC: "オンラインショップ",
     staffs: "スタッフ",
@@ -68,6 +69,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "コミュニティ",
     analytics: "分析",
     admin: "管理者ログイン",
+    aiChat: "AIチャット",
   },
   en: {
     menuTitle: "Menu",
@@ -90,6 +92,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Community",
     analytics: "Analytics",
     admin: "Administrator Login",
+    aiChat: "AI Chat",
   },
   zh: {
     menuTitle: "菜单",
@@ -112,6 +115,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "社区",
     analytics: "分析",
     admin: "管理员登录",
+    aiChat: "AI聊天",
   },
   "zh-TW": {
     menuTitle: "選單",
@@ -134,6 +138,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "社群",
     analytics: "分析",
     admin: "管理者登入",
+    aiChat: "AI聊天",
   },
   ko: {
     menuTitle: "메뉴",
@@ -156,6 +161,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "커뮤니티",
     analytics: "분석",
     admin: "관리자 로그인",
+    aiChat: "AI 채팅",
   },
   fr: {
     menuTitle: "Menu",
@@ -178,6 +184,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Communauté",
     analytics: "Analyses",
     admin: "Connexion administrateur",
+    aiChat: "Chat IA",
   },
   es: {
     menuTitle: "Menú",
@@ -200,6 +207,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Comunidad",
     analytics: "Analítica",
     admin: "Inicio de sesión de administrador",
+    aiChat: "Chat IA",
   },
   de: {
     menuTitle: "Menü",
@@ -222,6 +230,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Community",
     analytics: "Analytik",
     admin: "Administrator-Anmeldung",
+    aiChat: "AI-Chat",
   },
   pt: {
     menuTitle: "Menu",
@@ -244,6 +253,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Comunidade",
     analytics: "Análises",
     admin: "Login do administrador",
+    aiChat: "Chat IA",
   },
   it: {
     menuTitle: "Menu",
@@ -266,6 +276,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Community",
     analytics: "Analitiche",
     admin: "Accesso amministratore",
+    aiChat: "Chat IA",
   },
   ru: {
     menuTitle: "Меню",
@@ -288,6 +299,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Сообщество",
     analytics: "Аналитика",
     admin: "Вход администратора",
+    aiChat: "AI-чат",
   },
   th: {
     menuTitle: "เมนู",
@@ -310,6 +322,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "คอมมูนิตี้",
     analytics: "วิเคราะห์",
     admin: "เข้าสู่ระบบผู้ดูแล",
+    aiChat: "แชต AI",
   },
   vi: {
     menuTitle: "Menu",
@@ -332,6 +345,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Cộng đồng",
     analytics: "Phân tích",
     admin: "Đăng nhập quản trị",
+    aiChat: "Trò chuyện AI",
   },
   id: {
     menuTitle: "Menu",
@@ -354,6 +368,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "Komunitas",
     analytics: "Analitik",
     admin: "Masuk admin",
+    aiChat: "Obrolan AI",
   },
   hi: {
     menuTitle: "मेनू",
@@ -376,6 +391,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "समुदाय",
     analytics: "विश्लेषण",
     admin: "प्रशासक लॉगिन",
+    aiChat: "AI चैट",
   },
   ar: {
     menuTitle: "القائمة",
@@ -398,6 +414,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     community: "المجتمع",
     analytics: "التحليلات",
     admin: "تسجيل دخول المسؤول",
+    aiChat: "دردشة الذكاء الاصطناعي",
   },
 };
 
@@ -422,6 +439,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "company", href: "/company" },
   { key: "contact", href: "/contact" },
   { key: "reserve", href: "/apply" },
+  { key: "aiChat", href: "/ai" },
   { key: "partners", href: "/jobApp" },
 ];
 
@@ -447,7 +465,6 @@ export default function Header({ className = "" }: { className?: string }) {
     MENU_ITEMS.map((m) => m.key)
   );
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
-
 
   useEffect(() => {
     const ref = doc(db, "siteSettingsEditable", SITE_KEY);

@@ -8,7 +8,7 @@ const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REFRESH_TOKEN,
-  SENDER_EMAIL,
+  GOOGLE_SENDER_EMAIL,
 } = process.env;
 
 const REDIRECT_URI = "https://developers.google.com/oauthplayground";
@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
     oAuth2Client.setCredentials({ refresh_token: GOOGLE_REFRESH_TOKEN });
 
     const accessTokenRes = await oAuth2Client.getAccessToken();
-    const token = typeof accessTokenRes === "string"
-      ? accessTokenRes
-      : accessTokenRes?.token;
+    const token =
+      typeof accessTokenRes === "string"
+        ? accessTokenRes
+        : accessTokenRes?.token;
 
     if (!token) {
       console.error("アクセストークンの取得に失敗:", accessTokenRes);
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
       service: "gmail",
       auth: {
         type: "OAuth2",
-        user: SENDER_EMAIL,
+        user: GOOGLE_SENDER_EMAIL,
         clientId: GOOGLE_CLIENT_ID,
         clientSecret: GOOGLE_CLIENT_SECRET,
         refreshToken: GOOGLE_REFRESH_TOKEN,
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
     });
 
     const mailOptions = {
-      from: `求人応募フォーム <${SENDER_EMAIL}>`,
+      from: `求人応募フォーム <${GOOGLE_SENDER_EMAIL}>`,
       to: ownerEmail,
       subject: `【求人応募】${name}様より応募が届きました`,
       text: `
