@@ -192,7 +192,7 @@ export default function HoursSection() {
                       </td>
                       <td className="px-4 py-3">
                         {r.closed ? (
-                          <span className="text-neutral-500">休業</span>
+                          <span className="text-neutral-700">休業</span>
                         ) : (
                           <span className="font-medium">{r.text}</span>
                         )}
@@ -204,7 +204,7 @@ export default function HoursSection() {
             </table>
           </div>
 
-          <p className="text-xs text-neutral-600 mt-6">
+          <p className="text-xs text-neutral-300 mt-6">
             ※
             営業時間は目安です。状況により前後することがあります。確定のご依頼は予約フォームからお願いいたします。
           </p>

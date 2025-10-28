@@ -547,13 +547,13 @@ function BusinessHoursCard() {
             <option value="Asia/Tokyo">Asia/Tokyo（日本）</option>
             <option value="UTC">UTC</option>
           </select>
-          {saving && <span className="text-xs text-gray-500">保存中…</span>}
+          {saving && <span className="text-xs text-gray-700">保存中…</span>}
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-600">
+              <tr className="text-left text-gray-700">
                 <th className="py-1 pr-2">曜日</th>
                 <th className="py-1 pr-2">休業</th>
                 <th className="py-1 pr-2">時間帯1</th>
@@ -636,7 +636,7 @@ function BusinessHoursCard() {
                         </Button>
                       )}
                     </td>
-                    <td className="py-2 pr-2 text-gray-600">{fmtPreview(d)}</td>
+                    <td className="py-2 pr-2 text-gray-700">{fmtPreview(d)}</td>
                   </tr>
                 );
               })}
@@ -653,7 +653,7 @@ function BusinessHoursCard() {
             value={bh.notes ?? ""}
             onChange={(e) => updateBh({ notes: e.target.value })}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-gray-700">
             ※ AI はここに書かれた注意書きも一緒に案内します。
           </p>
         </div>
