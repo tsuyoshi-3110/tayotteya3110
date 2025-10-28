@@ -1,4 +1,4 @@
-// src/app/api/ai-chat/route.ts（RAG＋在庫ツール統合）
+// src/app/api/ai-chat/route.ts（RAG＋在庫ツール統合・自然回答版）
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { adminDb } from "@/lib/firebase-admin";
@@ -300,8 +300,27 @@ const DAY_EN: Record<string, string> = {
   sun: "Sun",
 };
 
+// 旧/新スキーマ両対応の正規化
 function normalizeHours(bh: any): HoursRow[] {
   if (!bh) return [];
+
+  // パターンC: 新スキーマ { tz, enabled, days: { mon:{ closed, ranges:[{start,end}] } } }
+  if (bh.days && typeof bh.days === "object") {
+    return DAY_ORDER.map((k) => {
+      const d = bh.days?.[k] || {};
+      const closed =
+        !!d.closed || !Array.isArray(d.ranges) || d.ranges.length === 0;
+      // 代表枠
+      const r0 = Array.isArray(d.ranges) && d.ranges[0] ? d.ranges[0] : null;
+      return {
+        key: k,
+        open: r0?.start ? String(r0.start).slice(0, 5) : "",
+        close: r0?.end ? String(r0.end).slice(0, 5) : "",
+        closed,
+      };
+    });
+  }
+
   // パターンA: { hours: [{key:'mon', open, close, closed}, ...] }
   if (Array.isArray(bh.hours)) {
     return bh.hours
@@ -313,6 +332,7 @@ function normalizeHours(bh: any): HoursRow[] {
       }))
       .filter((r: HoursRow) => !!r.key && DAY_ORDER.includes(r.key));
   }
+
   // パターンB: { weekly: { mon:{open,close,closed}, ... } }
   if (bh.weekly && typeof bh.weekly === "object") {
     return DAY_ORDER.map((k) => {
@@ -325,6 +345,7 @@ function normalizeHours(bh: any): HoursRow[] {
       };
     });
   }
+
   return [];
 }
 
@@ -345,13 +366,87 @@ async function getBusinessHoursKnowledge(
       .get();
     const data = (snap.data() as any) ?? {};
     const bh = data?.businessHours;
+
     const enabled = bh?.enabled !== false && !!bh; // true/undefined を有効扱い
     const rows = normalizeHours(bh);
-    const notesJa = bh?.notesJa ?? bh?.noteJa ?? bh?.notes?.ja ?? "";
-    const notesEn = bh?.notesEn ?? bh?.noteEn ?? bh?.notes?.en ?? "";
 
+    // 備考（日本語優先・なければ共通 notes/note）
+    const notesJa =
+      bh?.notesJa ?? bh?.noteJa ?? bh?.notes?.ja ?? bh?.notes ?? bh?.note ?? "";
+    const notesEn =
+      bh?.notesEn ?? bh?.noteEn ?? bh?.notes?.en ?? bh?.notes ?? bh?.note ?? "";
+
+    // 新スキーマの場合は複数枠を結合
+    let linesJa: string[] = [];
+    let linesEn: string[] = [];
+
+    const isNewSchema = bh?.days && typeof bh.days === "object";
+
+    if (isNewSchema) {
+      linesJa = DAY_ORDER.map((k) => {
+        const d = bh.days?.[k] || {};
+        if (d.closed) return `- ${DAY_JA[k]}：定休日`;
+        const ranges = Array.isArray(d.ranges) ? d.ranges : [];
+        if (!ranges.length) return `- ${DAY_JA[k]}：—`;
+        const label = ranges
+          .filter((r: any) => r?.start && r?.end)
+          .map(
+            (r: any) =>
+              `${String(r.start).slice(0, 5)}〜${String(r.end).slice(0, 5)}`
+          )
+          .join("／");
+        return `- ${DAY_JA[k]}：${label || "—"}`;
+      });
+
+      linesEn = DAY_ORDER.map((k) => {
+        const d = bh.days?.[k] || {};
+        if (d.closed) return `- ${DAY_EN[k]}: Closed`;
+        const ranges = Array.isArray(d.ranges) ? d.ranges : [];
+        if (!ranges.length) return `- ${DAY_EN[k]}: —`;
+        const label = ranges
+          .filter((r: any) => r?.start && r?.end)
+          .map(
+            (r: any) =>
+              `${String(r.start).slice(0, 5)}–${String(r.end).slice(0, 5)}`
+          )
+          .join(" / ");
+        return `- ${DAY_EN[k]}: ${label || "—"}`;
+      });
+    } else {
+      // 旧スキーマは open/close 一枠のみ
+      linesJa = rows
+        .sort((a, b) => DAY_ORDER.indexOf(a.key!) - DAY_ORDER.indexOf(b.key!))
+        .map((r) => {
+          const day = DAY_JA[r.key!];
+          if (r.closed) return `- ${day}：定休日`;
+          if (r.open && r.close) return `- ${day}：${r.open}〜${r.close}`;
+          return `- ${day}：—`;
+        });
+
+      linesEn = rows
+        .sort((a, b) => DAY_ORDER.indexOf(a.key!) - DAY_ORDER.indexOf(b.key!))
+        .map((r) => {
+          const day = DAY_EN[r.key!];
+          if (r.closed) return `- ${day}: Closed`;
+          if (r.open && r.close) return `- ${day}: ${r.open}–${r.close}`;
+          return `- ${day}: —`;
+        });
+    }
+
+    // データ有無判定
     const hasHours =
-      enabled && rows.some((r) => r.closed || (r.open && r.close));
+      enabled &&
+      (isNewSchema
+        ? DAY_ORDER.some((k) => {
+            const d = bh.days?.[k] || {};
+            return (
+              !!d.closed ||
+              (Array.isArray(d.ranges) &&
+                d.ranges.some((r: any) => r?.start && r?.end))
+            );
+          })
+        : rows.some((r) => r.closed || (r.open && r.close)));
+
     if (!hasHours) {
       const policyText =
         uiLang === "ja"
@@ -369,25 +464,6 @@ async function getBusinessHoursKnowledge(
         guardTextUnavailable,
       };
     }
-
-    // 表示用に曜日順で整形
-    const linesJa = rows
-      .sort((a, b) => DAY_ORDER.indexOf(a.key!) - DAY_ORDER.indexOf(b.key!))
-      .map((r) => {
-        const day = DAY_JA[r.key!];
-        if (r.closed) return `- ${day}：定休日`;
-        if (r.open && r.close) return `- ${day}：${r.open}〜${r.close}`;
-        return `- ${day}：—`;
-      });
-
-    const linesEn = rows
-      .sort((a, b) => DAY_ORDER.indexOf(a.key!) - DAY_ORDER.indexOf(b.key!))
-      .map((r) => {
-        const day = DAY_EN[r.key!];
-        if (r.closed) return `- ${day}: Closed`;
-        if (r.open && r.close) return `- ${day}: ${r.open}–${r.close}`;
-        return `- ${day}: —`;
-      });
 
     const blockJa = [
       "【営業時間（設定）】",
@@ -462,7 +538,7 @@ function looksLikeBookingIntent(text: string): boolean {
   );
 }
 
-// ★ サービスの「価格を知りたい」質問の検知
+// サービスの「価格を知りたい」質問の検知
 function looksLikeServicePriceQuestion(text: string): boolean {
   const s = (text || "").toLowerCase();
   const price = /(いくら|料金|値段|費用|相場|価格|おいくら|金額|price)/.test(s);
@@ -547,6 +623,14 @@ export async function POST(req: NextRequest) {
     const langName =
       LANG_NAME[uiLang] ?? LANG_NAME[AI_SITE.languages.default] ?? "日本語";
 
+    // ===== まずユーザー文 & 意図判定 =====
+    const msgText = String(message);
+    const isHoursQ = looksLikeHoursQuery(msgText);
+    const isInventoryQ = looksLikeInventoryQuery(msgText);
+    const isBooking = looksLikeBookingIntent(msgText);
+    const isServicePrice = looksLikeServicePriceQuestion(msgText);
+    const isPurchase = looksLikePurchaseIntent(msgText);
+
     // 1) ナレッジ取得
     const baseDoc = adminDb.collection("aiKnowledge").doc("base");
     const ownerDoc = adminDb
@@ -586,7 +670,7 @@ export async function POST(req: NextRequest) {
         : Promise.resolve(""),
     ]);
 
-    // ★ 営業時間（Firestore 設定）を取得
+    // 3) 営業時間（Firestore 設定）
     const {
       hasHours,
       knowledgeText: hoursKnowledge,
@@ -595,9 +679,9 @@ export async function POST(req: NextRequest) {
       guardTextUnavailable,
     } = await getBusinessHoursKnowledge(siteKey, uiLang);
 
-    // 3) KB（RAG）
+    // 4) KB（RAG）
     const kbHits = await retrieveKB({
-      question: String(message),
+      question: msgText,
       topK: 5,
       minScore: 0.35,
       siteKey,
@@ -606,25 +690,29 @@ export async function POST(req: NextRequest) {
       ? `【KB（RAG）】\n${hitsToPassages(kbHits).join("\n\n")}`
       : "";
 
-    // 4) 在庫（必要時）
-    const inventoryEnabled = looksLikeInventoryQuery(String(message));
-    const inventoryText = inventoryEnabled
-      ? await getInventoryKnowledge(siteKey, String(message))
+    // 5) 在庫（必要時のみ生成）
+    const inventoryText = isInventoryQ
+      ? await getInventoryKnowledge(siteKey, msgText)
       : "";
 
-    // 5) すべて結合（営業時間ブロックを先に置くと回答に採用されやすい）
-    const allKnowledge = [
-      hoursKnowledge, // ← 追加
-      staticKnowledge,
-      menuText,
-      productsText,
-      kbText,
-      inventoryText,
-    ]
-      .filter((t) => t && t.length > 0)
-      .join("\n\n");
+    // 6) 参照知識の構成（トピック別に条件注入）
+    const knowledgeParts: string[] = [];
 
-    // 6) System（方針）
+    // 営業時間は「聞かれたときだけ」先頭に
+    if (isHoursQ && hoursKnowledge) knowledgeParts.push(hoursKnowledge);
+
+    // 在庫は在庫質問時に前方へ
+    if (isInventoryQ && inventoryText) knowledgeParts.push(inventoryText);
+
+    // それ以外の汎用知識
+    if (staticKnowledge) knowledgeParts.push(staticKnowledge);
+    if (menuText) knowledgeParts.push(menuText);
+    if (productsText) knowledgeParts.push(productsText);
+    if (kbText) knowledgeParts.push(kbText);
+
+    const allKnowledge = knowledgeParts.join("\n\n");
+
+    // 7) System（方針）
     const areas = AI_SITE.areasByLang[uiLang] ?? AI_SITE.areasByLang.en ?? "";
     const services = (
       AI_SITE.servicesByLang[uiLang] ??
@@ -662,6 +750,7 @@ export async function POST(req: NextRequest) {
         ? `【重要】回答は常に **${langName}**（${uiLang}）で行ってください。混在させないでください。`
         : `Important: Respond **only in ${langName}** (${uiLang}). Do not mix languages.`;
 
+    // オーナー追加方針
     const ownerBlock = [
       ownerPrompt.system
         ? uiLang === "ja"
@@ -682,7 +771,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join("\n\n");
 
-    // ▼ 営業時間ポリシーは Firestore の有無で切替（固定文を hoursPolicyDynamic から注入）
+    // 営業時間ポリシー（動的）
     const hoursPolicy = hoursPolicyDynamic;
 
     const bookingPolicy =
@@ -692,16 +781,23 @@ export async function POST(req: NextRequest) {
 
     const purchasePolicy =
       uiLang === "ja"
-        ? "【購入ポリシー】「〇〇が欲しい」「購入したい」など購入意図がある場合は、必ず一文目で「オンラインショップからご購入ください。」と案内し、その後に1〜2文で在庫の確認方法や決済・配送の一般案内を添える。価格や在庫を断定しない。リンクは貼らない。"
-        : "Purchase policy: When the user wants to buy a product, the very first sentence must say: “Please purchase via our online shop.” Then add 1–2 short sentences with general guidance (stock/checkout/shipping) without asserting live price/stock. No links.";
+        ? "【購入ポリシー】購入意図がある場合でも、**冒頭で購入誘導を書かないこと**。まずユーザーの質問（価格・仕様 など）に簡潔に回答し、必要に応じて在庫/支払い/配送の一般的な補足を1〜2文。**最後の一文のみ**「オンラインショップからご購入ください。」と案内する。リンクは貼らない。"
+        : "Purchase policy: Even when purchase intent is detected, **do not start by pushing the shop**. First answer the user's question (price/specs) concisely, then add 1–2 short general notes (stock/payment/shipping) if relevant. **Only the final sentence** should say: “Please purchase via our online shop.” No links.";
+
+    // ★ 焦点化ルール：無関係な知識は出さない（自然な回答に必須）
+    const focusRule =
+      uiLang === "ja"
+        ? "【焦点化ルール】ユーザーの質問に直接必要な情報のみを使って回答する。以下の参照知識のうち、質問トピックに関係しない内容（例：在庫の質問で営業時間など）は出さない。最初の一文は端的に答え、必要なら1〜3文で補足。不要な追記・別トピックの案内はしない。"
+        : "Focus rule: Use only information directly needed to answer the user's question. Do NOT include unrelated knowledge (e.g., do not include hours when asked about stock). First sentence answers succinctly; add 1–3 short supporting sentences if needed. Avoid off-topic additions.";
 
     const systemPolicy = [
       header,
       languageLock,
       ownerBlock,
-      hoursPolicy, // ← ここで動的な営業時間ポリシーを反映
+      hoursPolicy,
       bookingPolicy,
       purchasePolicy,
+      focusRule,
       uiLang === "ja" ? `【対応範囲】\n- ${scope}` : `Scope:\n- ${scope}`,
       uiLang === "ja"
         ? `【禁止・制約】\n- ${restrict}`
@@ -713,14 +809,14 @@ export async function POST(req: NextRequest) {
       AI_SITE.retail ? productAdvice : "",
       allKnowledge
         ? uiLang === "ja"
-          ? "以下の参照知識を活用して正確に回答してください。"
-          : "Use the following reference knowledge to answer accurately."
+          ? "以下の参照知識を必要に応じて活用してください。無関係な内容は出さないこと。"
+          : "Use the following reference knowledge as needed. Do not include unrelated content."
         : "",
     ]
       .filter(Boolean)
       .join("\n\n");
 
-    // ★ テンプレ群
+    // ★ テンプレ群（必要時のみ注入）
     const bookingGuard =
       uiLang === "ja"
         ? "【予約誘導テンプレ】ユーザーが依頼/予約の意図を示した場合は、必ず一文目に次の固定文を出力する:「ご依頼の場合は予約フォームに入力してください。送信後にスタッフが可否を確認してご連絡します。」その後は1〜2文で希望日時や作業内容の記入を促すのみ。空き状況を断定しない。リンクは貼らない。"
@@ -728,39 +824,29 @@ export async function POST(req: NextRequest) {
 
     const purchaseGuard =
       uiLang === "ja"
-        ? "【購入誘導テンプレ】ユーザーが購入意図を示した場合は、必ず一文目に次の固定文を出力する:「オンラインショップからご購入ください。」その後は1〜2文で支払い・配送・在庫確認方法などの一般案内のみを添える。価格や在庫を断定しない。リンクは貼らない。"
-        : "Purchase guard: If the user shows a purchase intent, the very first sentence MUST be: “Please purchase via our online shop.” Then add 1–2 short sentences with general guidance (payment/shipping/stock check). Do not assert exact price/stock. No links.";
+        ? "【購入誘導テンプレ】購入意図がある場合は、(1) 質問に簡潔に回答 → (2) 支払い・配送・在庫の一般案内を1〜2文 → (3) **最後の一文**で次の固定文を出力:「オンラインショップからご購入ください。」冒頭で購入誘導は出さない。リンクは貼らない。"
+        : "Purchase guard: When purchase intent is present: (1) answer the question briefly → (2) add 1–2 general notes about payment/shipping/stock → (3) **in the final sentence**, output: “Please purchase via our online shop.” Do not place the purchase CTA at the start. No links.";
 
     const servicePriceGuard =
       uiLang === "ja"
         ? "【価格回答テンプレ（サービス）】価格や費用を尋ねられたら、まず一文目で簡潔に目安価格を回答する（例：『追い焚き配管クリーニングの目安は、¥xx,xxx（税込）です。』）。次に1文程度で現地状況等により変動する旨を添える。最後の一文で「確定の場合は予約フォームからお願いいたします。」と案内する。オンラインショップへの誘導・リンクは禁止。"
-        : "Service price guard: When asked about service pricing, first sentence should give a concise approximate price. Then add a brief note that it may vary by on-site conditions. End with: “If you’d like to proceed, please use the booking form.” Do not direct to the online shop; no links.";
+        : "Service price guard: First sentence should give an approximate price; then note it may vary with on-site conditions. End with: “If you’d like to proceed, please use the booking form.” No shop links.";
 
-    // 営業時間ガード（質問された時に、データ有無でテンプレを出し分け）
-    const hoursGuardAvailable = guardTextAvailable || ""; // データあり用
-    const hoursGuardUnavailable = guardTextUnavailable || ""; // データなし用
+    const hoursGuardAvailable = guardTextAvailable || "";
+    const hoursGuardUnavailable = guardTextUnavailable || "";
 
     type ChatMsg = OpenAI.Chat.Completions.ChatCompletionMessageParam;
     const messages: ChatMsg[] = [{ role: "system", content: systemPolicy }];
 
-    const msgText = String(message);
-
-    // 意図に応じたガード注入（順序が重要）
-    const isBooking = looksLikeBookingIntent(msgText);
-    const isServicePrice = looksLikeServicePriceQuestion(msgText);
-    const isPurchase = looksLikePurchaseIntent(msgText);
-    const isHoursQ = looksLikeHoursQuery(msgText);
-
-    if (isBooking) {
-      messages.push({ role: "system", content: bookingGuard });
-    }
+    // 意図に応じたガード注入（順序重要）
+    if (isBooking) messages.push({ role: "system", content: bookingGuard });
     if (isServicePrice) {
-      messages.push({ role: "system", content: servicePriceGuard });
-    } else if (isPurchase) {
-      messages.push({ role: "system", content: purchaseGuard });
+      messages.push({ role: "system", content: servicePriceGuard }); // 価格は先に
+    }
+    if (isPurchase) {
+      messages.push({ role: "system", content: purchaseGuard }); // 最後の一文で導線
     }
 
-    // 営業時間に関する質問をされた場合は、営業時間テンプレを最後に追加
     if (isHoursQ) {
       messages.push({
         role: "system",
@@ -770,7 +856,8 @@ export async function POST(req: NextRequest) {
 
     if (allKnowledge.length > 0)
       messages.push({ role: "system", content: allKnowledge });
-    messages.push({ role: "user", content: String(message) });
+
+    messages.push({ role: "user", content: msgText });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -788,7 +875,7 @@ export async function POST(req: NextRequest) {
 
     await adminDb.collection("aiChatLogs").add({
       siteKey,
-      message,
+      message: msgText,
       uiLang,
       answer,
       kbHitCount: kbHits.length,
@@ -798,7 +885,7 @@ export async function POST(req: NextRequest) {
         vec: Number(h.scores.vec.toFixed(4)),
         lex: Number(h.scores.lex.toFixed(4)),
       })),
-      inventoryEnabled,
+      inventoryEnabled: isInventoryQ,
       inventoryLines,
       createdAt: new Date(),
     });
@@ -813,7 +900,7 @@ export async function POST(req: NextRequest) {
         await fetch(`${baseUrl}/api/ai-notify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ siteKey, question: message }),
+          body: JSON.stringify({ siteKey, question: msgText }),
         });
       } catch (e) {
         console.error("AI notify error:", e);

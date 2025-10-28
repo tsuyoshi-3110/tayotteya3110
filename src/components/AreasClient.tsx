@@ -426,7 +426,7 @@ export default function AreasClient() {
       </h1>
 
       {/* 閲覧用（UI言語で表示を切替） */}
-      <Card className="shadow-md">
+      <Card className="shadow-md bg-white/50">
         <CardHeader>
           <CardTitle className="text-lg">{T.map}</CardTitle>
         </CardHeader>
