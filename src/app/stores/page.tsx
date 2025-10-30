@@ -1,53 +1,31 @@
-import type { Metadata } from "next";
+// /app/stores/page.tsx
 import StoresClient from "@/components/StoresClient";
 import { PhoneSection } from "@/components/PhoneSection";
+import { seo, copy } from "@/config/site"; // ← site は不要（コピーを集中管理）
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://tayotteya.shop"),
-  title: "店舗一覧｜おそうじ処 たよって屋",
-  description:
-    "おそうじ処 たよって屋の店舗一覧ページ。大阪・兵庫エリア対応のハウスクリーニング、家事代行、整理収納サービスの拠点情報をご紹介します。",
-  openGraph: {
-    title: "店舗一覧｜おそうじ処 たよって屋",
-    description:
-      "おそうじ処 たよって屋の各店舗情報。地域ごとのサービス対応エリア、店舗紹介、連絡先を掲載しています。",
-    url: "https://tayotteya.shop/stores", // 本番URLに置き換え
-    siteName: "おそうじ処 たよって屋",
-    images: [
-      {
-        url: "/ogpLogo.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
-    locale: "ja_JP",
-    type: "website",
-  },
-};
+export const metadata = seo.page("stores");
 
 export default function StoresPage() {
+  const t = copy.stores;
+
   return (
     <main className="px-4 py-16">
-      {/* ページタイトル・説明文 */}
+      {/* Hero（完成文を site.ts で集中管理） */}
       <section className="max-w-4xl mx-auto text-center mb-12">
         <h1 className="text-2xl lg:text-3xl font-extrabold mb-4 text-white text-outline">
-          おそうじ処 たよって屋 ─ 店舗一覧
+          {t.heroTitle}
         </h1>
         <p className="leading-relaxed text-white text-outline">
-          <strong>おそうじ処 たよって屋</strong> は
-          <strong>大阪府・兵庫県</strong>を中心に
-          ハウスクリーニング・家事代行・整理収納サービスを提供しています。
+          {t.heroIntroLine}
           <br className="hidden lg:block" />
-          各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。
+          {t.heroTail}
         </p>
       </section>
 
-      {/* 電話番号や連絡先セクション */}
       <section className="max-w-4xl mx-auto text-center mb-12">
         <PhoneSection />
       </section>
 
-      {/* 店舗カードのクライアントレンダリング（Firestore対応） */}
       <StoresClient />
     </main>
   );

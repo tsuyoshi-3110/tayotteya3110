@@ -1,26 +1,35 @@
 // app/areas/local/page.tsx
-import { Link } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
+import { seo, pageUrl } from "@/config/site";
 
-export const metadata: Metadata = {
-  title: "東淀川区の家事代行・ハウスクリーニング｜おそうじ処 たよって屋",
-  description:
-    "大阪市東淀川区の家事代行・ハウスクリーニングは「おそうじ処 たよって屋」へ。水回り（キッチン・浴室・トイレ）からリビング定期清掃、整理収納まで、丁寧で安心のサービス。",
-  alternates: { canonical: "https://tayotteya.shop/areas/higashiyodogawa" },
-  openGraph: {
-    title: "東淀川区の家事代行・ハウスクリーニング｜おそうじ処 たよって屋",
-    description:
-      "東淀川区（淡路・上新庄・だいどう豊里 ほか）で家事代行・ハウスクリーニング。定期/スポット対応、女性スタッフ指名OK。",
-    url: "https://tayotteya.shop/areas/higashiyodogawa",
-    type: "article",
-    images: [
-      { url: "https://tayotteya.shop/ogpLogo.png", width: 1200, height: 630 },
+// すべての固有情報は /config/site.ts に集約
+export const metadata: Metadata = seo.page("areasLocal");
+
+export default function AreasLocalPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "東淀川区で当日予約は可能ですか？",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "鍵預かりでの不在クリーニングは対応していますか？",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
+        },
+      },
     ],
-  },
-  twitter: { card: "summary_large_image" },
-};
+  };
 
-export default function Page() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 space-y-10">
       <header className="space-y-2">
@@ -86,37 +95,16 @@ export default function Page() {
         </p>
       </section>
 
-      {/* 内部リンクで「地域→メニュー」回遊を作る */}
+      {/* 内部リンク（パスは config/site.ts の定義に合わせる） */}
       <nav className="text-sm underline">
-        <Link href="/">サービス一覧へ</Link>
+        <Link href={pageUrl("/products")}>サービス一覧へ</Link>
       </nav>
 
-      {/* FAQ構造化データ */}
+      {/* FAQ 構造化データ（XSS回避で < を無害化） */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: [
-              {
-                "@type": "Question",
-                name: "東淀川区で当日予約は可能ですか？",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
-                },
-              },
-              {
-                "@type": "Question",
-                name: "鍵預かりでの不在クリーニングは対応していますか？",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
-                },
-              },
-            ],
-          }),
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
         }}
       />
     </main>

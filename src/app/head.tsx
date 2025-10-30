@@ -2,14 +2,16 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { buildStoreJsonLd } from "@/lib/jsonld/store";
 import { buildVideoJsonLd } from "@/lib/jsonld/video";
+import { site, pageUrl } from "@/config/site";
 
 export const runtime = "nodejs";
-// 動的化したい場合は下行もOK（任意）
-// export const dynamic = "force-dynamic";
+// 設定が頻繁に変わるなら動的配信を強制（不要ならコメントアウトでOK）
+export const dynamic = "force-dynamic";
 
-const SITE_KEY = process.env.NEXT_PUBLIC_SITE_KEY || "tayotteya3110";
-const SITE_URL = "https://tayotteya.shop";
+// URLはsite.tsの集中管理値を使用
+const SITE_URL = pageUrl("/");
 
+// Organization JSON-LD
 const buildOrganizationJsonLd = (opts: {
   name: string;
   url: string;
@@ -24,6 +26,7 @@ const buildOrganizationJsonLd = (opts: {
   sameAs: opts.sameAs ?? [],
 });
 
+// WebSite JSON-LD
 const buildWebSiteJsonLd = (opts: { url: string; name: string }) => ({
   "@context": "https://schema.org",
   "@type": "WebSite",
@@ -36,7 +39,7 @@ async function fetchSiteSettings() {
   try {
     const snap = await adminDb
       .collection("siteSettingsEditable")
-      .doc(SITE_KEY)
+      .doc(site.key) // ← atomsのSITE_KEYではなくsite.tsのkeyを使用
       .get();
     return (snap.data() as any) ?? {};
   } catch {
@@ -50,24 +53,24 @@ export default async function Head() {
   const settings = await fetchSiteSettings();
 
   const orgLd = buildOrganizationJsonLd({
-    name: settings.siteName ?? "おそうじ処 たよって屋",
+    name: settings.siteName ?? site.name,
     url: SITE_URL,
-    logo:
-      settings.logoUrl ?? settings.headerLogoUrl ?? `${SITE_URL}/ogpLogo.png`,
+    logo: settings.logoUrl ?? settings.headerLogoUrl ?? pageUrl(site.logoPath),
     sameAs: [
-      settings.instagram ?? "https://www.instagram.com/yuki.tayotte2017",
-      settings.line ?? "https://lin.ee/YcKAJja",
+      settings.instagram ?? site.socials.instagram,
+      settings.line ?? site.socials.line,
     ].filter(Boolean),
   });
 
   const webSiteLd = buildWebSiteJsonLd({
     url: SITE_URL,
-    name: settings.siteName ?? "おそうじ処 たよって屋",
+    name: settings.siteName ?? site.name,
   });
 
+  // 業態に応じた LocalBusiness/Store のJSON-LDは既存ビルダーに委譲
   const localLd = buildStoreJsonLd(settings, SITE_URL);
 
-  // ★ ここが今回のポイント：動画が用意されていれば VideoObject を埋め込む
+  // 動画設定があれば VideoObject を出力
   const videoLd = buildVideoJsonLd(settings, SITE_URL);
 
   return (
