@@ -4,7 +4,24 @@ import TopFixedText from "@/components/TopFixedText";
 import TopVisibleSections from "@/components/TopVisibleSections";
 import { buildStoreJsonLd } from "@/lib/jsonld/store/product";
 
-export async function generateMetadata(): Promise<Metadata> {
+export const metadata: Metadata = {
+  title: "おそうじ処 たよって屋｜家事代行",
+  description:
+    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納は、おそうじ処 たよって屋へ。水回りからリビングの徹底清掃、定期清掃まで暮らしに寄り添う丁寧なサービスを提供します。",
+  openGraph: {
+    title: "おそうじ処 たよって屋｜家事代行",
+    description:
+      "ハウスクリーニング／家事代行／整理収納の専門サービス。大阪・兵庫エリアで、高品質な清掃と心地よい暮らしをサポートします。",
+    url: "https://tayotteya.shop/",
+    siteName: "おそうじ処 たよって屋",
+    images: [{ url: "/ogpLogo.png", width: 1200, height: 630 }],
+    locale: "ja_JP",
+    type: "website",
+  },
+  alternates: { canonical: "https://tayotteya.shop/" },
+};
+
+export default function HomePage() {
   const jsonLd = buildStoreJsonLd(
     {
       siteName: "おそうじ処 たよって屋",
@@ -16,34 +33,20 @@ export async function generateMetadata(): Promise<Metadata> {
     "https://tayotteya.shop"
   );
 
-  return {
-    title: "おそうじ処 たよって屋｜家事代行",
-    description:
-      "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納は、おそうじ処 たよって屋へ。水回りからリビングの徹底清掃、定期清掃まで暮らしに寄り添う丁寧なサービスを提供します。",
-    openGraph: {
-      title: "おそうじ処 たよって屋｜家事代行",
-      description:
-        "ハウスクリーニング／家事代行／整理収納の専門サービス。大阪・兵庫エリアで、高品質な清掃と心地よい暮らしをサポートします。",
-      url: "https://tayotteya.shop/",
-      siteName: "おそうじ処 たよって屋",
-      images: [{ url: "/ogpLogo.png", width: 1200, height: 630 }],
-      locale: "ja_JP",
-      type: "website",
-    },
-    alternates: { canonical: "https://tayotteya.shop/" },
-    other: {
-      "script:ld+json": JSON.stringify(jsonLd), // ← ここが構造化データを出力
-    },
-  };
-}
-
-export default function HomePage() {
   return (
     <main className="w-full overflow-x-hidden">
+      {/* ✅ 構造化データをここで直接埋め込む */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      {/* ① ファーストビュー */}
       <section className="relative h-screen overflow-hidden">
         <BackgroundVideo />
       </section>
 
+      {/* ② テキスト紹介 */}
       <section className="relative z-10 text-white px-4 py-20">
         <TopFixedText />
         <h1 className="text-3xl lg:text-4xl font-extrabold text-center leading-tight mb-6 text-outline">
