@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
 import TopFixedText from "@/components/TopFixedText";
 import TopVisibleSections from "@/components/TopVisibleSections";
-import { buildStoreJsonLd } from "@/lib/jsonld/store/product";
+import { buildStoreJsonLd } from "@/lib/jsonld/store/store";
 
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜家事代行",
@@ -35,10 +35,12 @@ export default function HomePage() {
 
   return (
     <main className="w-full overflow-x-hidden">
-      {/* ✅ 構造化データをここで直接埋め込む */}
+      {/* ✅ JSON-LD構造化データ（SEO） */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
       />
 
       {/* ① ファーストビュー */}
