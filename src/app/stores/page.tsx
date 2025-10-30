@@ -3,6 +3,7 @@ import StoresClient from "@/components/StoresClient";
 import { PhoneSection } from "@/components/PhoneSection";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tayotteya.shop"),
   title: "店舗一覧｜おそうじ処 たよって屋",
   description:
     "おそうじ処 たよって屋の店舗一覧ページ。大阪・兵庫エリア対応のハウスクリーニング、家事代行、整理収納サービスの拠点情報をご紹介します。",
