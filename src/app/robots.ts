@@ -4,7 +4,7 @@ export default function robots(): MetadataRoute.Robots {
   const base = "https://tayotteya.shop";
   return {
     rules: [{ userAgent: "*", allow: "/" }],
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: [`${base}/sitemap.xml`, `${base}/video-sitemap.xml`],
     host: base,
   };
 }

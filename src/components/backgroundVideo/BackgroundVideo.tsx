@@ -9,7 +9,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteField } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { ThemeKey } from "@/lib/themes";
 
@@ -148,134 +148,126 @@ export default function BackgroundMedia() {
     return () => clearTimeout(timeout);
   }, []);
 
-  const upload = async () => {
-    if (!file) return;
+ const upload = async () => {
+  if (!file) return;
 
-    const MAX_SIZE_MB = 400;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+  const MAX_SIZE_MB = 400;
+  const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-    // ✅ 動画アップロード処理
-    if (file instanceof File && file.type.startsWith("video/")) {
-      if (file.size > MAX_SIZE_BYTES) {
-        alert(`動画サイズが大きすぎます。最大 ${MAX_SIZE_MB}MB までです。`);
-        return;
+  // ✅ 動画アップロード処理
+  if (file instanceof File && file.type.startsWith("video/")) {
+    if (file.size > MAX_SIZE_BYTES) {
+      alert(`動画サイズが大きすぎます。最大 ${MAX_SIZE_MB}MB までです。`);
+      return;
+    }
+
+    const ext = "mp4";
+    const path = `videos/public/${SITE_KEY}/homeBackground.${ext}`;
+    const storageRef = ref(getStorage(), path);
+
+    try { await deleteObject(storageRef); } catch {}
+
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+
+    setProgress(0);
+
+    task.on(
+      "state_changed",
+      (snapshot) => {
+        const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        setProgress(percent);
+      },
+      (error) => {
+        console.error("動画アップロード失敗:", error);
+        alert("アップロード失敗");
+        setProgress(null);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(storageRef);
+        const bust = `?ts=${Date.now()}`;
+
+        await setDoc(
+          META_REF,
+          {
+            url: downloadURL,
+            type: "video",
+            themeGradient: theme,
+            heroVideo: {
+              name: `${SITE_KEY} 紹介動画`,
+              description: "サービス紹介動画です。",
+              contentUrl: downloadURL,
+              uploadDate: new Date().toISOString(),
+              // duration: "PT30S", // わかれば入れてOK
+              // thumbnailUrl: ...  // ★ 実ファイルを用意できる場合のみ設定
+            },
+          },
+          { merge: true }
+        );
+
+        setUrl(downloadURL + bust);
+        setType("video");
+        setPoster(downloadURL.replace(/\.mp4(\?.*)?$/, POSTER_EXT) + bust);
+        setReady(false);
+        setProgress(null);
+        setFile(null);
+        setEditing(false);
+        alert("メディアを更新しました！");
       }
+    );
+  }
 
-      const ext = "mp4";
-      const path = `videos/public/${SITE_KEY}/homeBackground.${ext}`;
-      const storageRef = ref(getStorage(), path);
+  // ✅ 画像複数枚アップロード処理
+  else if (Array.isArray(file)) {
+    const validFiles = file.slice(0, 3);
+    const urls: string[] = [];
 
-      try {
-        await deleteObject(storageRef);
-      } catch {}
+    for (let i = 0; i < validFiles.length; i++) {
+      const image = validFiles[i];
+      const imagePath = `images/public/${SITE_KEY}/wallpaper_${i}.jpg`;
+      const imageRef = ref(getStorage(), imagePath);
 
-      const task = uploadBytesResumable(storageRef, file, {
-        contentType: file.type,
+      try { await deleteObject(imageRef); } catch {}
+
+      setProgress(Math.round(((i + 1) / validFiles.length) * 100));
+
+      const task = uploadBytesResumable(imageRef, image);
+      await new Promise<void>((resolve, reject) => {
+        task.on(
+          "state_changed",
+          null,
+          (error) => { console.error("画像アップロード失敗:", error); reject(error); },
+          async () => { urls.push(await getDownloadURL(imageRef)); resolve(); }
+        );
       });
-
-      setProgress(0); // ✅ プログレスバー開始
-
-      task.on(
-        "state_changed",
-        (snapshot) => {
-          const percent = Math.round(
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-          );
-          setProgress(percent);
-        },
-        (error) => {
-          console.error("動画アップロード失敗:", error);
-          alert("アップロード失敗");
-          setProgress(null);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(storageRef);
-          const bust = `?ts=${Date.now()}`;
-
-          await setDoc(
-            META_REF,
-            {
-              url: downloadURL,
-              type: "video",
-              themeGradient: theme,
-            },
-            { merge: true }
-          );
-
-          setUrl(downloadURL + bust);
-          setType("video");
-          setPoster(downloadURL.replace(/\.mp4(\?.*)?$/, POSTER_EXT) + bust);
-          setReady(false);
-          setProgress(null);
-          setFile(null);
-          setEditing(false);
-          alert("メディアを更新しました！");
-        }
-      );
     }
 
-    // ✅ 画像複数枚アップロード処理
-    else if (Array.isArray(file)) {
-      const validFiles = file.slice(0, 3);
-      const urls: string[] = [];
+    setProgress(null);
 
-      for (let i = 0; i < validFiles.length; i++) {
-        const image = validFiles[i];
-        const imagePath = `images/public/${SITE_KEY}/wallpaper_${i}.jpg`;
-        const imageRef = ref(getStorage(), imagePath);
+    await setDoc(
+      META_REF,
+      {
+        imageUrls: urls,
+        type: "image",
+        themeGradient: theme,
+        heroVideo: deleteField(),           // ★ 画像へ切替時は動画メタを消す
+      },
+      { merge: true }
+    );
 
-        try {
-          await deleteObject(imageRef);
-        } catch {}
+    setImageUrls(urls);
+    setType("image");
+    setReady(false);
+    setFile(null);
+    setEditing(false);
+    alert("画像を更新しました！");
+  }
 
-        // ✅ 枚数ベースで進捗表示（0〜100）
-        setProgress(Math.round(((i + 1) / validFiles.length) * 100));
+  // ✅ その他：不正ファイル形式
+  else {
+    alert("不正なファイル形式です。画像は最大3枚、動画は1本のみ対応しています。");
+  }
+};
 
-        const task = uploadBytesResumable(imageRef, image);
-        await new Promise<void>((resolve, reject) => {
-          task.on(
-            "state_changed",
-            null, // 個別の詳細progress追跡はしない（簡易モード）
-            (error) => {
-              console.error("画像アップロード失敗:", error);
-              reject(error);
-            },
-            async () => {
-              const url = await getDownloadURL(imageRef);
-              urls.push(url);
-              resolve();
-            }
-          );
-        });
-      }
-
-      setProgress(null); // ✅ アップロード完了で非表示
-
-      await setDoc(
-        META_REF,
-        {
-          imageUrls: urls,
-          type: "image",
-          themeGradient: theme,
-        },
-        { merge: true }
-      );
-
-      setImageUrls(urls);
-      setType("image");
-      setReady(false);
-      setFile(null);
-      setEditing(false);
-      alert("画像を更新しました！");
-    }
-
-    // ✅ その他：不正ファイル形式
-    else {
-      alert(
-        "不正なファイル形式です。画像は最大3枚、動画は1本のみ対応しています。"
-      );
-    }
-  };
 
   const uploadImage = async (imageFile: File) => {
     const imagePath = `images/public/${SITE_KEY}/wallpaper.jpg`;

@@ -1,15 +1,15 @@
 // app/head.tsx
-import { buildStoreJsonLd } from "@/lib/jsonld/store/store";
 import { adminDb } from "@/lib/firebase-admin";
+import { buildStoreJsonLd } from "@/lib/jsonld/store";
+import { buildVideoJsonLd } from "@/lib/jsonld/video";
 
-// Admin SDKを使うためNode.js実行を明示
 export const runtime = "nodejs";
+// 動的化したい場合は下行もOK（任意）
+// export const dynamic = "force-dynamic";
 
-// サイトキーとサイトURL
 const SITE_KEY = process.env.NEXT_PUBLIC_SITE_KEY || "tayotteya3110";
 const SITE_URL = "https://tayotteya.shop";
 
-/* ========= JSON-LD builders ========= */
 const buildOrganizationJsonLd = (opts: {
   name: string;
   url: string;
@@ -32,7 +32,6 @@ const buildWebSiteJsonLd = (opts: { url: string; name: string }) => ({
   inLanguage: "ja-JP",
 });
 
-/* ========= Firestore ========= */
 async function fetchSiteSettings() {
   try {
     const snap = await adminDb
@@ -41,26 +40,20 @@ async function fetchSiteSettings() {
       .get();
     return (snap.data() as any) ?? {};
   } catch {
-    return {}; // 取得失敗時も安全に既定値で出力
+    return {};
   }
 }
 
-/* ========= Utils ========= */
-const safe = (obj: object) => JSON.stringify(obj).replace(/</g, "\\u003c");
+const safe = (o: object) => JSON.stringify(o).replace(/</g, "\\u003c");
 
-/* ========= Head ========= */
 export default async function Head() {
-  // 1) Firestoreから設定（欠損OK）
   const settings = await fetchSiteSettings();
 
-  // 2) Organization / WebSite / LocalBusiness を生成
   const orgLd = buildOrganizationJsonLd({
     name: settings.siteName ?? "おそうじ処 たよって屋",
     url: SITE_URL,
     logo:
-      settings.logoUrl ??
-      settings.headerLogoUrl ??
-      `${SITE_URL}/ogpLogo.png`,
+      settings.logoUrl ?? settings.headerLogoUrl ?? `${SITE_URL}/ogpLogo.png`,
     sameAs: [
       settings.instagram ?? "https://www.instagram.com/yuki.tayotte2017",
       settings.line ?? "https://lin.ee/YcKAJja",
@@ -74,7 +67,9 @@ export default async function Head() {
 
   const localLd = buildStoreJsonLd(settings, SITE_URL);
 
-  // 3) head にインライン埋め込み
+  // ★ ここが今回のポイント：動画が用意されていれば VideoObject を埋め込む
+  const videoLd = buildVideoJsonLd(settings, SITE_URL);
+
   return (
     <>
       <script
@@ -89,6 +84,12 @@ export default async function Head() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safe(localLd) }}
       />
+      {videoLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safe(videoLd) }}
+        />
+      )}
     </>
   );
 }
