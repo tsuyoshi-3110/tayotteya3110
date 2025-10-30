@@ -1,7 +1,7 @@
 // app/video/page.tsx
 import { adminDb } from "@/lib/firebase-admin";
 export const runtime = "nodejs";
-const SITE_KEY = process.env.NEXT_PUBLIC_SITE_KEY || "tayotteya3110";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 export default async function VideoPage() {
   const snap = await adminDb.collection("siteSettingsEditable").doc(SITE_KEY).get();

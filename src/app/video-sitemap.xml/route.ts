@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 export const runtime = "nodejs";
-const SITE_KEY = process.env.NEXT_PUBLIC_SITE_KEY || "tayotteya3110";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 const BASE = "https://tayotteya.shop";
 
 export async function GET() {
