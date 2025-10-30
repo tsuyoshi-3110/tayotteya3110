@@ -2,9 +2,9 @@
 import type { Metadata } from "next";
 import ProductsClient from "@/components/products/ProductsClient";
 
-const title = "メニュー一覧｜甘味処 よって屋";
+const title = "サービス一覧｜たよって屋";
 const description =
-  "甘味処 よって屋の人気クレープメニュー一覧ページ。季節限定商品やおすすめクレープを写真付きでご紹介。";
+  "たよって屋の家事代行・ハウスクリーニングサービス一覧ページ。水回り清掃や整理整頓、エアコン掃除など、プロの技で快適な暮らしをサポートします。";
 const ogImage = "/ogp-products.jpg"; // public 配下の画像
 
 export const metadata: Metadata = {
@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: "https://www.xenovant.shop/products",
-    siteName: "甘味処 よって屋",
+    url: "https://meg-nekoneote.com/products",
+    siteName: "たよって屋",
     images: [
       {
         url: ogImage as string,
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
       },
     ],
     locale: "ja_JP",
-    type: "website", // ← "product" は型に無いので "website"
+    type: "website",
   } satisfies Metadata["openGraph"],
   twitter: {
     card: "summary_large_image",
