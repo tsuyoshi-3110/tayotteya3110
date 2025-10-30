@@ -1,9 +1,0 @@
-# *
-User-agent: *
-Allow: /
-
-# Host
-Host: https://tayotteya3110.shop
-
-# Sitemaps
-Sitemap: https://tayotteya3110.shop/sitemap.xml

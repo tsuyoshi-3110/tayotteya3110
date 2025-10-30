@@ -7,11 +7,11 @@ export const runtime = "nodejs";
 
 const BASE = "https://tayotteya.shop";
 
-// 絶対URLだけ許可
+// 絶対URLかどうか
 const abs = (u?: string) =>
   typeof u === "string" && /^https?:\/\//i.test(u) ? u : undefined;
 
-// XMLエスケープ
+// XML エスケープ
 const esc = (s = "") =>
   s.replace(/[<>&'"]/g, (c) =>
     ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[
@@ -29,17 +29,17 @@ export async function GET() {
     s = (snap.data() as any) ?? {};
   } catch {}
 
-  // Firestore 上の heroVideo を優先し、無ければ BackgroundVideo の url などから補完
+  // Firestore の heroVideo 優先、なければ Background の url から補完
   const hv = s.heroVideo ?? {};
   const contentUrl = abs(hv.contentUrl ?? (s.type === "video" ? s.url : undefined));
   const embedUrl = abs(hv.embedUrl);
   const thumbnailUrl =
     abs(hv.thumbnailUrl) ??
-    (typeof s.url === "string" && s.type === "video"
+    (s.type === "video" && typeof s.url === "string"
       ? abs(s.url.replace(/\.mp4(\?.*)?$/i, ".jpg"))
       : undefined);
 
-  // 最低限: サムネ + （コンテンツ or 埋め込み）のどちらかが無ければ、空サイトマップを返す
+  // サムネ + （本編 or 埋め込み）が無ければ「空の有効なサイトマップ」を返す
   if (!thumbnailUrl || (!contentUrl && !embedUrl)) {
     const empty = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"></urlset>`;
     return new NextResponse(empty, {
@@ -54,17 +54,15 @@ export async function GET() {
     typeof hv.durationSec === "number" ? Math.round(hv.durationSec) : undefined;
   const pub = hv.uploadDate || new Date().toISOString();
 
-  const videoTag = [
+  const videoXml = [
     "<video:video>",
-    `<video:thumbnail_loc>${thumbnailUrl}</video:thumbnail_loc>`,
+    `<video:thumbnail_loc>${esc(thumbnailUrl)}</video:thumbnail_loc>`,
     `<video:title>${esc(hv.name || "紹介動画")}</video:title>`,
     `<video:description>${esc(hv.description || "サービス紹介動画")}</video:description>`,
-    contentUrl ? `<video:content_loc>${contentUrl}</video:content_loc>` : "",
-    embedUrl
-      ? `<video:player_loc allow_embed="yes">${embedUrl}</video:player_loc>`
-      : "",
+    contentUrl ? `<video:content_loc>${esc(contentUrl)}</video:content_loc>` : "",
+    embedUrl ? `<video:player_loc allow_embed="yes">${esc(embedUrl)}</video:player_loc>` : "",
     duration ? `<video:duration>${duration}</video:duration>` : "",
-    `<video:publication_date>${pub}</video:publication_date>`,
+    `<video:publication_date>${esc(pub)}</video:publication_date>`,
     "</video:video>",
   ]
     .filter(Boolean)
@@ -74,8 +72,8 @@ export async function GET() {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
-    <loc>${BASE}/</loc>
-    ${videoTag}
+    <loc>${esc(BASE + "/")}</loc>
+    ${videoXml}
   </url>
 </urlset>`;
 
