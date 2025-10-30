@@ -357,7 +357,6 @@ function I18nSettingsCard({
   );
 }
 
-
 // I18nSettingsCard の定義ブロックの直後あたりに丸ごと追加
 
 /* =========================
@@ -374,7 +373,13 @@ type BusinessHours = {
 };
 
 const DAY_LABEL_JA: Record<DayKey, string> = {
-  mon: "月", tue: "火", wed: "水", thu: "木", fri: "金", sat: "土", sun: "日",
+  mon: "月",
+  tue: "火",
+  wed: "水",
+  thu: "木",
+  fri: "金",
+  sat: "土",
+  sun: "日",
 };
 
 const DEFAULT_BH: BusinessHours = {
@@ -470,11 +475,19 @@ function BusinessHoursCard() {
     scheduleSave(next);
   };
 
-  const setRange = (day: DayKey, idx: number, key: "start" | "end", val: string) => {
+  const setRange = (
+    day: DayKey,
+    idx: number,
+    key: "start" | "end",
+    val: string
+  ) => {
     const ranges = [...(bh.days[day].ranges || [])];
     while (ranges.length <= idx) ranges.push({ start: "09:00", end: "18:00" });
     ranges[idx] = { ...ranges[idx], [key]: val.slice(0, 5) };
-    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    const next = {
+      ...bh,
+      days: { ...bh.days, [day]: { ...bh.days[day], ranges } },
+    };
     setBh(next);
     scheduleSave(next);
   };
@@ -483,14 +496,20 @@ function BusinessHoursCard() {
     const ranges = [...(bh.days[day].ranges || [])];
     if (ranges.length >= 2) return;
     ranges.push({ start: "13:00", end: "17:00" });
-    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    const next = {
+      ...bh,
+      days: { ...bh.days, [day]: { ...bh.days[day], ranges } },
+    };
     setBh(next);
     scheduleSave(next);
   };
 
   const removeSecondRange = (day: DayKey) => {
     const ranges = [...(bh.days[day].ranges || [])].slice(0, 1);
-    const next = { ...bh, days: { ...bh.days, [day]: { ...bh.days[day], ranges } } };
+    const next = {
+      ...bh,
+      days: { ...bh.days, [day]: { ...bh.days[day], ranges } },
+    };
     setBh(next);
     scheduleSave(next);
   };
@@ -525,7 +544,9 @@ function BusinessHoursCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">営業時間をサイト／AIで案内する</div>
+          <div className="text-sm font-medium">
+            営業時間をサイト／AIで案内する
+          </div>
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -584,14 +605,18 @@ function BusinessHoursCard() {
                           <input
                             type="time"
                             value={r1.start}
-                            onChange={(e) => setRange(day, 0, "start", e.target.value)}
+                            onChange={(e) =>
+                              setRange(day, 0, "start", e.target.value)
+                            }
                             className="border rounded px-2 py-1"
                           />
                           <span>〜</span>
                           <input
                             type="time"
                             value={r1.end}
-                            onChange={(e) => setRange(day, 0, "end", e.target.value)}
+                            onChange={(e) =>
+                              setRange(day, 0, "end", e.target.value)
+                            }
                             className="border rounded px-2 py-1"
                           />
                         </div>
@@ -605,14 +630,18 @@ function BusinessHoursCard() {
                           <input
                             type="time"
                             value={r2.start}
-                            onChange={(e) => setRange(day, 1, "start", e.target.value)}
+                            onChange={(e) =>
+                              setRange(day, 1, "start", e.target.value)
+                            }
                             className="border rounded px-2 py-1"
                           />
                           <span>〜</span>
                           <input
                             type="time"
                             value={r2.end}
-                            onChange={(e) => setRange(day, 1, "end", e.target.value)}
+                            onChange={(e) =>
+                              setRange(day, 1, "end", e.target.value)
+                            }
                             className="border rounded px-2 py-1"
                           />
                           <Button
@@ -645,7 +674,9 @@ function BusinessHoursCard() {
         </div>
 
         <div>
-          <label className="text-sm block mb-1">補足（祝日対応・臨時休業など）</label>
+          <label className="text-sm block mb-1">
+            補足（祝日対応・臨時休業など）
+          </label>
           <textarea
             className="w-full border rounded px-3 py-2 text-sm"
             rows={3}
@@ -661,7 +692,6 @@ function BusinessHoursCard() {
     </Card>
   );
 }
-
 
 /* =========================
    メニュー設定
@@ -780,24 +810,14 @@ export default function LoginPage() {
     })();
   }, []);
 
-  /* ---------------- 営業時間ON/OFFの購読（可視候補の自動追加／トップ表示の抑止） ---------------- */
+  /* ---------------- 営業時間ON/OFFの購読（トップ表示の抑止のみ） ---------------- */
   useEffect(() => {
     const unsub = onSnapshot(META_REF, (snap) => {
       const data = (snap.data() as any) || {};
       const enabled = data?.businessHours?.enabled === true;
       setBhEnabled(enabled);
 
-      if (enabled) {
-        // ON時: visibleKeys に "hours" が無ければ追加
-        setVisibleKeys((prev) => {
-          if (prev.includes("hours")) return prev;
-          const next = [...prev, "hours"];
-          setDoc(META_REF, { visibleMenuKeys: next }, { merge: true }).catch(
-            console.error
-          );
-          return next;
-        });
-      } else {
+      if (!enabled) {
         // OFF時: トップ表示（activeKeys）からは必ず外す
         setActiveKeys((prev) => {
           if (!prev.includes("hours")) return prev;
@@ -1148,10 +1168,11 @@ export default function LoginPage() {
                       </label>
                     </div>
 
-                    {/* その他の候補（ECの2項目は除外） */}
+                    {/* その他の候補（ECの2項目＋営業時間は除外） */}
                     <div className="space-y-1">
                       {MENU_ITEMS.filter(
-                        (item) => !["productsEC", "cart"].includes(item.key)
+                        (item) =>
+                          !["productsEC", "cart", "hours"].includes(item.key) // ← 追加
                       ).map((item) => (
                         <label
                           key={item.key}
@@ -1179,28 +1200,31 @@ export default function LoginPage() {
                     <div className="space-y-1">
                       {MENU_ITEMS.filter((item) =>
                         TOP_DISPLAYABLE_ITEMS.includes(item.key)
-                      ).map((item) => (
-                        <label
-                          key={item.key}
-                          className="flex items-center gap-2"
-                        >
-                          <input
-                            type="checkbox"
-                            disabled={
-                              !visibleKeys.includes(item.key) ||
-                              (item.key === "hours" && !bhEnabled)
-                            } // 候補外は選べない + 営業時間OFF時は無効
-                            checked={activeKeys.includes(item.key)}
-                            onChange={(e) => {
-                              const newKeys = e.target.checked
-                                ? [...activeKeys, item.key]
-                                : activeKeys.filter((k) => k !== item.key);
-                              handleActiveKeysChange(newKeys);
-                            }}
-                          />
-                          {item.label}
-                        </label>
-                      ))}
+                      ).map((item) => {
+                        const isHours = item.key === "hours";
+                        const disabled = isHours
+                          ? !bhEnabled // ← hours は時間設定ONでのみ選択可
+                          : !visibleKeys.includes(item.key); // ← 他は従来どおり候補にある時だけ
+                        return (
+                          <label
+                            key={item.key}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={disabled}
+                              checked={activeKeys.includes(item.key)}
+                              onChange={(e) => {
+                                const newKeys = e.target.checked
+                                  ? [...activeKeys, item.key]
+                                  : activeKeys.filter((k) => k !== item.key);
+                                handleActiveKeysChange(newKeys);
+                              }}
+                            />
+                            {item.label}
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 </CardContent>

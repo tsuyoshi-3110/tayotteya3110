@@ -509,7 +509,7 @@ export default function MenuPageClient() {
     );
   }, [newMediaFile, newMediaObjectUrl]);
 
-  const wrapperClass = `p-4 max-w-2xl mx-auto pt-20 ${
+  const wrapperClass = `p-4 max-w-2xl mx-auto pt-10 ${
     isLoggedIn ? "pb-20" : ""
   }`;
 

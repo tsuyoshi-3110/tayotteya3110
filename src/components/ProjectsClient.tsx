@@ -564,7 +564,7 @@ export default function ProjectsClient() {
       <BusyOverlay uploadingPercent={progress} saving={saving} />
 
       <h1
-        className="text-3xl font-semibold text-white text-outline"
+        className="text-3xl font-semibold text-white text-outline mb-10"
         aria-label={pageTitle}
       >
         {pageTitle}
