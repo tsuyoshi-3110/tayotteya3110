@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import imageCompression from "browser-image-compression";
 import BroomDustLoader from "../FeatherDusterLoader";
 
-// import CardSpinner from "../CardSpinner";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { RenderMedia } from "./RenderMedia";
 import AdminControls from "./AdminControls";
@@ -48,7 +47,6 @@ export default function BackgroundMedia() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isPortrait, setIsPortrait] = useState<boolean | null>(null);
 
-  // 型も追加しておくと便利
   const [status, setStatus] = useState<
     "loading" | "paid" | "unpaid" | "pending" | "canceled" | "setup"
   >("loading");
@@ -66,12 +64,8 @@ export default function BackgroundMedia() {
         ? `/api/stripe/verify-subscription?session_id=${sessionId}`
         : `/api/stripe/check-subscription?siteKey=${SITE_KEY}`;
 
-      console.log("🔍 checkPayment called:", apiUrl);
-
       const res = await fetch(apiUrl);
       const json = await res.json();
-
-      console.log("✅ サブスクステータス:", json.status);
 
       if (json.status === "active") setStatus("paid");
       else if (json.status === "pending_cancel") setStatus("pending");
@@ -80,9 +74,9 @@ export default function BackgroundMedia() {
       else setStatus("unpaid");
 
       if (sessionId) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("session_id");
-        window.history.replaceState({}, "", url.toString());
+        const cur = new URL(window.location.href);
+        cur.searchParams.delete("session_id");
+        window.history.replaceState({}, "", cur.toString());
       }
     };
 
@@ -95,11 +89,7 @@ export default function BackgroundMedia() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false); // ← 明示的に false をセット
-      }
+      setIsAdmin(!!user);
       setAuthChecked(true);
     });
     return unsub;
@@ -119,13 +109,8 @@ export default function BackgroundMedia() {
       if (!snap.exists()) return;
       const data = snap.data() as MetaDoc;
 
-      if (data.imageUrls) {
-        setImageUrls(data.imageUrls);
-      }
-
-      if (data.url) {
-        setUrl(data.url);
-      }
+      if (data.imageUrls) setImageUrls(data.imageUrls);
+      if (data.url) setUrl(data.url);
 
       if (data.type) {
         setType(data.type);
@@ -134,140 +119,235 @@ export default function BackgroundMedia() {
         }
       }
 
-      // 🔽 この行を追加（背景テーマの反映）
-      if (data.themeGradient) {
-        setTheme(data.themeGradient);
-      }
+      if (data.themeGradient) setTheme(data.themeGradient);
     })().catch((err) => console.error("背景データ取得失敗:", err));
   }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setReady(true); // ← 5秒後に読み込み強制解除
+      setReady(true);
     }, 5000);
     return () => clearTimeout(timeout);
   }, []);
 
- const upload = async () => {
-  if (!file) return;
+  const upload = async () => {
+    if (!file) return;
 
-  const MAX_SIZE_MB = 400;
-  const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+    const MAX_SIZE_MB = 400;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-  // ✅ 動画アップロード処理
-  if (file instanceof File && file.type.startsWith("video/")) {
-    if (file.size > MAX_SIZE_BYTES) {
-      alert(`動画サイズが大きすぎます。最大 ${MAX_SIZE_MB}MB までです。`);
-      return;
-    }
-
-    const ext = "mp4";
-    const path = `videos/public/${SITE_KEY}/homeBackground.${ext}`;
-    const storageRef = ref(getStorage(), path);
-
-    try { await deleteObject(storageRef); } catch {}
-
-    const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
-
-    setProgress(0);
-
-    task.on(
-      "state_changed",
-      (snapshot) => {
-        const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        setProgress(percent);
-      },
-      (error) => {
-        console.error("動画アップロード失敗:", error);
-        alert("アップロード失敗");
-        setProgress(null);
-      },
-      async () => {
-        const downloadURL = await getDownloadURL(storageRef);
-        const bust = `?ts=${Date.now()}`;
-
-        await setDoc(
-          META_REF,
-          {
-            url: downloadURL,
-            type: "video",
-            themeGradient: theme,
-            heroVideo: {
-              name: `${SITE_KEY} 紹介動画`,
-              description: "サービス紹介動画です。",
-              contentUrl: downloadURL,
-              uploadDate: new Date().toISOString(),
-              // duration: "PT30S", // わかれば入れてOK
-              // thumbnailUrl: ...  // ★ 実ファイルを用意できる場合のみ設定
-            },
-          },
-          { merge: true }
-        );
-
-        setUrl(downloadURL + bust);
-        setType("video");
-        setPoster(downloadURL.replace(/\.mp4(\?.*)?$/, POSTER_EXT) + bust);
-        setReady(false);
-        setProgress(null);
-        setFile(null);
-        setEditing(false);
-        alert("メディアを更新しました！");
+    // ✅ 動画アップロード処理
+    if (file instanceof File && file.type.startsWith("video/")) {
+      if (file.size > MAX_SIZE_BYTES) {
+        alert(`動画サイズが大きすぎます。最大 ${MAX_SIZE_MB}MB までです。`);
+        return;
       }
-    );
-  }
 
-  // ✅ 画像複数枚アップロード処理
-  else if (Array.isArray(file)) {
-    const validFiles = file.slice(0, 3);
-    const urls: string[] = [];
+      const ext = "mp4";
+      const path = `videos/public/${SITE_KEY}/homeBackground.${ext}`;
+      const storageRef = ref(getStorage(), path);
 
-    for (let i = 0; i < validFiles.length; i++) {
-      const image = validFiles[i];
-      const imagePath = `images/public/${SITE_KEY}/wallpaper_${i}.jpg`;
-      const imageRef = ref(getStorage(), imagePath);
+      try {
+        await deleteObject(storageRef);
+      } catch {}
 
-      try { await deleteObject(imageRef); } catch {}
-
-      setProgress(Math.round(((i + 1) / validFiles.length) * 100));
-
-      const task = uploadBytesResumable(imageRef, image);
-      await new Promise<void>((resolve, reject) => {
-        task.on(
-          "state_changed",
-          null,
-          (error) => { console.error("画像アップロード失敗:", error); reject(error); },
-          async () => { urls.push(await getDownloadURL(imageRef)); resolve(); }
-        );
+      const task = uploadBytesResumable(storageRef, file, {
+        contentType: file.type,
       });
+
+      setProgress(0);
+
+      task.on(
+        "state_changed",
+        (snapshot) => {
+          const percent = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          );
+          setProgress(percent);
+        },
+        (error) => {
+          console.error("動画アップロード失敗:", error);
+          alert("アップロード失敗");
+          setProgress(null);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(storageRef);
+          const bust = `?ts=${Date.now()}`;
+
+          // ✅ この場でポスター生成
+          const genPoster = async (f: File) => {
+            const objectUrl = URL.createObjectURL(f);
+            try {
+              const video = document.createElement("video");
+              video.preload = "metadata";
+              video.src = objectUrl;
+              video.muted = true;
+              video.playsInline = true;
+
+              const durationSec: number | undefined = await new Promise(
+                (resolve, reject) => {
+                  video.onloadedmetadata = () =>
+                    resolve(
+                      isFinite(video.duration)
+                        ? Math.round(video.duration)
+                        : undefined
+                    );
+                  video.onerror = () =>
+                    reject(new Error("動画メタデータの読み込みに失敗"));
+                }
+              );
+
+              const seekTo = Math.min(
+                1,
+                Math.max(0.1, (video.duration || 1) * 0.1)
+              );
+              await new Promise<void>((resolve, reject) => {
+                video.currentTime = seekTo;
+                video.onseeked = () => resolve();
+                video.onerror = () => reject(new Error("動画シークに失敗"));
+              });
+
+              const canvas = document.createElement("canvas");
+              canvas.width = video.videoWidth || 1280;
+              canvas.height = video.videoHeight || 720;
+              const ctx = canvas.getContext("2d")!;
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+              const blob: Blob = await new Promise((resolve, reject) =>
+                canvas.toBlob(
+                  (b) =>
+                    b ? resolve(b) : reject(new Error("ポスター生成に失敗")),
+                  "image/jpeg",
+                  0.82
+                )
+              );
+
+              return { blob, durationSec };
+            } finally {
+              URL.revokeObjectURL(objectUrl);
+            }
+          };
+
+          // ポスター生成 → Storage へ保存
+          let posterUrl: string | undefined = undefined;
+          let durationSec: number | undefined = undefined;
+          try {
+            const { blob, durationSec: dsec } = await genPoster(file);
+            durationSec = dsec;
+
+            const posterPath = `videos/public/${SITE_KEY}/homeBackground.jpg`;
+            const posterRef = ref(getStorage(), posterPath);
+            try {
+              await deleteObject(posterRef);
+            } catch {}
+
+            const posterTask = uploadBytesResumable(posterRef, blob, {
+              contentType: "image/jpeg",
+            });
+            await new Promise<void>((resolve, reject) => {
+              posterTask.on("state_changed", null, reject, () => resolve());
+            });
+            posterUrl = await getDownloadURL(posterRef);
+          } catch (e) {
+            console.warn("ポスター生成に失敗。フォールバックを使用します:", e);
+          }
+
+          await setDoc(
+            META_REF,
+            {
+              url: downloadURL,
+              type: "video",
+              themeGradient: theme,
+              heroVideo: {
+                name: `${SITE_KEY} 紹介動画`,
+                description: "サービス紹介動画です。",
+                contentUrl: downloadURL,
+                uploadDate: new Date().toISOString(),
+                ...(posterUrl ? { thumbnailUrl: posterUrl } : {}),
+                ...(durationSec
+                  ? { durationSec, duration: `PT${Math.max(1, durationSec)}S` }
+                  : {}),
+              },
+            },
+            { merge: true }
+          );
+
+          setUrl(downloadURL + bust);
+          setType("video");
+          setPoster(
+            ((posterUrl as string) ||
+              downloadURL.replace(/\.mp4(\?.*)?$/, POSTER_EXT)) + bust
+          );
+          setReady(false);
+          setProgress(null);
+          setFile(null);
+          setEditing(false);
+          alert("メディアを更新しました！");
+        }
+      );
     }
 
-    setProgress(null);
+    // ✅ 画像複数枚アップロード処理
+    else if (Array.isArray(file)) {
+      const validFiles = file.slice(0, 3);
+      const urls: string[] = [];
 
-    await setDoc(
-      META_REF,
-      {
-        imageUrls: urls,
-        type: "image",
-        themeGradient: theme,
-        heroVideo: deleteField(),           // ★ 画像へ切替時は動画メタを消す
-      },
-      { merge: true }
-    );
+      for (let i = 0; i < validFiles.length; i++) {
+        const image = validFiles[i];
+        const imagePath = `images/public/${SITE_KEY}/wallpaper_${i}.jpg`;
+        const imageRef = ref(getStorage(), imagePath);
 
-    setImageUrls(urls);
-    setType("image");
-    setReady(false);
-    setFile(null);
-    setEditing(false);
-    alert("画像を更新しました！");
-  }
+        try {
+          await deleteObject(imageRef);
+        } catch {}
 
-  // ✅ その他：不正ファイル形式
-  else {
-    alert("不正なファイル形式です。画像は最大3枚、動画は1本のみ対応しています。");
-  }
-};
+        setProgress(Math.round(((i + 1) / validFiles.length) * 100));
 
+        const up = uploadBytesResumable(imageRef, image);
+        await new Promise<void>((resolve, reject) => {
+          up.on(
+            "state_changed",
+            null,
+            (error) => {
+              console.error("画像アップロード失敗:", error);
+              reject(error);
+            },
+            async () => {
+              urls.push(await getDownloadURL(imageRef));
+              resolve();
+            }
+          );
+        });
+      }
+
+      setProgress(null);
+
+      await setDoc(
+        META_REF,
+        {
+          imageUrls: urls,
+          type: "image",
+          themeGradient: theme,
+          heroVideo: deleteField(), // 画像へ切替時は動画メタを消す
+        },
+        { merge: true }
+      );
+
+      setImageUrls(urls);
+      setType("image");
+      setReady(false);
+      setFile(null);
+      setEditing(false);
+      alert("画像を更新しました！");
+    }
+
+    // ✅ その他：不正ファイル形式
+    else {
+      alert(
+        "不正なファイル形式です。画像は最大3枚、動画は1本のみ対応しています。"
+      );
+    }
+  };
 
   const uploadImage = async (imageFile: File) => {
     const imagePath = `images/public/${SITE_KEY}/wallpaper.jpg`;
@@ -275,13 +355,11 @@ export default function BackgroundMedia() {
 
     try {
       await deleteObject(imageRef);
-    } catch {
-      // 画像がなければ無視
-    }
+    } catch {}
 
     const task = uploadBytesResumable(imageRef, imageFile);
 
-    setProgress(0); // プログレスバー表示
+    setProgress(0);
 
     task.on(
       "state_changed",
@@ -300,7 +378,7 @@ export default function BackgroundMedia() {
         const imageUrl = await getDownloadURL(imageRef);
         await setDoc(META_REF, { imageUrl }, { merge: true });
 
-        setProgress(null); // 完了後モーダル非表示
+        setProgress(null);
         alert("画像を更新しました！");
       }
     );
@@ -311,9 +389,9 @@ export default function BackgroundMedia() {
     const imageRef = ref(getStorage(), imagePath);
 
     const compressedFile = await imageCompression(file, {
-      maxWidthOrHeight: 160, // ✅ 解像度を少し上げる（例：96 → 160）
-      maxSizeMB: 0.5, // ✅ 最大サイズを0.3MB → 0.5MBに増加
-      initialQuality: 0.9, // ✅ 明示的に高画質を指定（デフォルトは自動）
+      maxWidthOrHeight: 160,
+      maxSizeMB: 0.5,
+      initialQuality: 0.9,
       useWebWorker: true,
     });
 
@@ -322,7 +400,7 @@ export default function BackgroundMedia() {
     } catch {}
 
     const task = uploadBytesResumable(imageRef, compressedFile);
-    setProgress(0); // プログレスバー表示
+    setProgress(0);
 
     task.on(
       "state_changed",
@@ -350,8 +428,9 @@ export default function BackgroundMedia() {
     );
   };
 
-  const pendingButton = status === "pending" &&
-    isAdmin && ( // ← isAdmin は「ログイン済み」の意味で使っている
+  const pendingButton =
+    status === "pending" &&
+    isAdmin && (
       <Button
         className="fixed bottom-4 right-4 z-50 bg-yellow-500 text-white shadow-lg"
         onClick={async () => {
@@ -417,16 +496,13 @@ export default function BackgroundMedia() {
             </div>
           )}
 
-          {/* 編集ボタンなど他の管理機能 */}
-          {authChecked && isAdmin && (
-            <AdminControls
-              editing={editing}
-              setEditing={setEditing}
-              uploading={uploading}
-              uploadImage={uploadImage}
-              uploadHeaderImage={uploadHeaderImage}
-            />
-          )}
+          <AdminControls
+            editing={editing}
+            setEditing={setEditing}
+            uploading={uploading}
+            uploadImage={uploadImage}
+            uploadHeaderImage={uploadHeaderImage}
+          />
 
           <MediaEditModal
             open={authChecked && isAdmin && editing}

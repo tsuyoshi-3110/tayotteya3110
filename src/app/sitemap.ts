@@ -1,20 +1,14 @@
-// app/sitemap.ts
+// /app/sitemap.ts
 import { type MetadataRoute } from "next";
+import { pages, pageUrl } from "@/config/site";
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://tayotteya.shop";
-  return [
-    {
-      url: `${base}/`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-    // 他に固定ページがあればここに追記（/pricing など）
-    {
-      url: `${base}/areas/local`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-  ];
+  const now = new Date();
+  // /config/site.ts の pages 定義から自動生成
+  return Object.values(pages).map((p) => ({
+    url: pageUrl(p.path),
+    lastModified: now,
+    changeFrequency: p.path === "/" ? "weekly" : "monthly",
+    priority: p.path === "/" ? 1 : 0.8,
+  }));
 }
