@@ -1,8 +1,8 @@
+// app/page.tsx
 import type { Metadata } from "next";
 import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
 import TopFixedText from "@/components/TopFixedText";
 import TopVisibleSections from "@/components/TopVisibleSections";
-import { buildStoreJsonLd } from "@/lib/jsonld/store/store";
 
 export const metadata: Metadata = {
   title: "おそうじ処 たよって屋｜家事代行",
@@ -22,27 +22,8 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  const jsonLd = buildStoreJsonLd(
-    {
-      siteName: "おそうじ処 たよって屋",
-      description:
-        "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。",
-      logoUrl: "https://tayotteya.shop/ogp-home.jpg",
-      ownerTel: "+81 90-6559-9110",
-    },
-    "https://tayotteya.shop"
-  );
-
   return (
     <main className="w-full overflow-x-hidden">
-      {/* ✅ JSON-LD構造化データ（SEO） */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-        }}
-      />
-
       {/* ① ファーストビュー */}
       <section className="relative h-screen overflow-hidden">
         <BackgroundVideo />

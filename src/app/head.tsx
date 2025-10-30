@@ -1,6 +1,5 @@
-// src/app/home/head.tsx
+// app/head.tsx
 import { buildStoreJsonLd } from "@/lib/jsonld/store/store";
-
 export default function Head() {
   const jsonLd = buildStoreJsonLd(
     {
@@ -15,10 +14,9 @@ export default function Head() {
 
   return (
     <>
-      {/* ✅ SSRで<head>直下に確実に出力 */}
       <script
         type="application/ld+json"
-        // XSS/検証系で弾かれないよう < を無害化
+        // XSS/検証対策として < を無害化
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
         }}
