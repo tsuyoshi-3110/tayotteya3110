@@ -10,7 +10,14 @@ import {
 import { FirebaseError } from "firebase/app";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
-import { LucideLogIn, LogOut, AlertCircle, Globe, Box } from "lucide-react";
+import {
+  LucideLogIn,
+  LogOut,
+  AlertCircle,
+  Globe,
+  Box,
+  ShieldCheck,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -46,7 +53,35 @@ function StripeConnectCard() {
   >("unknown");
   const [connectId, setConnectId] = useState<string | null>(null);
 
+  const [holdDays, setHoldDays] = useState<number>(30);
+  const [fees, setFees] = useState({ stripe: 3.6, platform: 2.4, env: 1.0 });
+  const feeTotal = (fees.stripe + fees.platform + fees.env).toFixed(1);
+
   const sellerId = SITE_KEY; // docID = siteKey
+
+  const GLOBAL_REF = doc(db, "adminSettings", "global");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDoc(GLOBAL_REF);
+        const d = (snap.data() as any) || {};
+        const v = Number(d?.payoutHoldDays);
+        if (Number.isFinite(v) && v > 0) setHoldDays(v);
+
+        // 任意：global に fees があれば上書き
+        if (d?.fees) {
+          setFees({
+            stripe: Number(d.fees.stripe) || 3.6,
+            platform: Number(d.fees.platform) || 2.4,
+            env: Number(d.fees.env) || 1.0,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load payout policy:", e);
+      }
+    })();
+  }, [GLOBAL_REF]);
 
   const fetchStatus = async () => {
     try {
@@ -142,6 +177,28 @@ function StripeConnectCard() {
           ボタンを押すとStripeのオンボーディング画面へ遷移します。完了後は
           <code>/onboarding/return</code> に戻り、完了フラグが更新されます。
         </p>
+
+        <div className="rounded-xl border bg-white/60 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck size={16} />
+            <span className="text-sm font-semibold">支払い条件（Pageit）</span>
+          </div>
+          <ul className="list-disc pl-5 text-sm leading-6">
+            <li>保留期間：{holdDays}日（苦情受付時は延長/凍結）</li>
+            <li>入金タイミング：毎週金曜（自動）／銀行着金：当日〜翌営業日</li>
+            <li>
+              手数料：合計 {feeTotal}%（Stripe {fees.stripe}% + 弊社{" "}
+              {fees.platform}% + 環境寄付 {fees.env}%）
+            </li>
+            <li>
+              返金・チャージバック：振替前は送金停止、振替後は次回送金で相殺（不足時は請求）
+            </li>
+          </ul>
+          <p className="text-xs text-gray-500 mt-2">
+            ※
+            Stripeの審査/口座エラー/追加書類がある場合は入金が一時停止されます。
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
