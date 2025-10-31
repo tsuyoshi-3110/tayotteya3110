@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** プラットフォーム取り分（例：7%） */
-const PLATFORM_FEE_RATE = 0.07;
+const PLATFORM_FEE_RATE = 0.056;
 
 /* ---------- Lang 正規化 & 補助 ---------- */
 const CANON_MAP: Record<string, string> = {

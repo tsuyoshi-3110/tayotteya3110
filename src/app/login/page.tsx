@@ -55,7 +55,7 @@ function StripeConnectCard() {
   const [connectId, setConnectId] = useState<string | null>(null);
 
   const [holdDays, setHoldDays] = useState<number>(30);
-  const [fees, setFees] = useState({ stripe: 3.6, platform: 2.4, env: 1.0 });
+  const [fees, setFees] = useState({ stripe: 3.6, platform: 1.0, env: 1.0 });
   const feeTotal = (fees.stripe + fees.platform + fees.env).toFixed(1);
 
   const sellerId = SITE_KEY; // docID = siteKey
@@ -188,7 +188,7 @@ function StripeConnectCard() {
             <li>保留期間：{holdDays}日（苦情受付時は延長/凍結）</li>
             <li>入金タイミング：毎週金曜（自動）／銀行着金：当日〜翌営業日</li>
             <li>
-              手数料：合計 {feeTotal}%（Stripe {fees.stripe}% + 弊社{" "}
+              手数料：合計 {feeTotal}%（Stripe {fees.stripe}% + 運営{" "}
               {fees.platform}% + 環境寄付 {fees.env}%）
             </li>
             <li>
@@ -1085,10 +1085,10 @@ export default function LoginPage() {
 
   // ▼ EC可否トグル時に seller の onboardingCompleted を即時反映
   const setOnboardingCompleted = async (next: boolean) => {
-     if (!guideAccepted) {
-    alert("先に「ECご利用前ガイド」で同意してください。");
-    throw new Error("ec-guide-not-accepted");
-  }
+    if (!guideAccepted) {
+      alert("先に「ECご利用前ガイド」で同意してください。");
+      throw new Error("ec-guide-not-accepted");
+    }
     const user = auth.currentUser;
     if (!user) throw new Error("not-signed-in");
     const token = await user.getIdToken();
