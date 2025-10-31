@@ -40,11 +40,13 @@ const defaultPolicy = (): RefundPolicy => ({
   contentByLang: {
     ja: {
       title: "返品・返金ポリシー",
-      body: "商品到着後14日以内にご連絡ください。未使用・未開封の商品に限り返品・交換を承ります（不良品は除く）。返送送料はお客様負担となります。詳しくは本ページの条件をご確認ください。",
+      body:
+        "商品到着後14日以内にご連絡ください。未使用・未開封の商品に限り返品・交換を承ります（不良品は除く）。返送送料はお客様負担となります。詳しくは本ページの条件をご確認ください。",
     },
     en: {
       title: "Refund & Returns Policy",
-      body: "Please contact us within 14 days of delivery. Returns or exchanges are accepted for unused and unopened items (except defective items). Return shipping cost is borne by the customer.",
+      body:
+        "Please contact us within 14 days of delivery. Returns or exchanges are accepted for unused and unopened items (except defective items). Return shipping cost is borne by the customer.",
     },
   },
 });
@@ -61,17 +63,18 @@ function templateFor(
     body:
       `Contact us within ${p.windowDays} days of delivery. ` +
       (p.eligibility === "no-returns"
-        ? "We do not accept returns for customer remorse. Defective or damaged items will be handled individually."
+        ? "We do not accept returns for customer remorse. Defective or damaged items will be handled individually. "
         : p.eligibility === "defective-only"
-        ? "Only defective, damaged, or wrong items are eligible for return or exchange."
+        ? "Only defective, damaged, or wrong items are eligible for return or exchange. "
+        : p.eligibility === "unopened"
+        ? "Returns are accepted for unopened items only (defective items excluded). "
         : "Returns or exchanges are accepted for unused and unopened items (defective items excluded). ") +
-      `Return shipping is ${
-        p.shippingCharge === "seller"
-          ? "covered by us"
-          : p.shippingCharge === "case-by-case"
-          ? "determined case by case"
-          : "borne by the customer"
-      }. ` +
+      `Return shipping is ` +
+      (p.shippingCharge === "seller"
+        ? "covered by us. "
+        : p.shippingCharge === "case-by-case"
+        ? "determined case by case. "
+        : "borne by the customer. ") +
       (p.restockingFeePct && p.restockingFeePct > 0
         ? `A restocking fee of ${p.restockingFeePct}% may apply. `
         : "") +
@@ -92,6 +95,8 @@ function templateFor(
           ? "お客様都合による返品は承っておりません。不良・破損の場合は個別にご案内いたします。"
           : p.eligibility === "defective-only"
           ? "不良・破損・誤配送のみ返品・交換を承ります。"
+          : p.eligibility === "unopened"
+          ? "未開封品のみ返品可（不良品はこの限りではありません）。"
           : "未使用・未開封の商品に限り返品・交換を承ります（不良品はこの限りではありません）。") +
         ` 返送送料は${
           p.shippingCharge === "seller"
@@ -146,6 +151,9 @@ export default function RefundPage() {
   const [loading, setLoading] = useState(true);
   const [policy, setPolicy] = useState<RefundPolicy | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // 日本語本文：自動生成トグル
+  const [autoGenJa, setAutoGenJa] = useState<boolean>(true);
 
   // 認証監視
   useEffect(() => {
@@ -225,11 +233,23 @@ export default function RefundPage() {
         : p
     );
 
+  // 左の条件から日本語テンプレを都度生成（依存は policy のみ）
+  const generatedJa = useMemo(() => {
+    if (!policy) return { title: "返品・返金ポリシー", body: "" };
+    return templateFor("ja" as LangKey, policy);
+  }, [policy]);
+
+  // 右側表示用：自動生成ONなら generated、OFFなら手入力（curJa）
+  const curJa = policy?.contentByLang?.[EDIT_LANG] ?? { title: "", body: "" };
+  const jaTitle = autoGenJa ? generatedJa.title : (curJa.title ?? "");
+  const jaBody = autoGenJa ? generatedJa.body : (curJa.body ?? "");
+
   const insertTemplateJa = () => {
     if (!policy) return;
-    const tmpl = templateFor(EDIT_LANG, policy);
-    updateLangContentJa("title", tmpl.title);
-    updateLangContentJa("body", tmpl.body);
+    // 自動生成のまま押されたら手入力モードに切替して、直近テンプレを流し込む
+    setAutoGenJa(false);
+    updateLangContentJa("title", generatedJa.title);
+    updateLangContentJa("body", generatedJa.body);
   };
 
   const handleSave = async () => {
@@ -242,7 +262,23 @@ export default function RefundPage() {
     setSaving(true);
     try {
       const token = await user.getIdToken();
-      const payload = ensureAllLangs(policy);
+
+      // 自動生成ONのときは JA を生成結果で上書きして保存
+      const base: RefundPolicy = autoGenJa
+        ? {
+            ...policy,
+            contentByLang: {
+              ...policy.contentByLang,
+              ja: { title: generatedJa.title, body: generatedJa.body },
+            },
+          }
+        : policy;
+
+      const payload: RefundPolicy = ensureAllLangs({
+        ...base,
+        updatedAt: new Date().toISOString(),
+      });
+
       const res = await fetch("/api/policies/refund", {
         method: "POST",
         headers: {
@@ -347,7 +383,7 @@ export default function RefundPage() {
   }
 
   /* =========================
-     ログイン済み：上=公開ビュー / 下=編集フォーム（編集は日本語のみ）
+     ログイン済み：上=公開ビュー / 下=編集フォーム
   ========================= */
   const dir: "rtl" | "ltr" = effectiveLang === "ar" ? "rtl" : "ltr";
   const pubTitle =
@@ -370,17 +406,15 @@ export default function RefundPage() {
         });
   })();
 
-  const curJa = policy?.contentByLang?.[EDIT_LANG] ?? { title: "", body: "" };
-
   return (
     <main className="mx-auto max-w-5xl px-5 py-8">
-      {/* 上：公開ビュー（一般ユーザーが見る内容） */}
+      {/* 上：公開ビュー（現時点で保存済みの内容） */}
       <section className="bg-white/60 rounded-2xl p-5 border" dir={dir}>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold break-words">
             {pubTitle || "Refund & Returns Policy"}
           </h1>
-          <span className="text-xs text-gray-500">（公開ビュー）</span>
+          <span className="text-xs text-gray-500">（公開ビュー / 保存済み）</span>
         </div>
         {updatedText && (
           <p className="mt-1 text-xs text-gray-500">
@@ -397,7 +431,7 @@ export default function RefundPage() {
       {/* 仕切り */}
       <div className="my-6 h-px bg-gray-200" />
 
-      {/* 下：編集フォーム（日本語のみ） */}
+      {/* 下：編集フォーム（左：条件 / 右：日本語本文 自動⇄手入力） */}
       {!policy ? (
         <p className="text-gray-600">初期化中…</p>
       ) : (
@@ -406,9 +440,7 @@ export default function RefundPage() {
           <section className="bg-white/80 backdrop-blur rounded-xl border p-5 space-y-4">
             <div className="text-sm text-gray-500 -mt-1 mb-1">
               編集言語：<strong>日本語（ja）</strong>
-              <span className="ml-2 text-gray-400">
-                ※ 保存時に他言語へ自動反映
-              </span>
+              <span className="ml-2 text-gray-400">※ 保存時に他言語へ自動反映</span>
             </div>
 
             <label className="flex items-center justify-between">
@@ -468,13 +500,9 @@ export default function RefundPage() {
                 }
                 className="mt-1 rounded border px-3 py-2"
               >
-                <option value="any">
-                  未使用・未開封なら可（不良は別扱い）
-                </option>
+                <option value="any">未使用・未開封なら可（不良は別扱い）</option>
                 <option value="defective-only">不良・破損・誤配送のみ可</option>
-                <option value="no-returns">
-                  お客様都合は不可（不良時のみ個別対応）
-                </option>
+                <option value="no-returns">お客様都合は不可（不良時のみ個別対応）</option>
                 <option value="unopened">未開封のみ可</option>
                 <option value="custom">カスタム（文面で明記）</option>
               </select>
@@ -528,33 +556,55 @@ export default function RefundPage() {
             </label>
           </section>
 
-          {/* 右：日本語のみ編集＋プレビュー */}
+          {/* 右：日本語のみ編集＋プレビュー（自動生成トグルあり） */}
           <section className="bg-white/80 backdrop-blur rounded-xl border p-5">
             <div className="text-sm text-gray-500">
               言語別コンテンツ（日本語のみ編集）
             </div>
 
-            <div className="mt-3 space-y-2">
+            {/* 自動生成トグル */}
+            <label className="mt-3 mb-2 inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={autoGenJa}
+                onChange={(e) => setAutoGenJa(e.target.checked)}
+              />
+              <span className="text-sm">自動生成（左の条件から本文を作成）</span>
+            </label>
+
+            <div className="mt-2 space-y-2">
               <label className="flex flex-col text-sm">
                 タイトル（日本語）
                 <input
                   type="text"
-                  value={curJa.title ?? ""}
+                  value={jaTitle}
+                  disabled={autoGenJa}
                   onChange={(e) => updateLangContentJa("title", e.target.value)}
-                  className="mt-1 rounded border px-3 py-2"
+                  className="mt-1 rounded border px-3 py-2 disabled:opacity-60"
                   placeholder="例）返品・返金ポリシー"
                 />
+                {autoGenJa && (
+                  <span className="text-xs text-gray-500 mt-1">
+                    自動生成中は編集できません（トグルをOFFで編集可）
+                  </span>
+                )}
               </label>
 
-              <label className="flex flex-col text-sm">
+              <label className="flex flex-col text.sm">
                 本文（日本語）
                 <textarea
                   rows={8}
-                  value={curJa.body ?? ""}
+                  value={jaBody}
+                  disabled={autoGenJa}
                   onChange={(e) => updateLangContentJa("body", e.target.value)}
-                  className="mt-1 rounded border px-3 py-2"
+                  className="mt-1 rounded border px-3 py-2 disabled:opacity-60"
                   placeholder="ポリシー本文を入力してください"
                 />
+                {autoGenJa && (
+                  <span className="text-xs text-gray-500 mt-1">
+                    自動生成中は編集できません（トグルをOFFで編集可）
+                  </span>
+                )}
               </label>
 
               <div className="flex gap-2">
@@ -575,16 +625,14 @@ export default function RefundPage() {
                 </button>
               </div>
 
-              {/* プレビュー（日本語） */}
+              {/* プレビュー（日本語・編集中の内容） */}
               <div className="mt-4">
                 <div className="text-sm text-gray-500 mb-2">
-                  プレビュー（日本語）
+                  プレビュー（日本語 / 編集中）
                 </div>
-                <h2 className="text-lg font-semibold">
-                  {curJa.title || "（タイトル）"}
-                </h2>
+                <h2 className="text-lg font-semibold">{jaTitle || "（タイトル）"}</h2>
                 <article className="prose prose-sm sm:prose-base mt-2 whitespace-pre-wrap">
-                  {curJa.body || "（本文未設定）"}
+                  {jaBody || "（本文未設定）"}
                 </article>
               </div>
             </div>

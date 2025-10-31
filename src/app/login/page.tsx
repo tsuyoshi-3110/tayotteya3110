@@ -42,6 +42,7 @@ import { Loader } from "@googlemaps/js-api-loader";
 
 // Firestore ref
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
+const SELLER_REF = doc(db, "siteSellers", SITE_KEY);
 
 /* =========================
    Stripe Connect カード（住所設定ボタン込み）
@@ -825,6 +826,9 @@ export default function LoginPage() {
   // 営業時間の有効/無効（購読で同期）
   const [bhEnabled, setBhEnabled] = useState<boolean>(false);
 
+  const [guideAccepted, setGuideAccepted] = useState<boolean>(false);
+  const [guideAcceptedAt, setGuideAcceptedAt] = useState<any>(null);
+
   // Google Maps API Key
   const mapsApiKey = useMemo(
     () => process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
@@ -974,9 +978,30 @@ export default function LoginPage() {
     }
   };
 
+  // ▼ 追加：オーナー同意の購読
+  useEffect(() => {
+    const unsub = onSnapshot(SELLER_REF, (snap) => {
+      const d = (snap.data() as any) || {};
+      setGuideAccepted(!!d?.ecGuideAcceptedAt);
+      setGuideAcceptedAt(d?.ecGuideAcceptedAt || null);
+    });
+    return () => unsub();
+  }, []);
+
   const handleLogout = async () => {
     await signOut(auth);
   };
+
+  const canShowEC = hasConnect && guideAccepted;
+
+  // ▼ 追加：条件を満たさない間は候補からECを外す（見た目の一貫性）
+  useEffect(() => {
+    if (!canShowEC) {
+      setVisibleKeys((prev) =>
+        prev.filter((k) => k !== "productsEC" && k !== "cart")
+      );
+    }
+  }, [canShowEC]);
 
   /* ---------------- Firestore 更新関数 ---------------- */
   const handleThemeChange = async (newTheme: ThemeKey) => {
@@ -1060,6 +1085,10 @@ export default function LoginPage() {
 
   // ▼ EC可否トグル時に seller の onboardingCompleted を即時反映
   const setOnboardingCompleted = async (next: boolean) => {
+     if (!guideAccepted) {
+    alert("先に「ECご利用前ガイド」で同意してください。");
+    throw new Error("ec-guide-not-accepted");
+  }
     const user = auth.currentUser;
     if (!user) throw new Error("not-signed-in");
     const token = await user.getIdToken();
@@ -1178,15 +1207,22 @@ export default function LoginPage() {
                       <label className="flex items-start gap-2">
                         <input
                           type="checkbox"
-                          disabled={!hasConnect}
+                          disabled={!canShowEC} // ★ Stripe完了 & 同意済みでなければ押せない
                           checked={
                             visibleKeys.includes("productsEC") &&
                             visibleKeys.includes("cart")
                           }
                           onChange={async (e) => {
+                            // ★ 二重ガード：未条件時はガイドページへ誘導
+                            if (!canShowEC) {
+                              window.open("/owner-ec-guide", "_blank");
+                              return;
+                            }
+
                             const checked = e.target.checked;
 
                             try {
+                              // サーバー側状態の更新（既存）
                               await setOnboardingCompleted(checked);
                             } catch (err) {
                               console.error(
@@ -1203,22 +1239,44 @@ export default function LoginPage() {
                               const base = new Set(prev);
                               base.delete("productsEC");
                               base.delete("cart");
-                              if (checked && hasConnect) {
+                              if (checked) {
                                 base.add("productsEC");
                                 base.add("cart");
                               }
                               const next = Array.from(base);
-                              // Firestoreに反映
-                              handleVisibleKeysChange(next);
+                              handleVisibleKeysChange(next); // Firestoreへ反映
                               return next;
                             });
                           }}
                         />
-                        <div className={!hasConnect ? "opacity-60" : ""}>
+                        <div className={!canShowEC ? "opacity-60" : ""}>
                           <div>ネット販売（ショップ & カート）</div>
                           {!hasConnect && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-black">
                               Stripe連携が完了すると選択できます。
+                            </div>
+                          )}
+                          {hasConnect && !guideAccepted && (
+                            <div className="text-xs text-black">
+                              まず{" "}
+                              <a
+                                className="underline text-blue-600"
+                                href="/owner-ec-guide"
+                                target="_blank"
+                              >
+                                ECご利用前ガイド
+                              </a>
+                              で同意してください（同意日時が記録されます）。
+                            </div>
+                          )}
+                          {guideAcceptedAt && (
+                            <div className="text-[11px] text-gray-400">
+                              同意済み：
+                              {String(
+                                new Date(
+                                  guideAcceptedAt.toDate?.() ?? guideAcceptedAt
+                                )
+                              )}
                             </div>
                           )}
                         </div>

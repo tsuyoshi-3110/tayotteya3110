@@ -127,6 +127,27 @@ const REFUND_T: Record<UILang, string> = {
   ar: "سياسة الاسترجاع",
 };
 
+const TERMS_T: Record<UILang, string> = {
+  ja: "利用規約（購入規約）",
+  en: "Terms of Purchase",
+  zh: "购买条款",
+  "zh-TW": "購買條款",
+  ko: "이용약관(구매)",
+  fr: "Conditions d’achat",
+  es: "Términos de compra",
+  de: "Kaufbedingungen",
+  pt: "Termos de compra",
+  it: "Condizioni di acquisto",
+  ru: "Условия покупки",
+  th: "เงื่อนไขการสั่งซื้อ",
+  vi: "Điều khoản mua hàng",
+  id: "Syarat pembelian",
+  hi: "खरीद शर्तें",
+  ar: "شروط الشراء",
+};
+
+const TERMS_PATH = "/terms";
+
 /* ===== ラベル多言語 ===== */
 const ALL_CATEGORY_T: Record<UILang, string> = {
   ja: "全カテゴリー",
@@ -247,6 +268,63 @@ const UILANG_TO_CCY: Partial<Record<UILang, string>> = {
   ar: "USD", // AED/SAR 未取得のため安全側で USD
 };
 
+const SHOP_TITLE_T: Record<UILang, string> = {
+  ja: "オンラインショップ",
+  en: "Online Shop",
+  zh: "在线商店",
+  "zh-TW": "線上商店",
+  ko: "온라인 쇼핑",
+  fr: "Boutique en ligne",
+  es: "Tienda en línea",
+  de: "Onlineshop",
+  pt: "Loja online",
+  it: "Negozio online",
+  ru: "Интернет-магазин",
+  th: "ร้านค้าออนไลน์",
+  vi: "Cửa hàng trực tuyến",
+  id: "Toko online",
+  hi: "ऑनलाइन दुकान",
+  ar: "المتجر الإلكتروني",
+};
+
+const SHOP_SUBTITLE_T: Record<UILang, string> = {
+  ja: "公式オンラインストア",
+  en: "Official Online Store",
+  zh: "官方在线商店",
+  "zh-TW": "官方線上商店",
+  ko: "공식 온라인 스토어",
+  fr: "Boutique en ligne officielle",
+  es: "Tienda en línea oficial",
+  de: "Offizieller Onlineshop",
+  pt: "Loja online oficial",
+  it: "Negozio online ufficiale",
+  ru: "Официальный интернет-магазин",
+  th: "ร้านค้าออนไลน์อย่างเป็นทางการ",
+  vi: "Cửa hàng trực tuyến chính thức",
+  id: "Toko online resmi",
+  hi: "आधिकारिक ऑनलाइन स्टोर",
+  ar: "المتجر الإلكتروني الرسمي",
+};
+
+const INTERNATIONAL_FEES_NOTICE_T: Record<UILang, string> = {
+  ja: "海外配送では関税・輸入税・通関手数料等が発生する場合があり、原則として受取人様のご負担となります。",
+  en: "For international shipping, customs duties, import taxes, and clearance fees may apply and are, in principle, the recipient’s responsibility.",
+  zh: "海外配送可能会产生关税、进口税及清关手续费，原则上由收件人承担。",
+  "zh-TW": "海外配送可能會產生關稅、進口稅及清關手續費，原則上由收件人負擔。",
+  ko: "해외 배송의 경우 관세·수입세·통관 수수료 등이 발생할 수 있으며, 원칙적으로 수령인 부담입니다.",
+  fr: "Pour les envois internationaux, des droits de douane, taxes d’importation et frais de dédouanement peuvent s’appliquer et sont, en principe, à la charge du destinataire.",
+  es: "En los envíos internacionales pueden aplicarse aranceles, impuestos de importación y gastos de despacho aduanero, que en principio corren a cargo del destinatario.",
+  de: "Bei internationalen Sendungen können Zölle, Einfuhrsteuern und Verzollungsgebühren anfallen; diese gehen grundsätzlich zu Lasten des Empfängers.",
+  pt: "Em envios internacionais, podem ser cobrados impostos de importação, taxas alfandegárias e tarifas de desembaraço, que, em princípio, são de responsabilidade do destinatário.",
+  it: "Per le spedizioni internazionali potrebbero applicarsi dazi, imposte d’importazione e spese di sdoganamento, che in linea di principio sono a carico del destinatario.",
+  ru: "При международной доставке могут взиматься таможенные пошлины, импортные налоги и сборы за оформление; как правило, их оплачивает получатель.",
+  th: "การจัดส่งไปต่างประเทศอาจมีอากรขาเข้า ภาษีนำเข้า และค่าดำเนินการศุลกากร ซึ่งโดยหลักแล้วผู้รับเป็นผู้รับผิดชอบค่าใช้จ่ายดังกล่าว",
+  vi: "Đối với giao hàng quốc tế, có thể phát sinh thuế nhập khẩu, thuế và phí thông quan; về nguyên tắc, người nhận phải chịu các chi phí này.",
+  id: "Untuk pengiriman internasional, bea masuk, pajak impor, dan biaya kepabeanan dapat dikenakan dan pada prinsipnya menjadi tanggung jawab penerima.",
+  hi: "अंतरराष्ट्रीय शिपिंग में कस्टम ड्यूटी, आयात कर और क्लियरेंस शुल्क लग सकते हैं, जो सिद्धांततः प्राप्तकर्ता के जिम्मे होते हैं।",
+  ar: "قد تُفرض عند الشحن الدولي رسوم جمركية وضرائب استيراد ورسوم تخليص جمركي، وتكون هذه التكاليف من حيث المبدأ على عاتق المستلِم.",
+};
+
 /** 小数無し通貨（表示時も 0 桁） */
 const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "TWD"]);
 
@@ -350,6 +428,13 @@ export default function ProductsECClient() {
   // UI言語 & 税ラベル
   const { uiLang } = useUILang();
   const taxT = TAX_T[uiLang] ?? TAX_T.ja;
+
+  const SHOP_TITLE = SHOP_TITLE_T[uiLang] ?? SHOP_TITLE_T.ja;
+
+  const SHOP_SUBTITLE = SHOP_SUBTITLE_T[uiLang] ?? SHOP_SUBTITLE_T.ja;
+
+  const INTERNATIONAL_FEES_NOTICE =
+    INTERNATIONAL_FEES_NOTICE_T[uiLang] ?? INTERNATIONAL_FEES_NOTICE_T.ja;
 
   // 為替
   const { rates } = useFxRates();
@@ -835,7 +920,7 @@ export default function ProductsECClient() {
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
 
       {/* オンラインショップ 見出し（大） */}
-      <header className="mb-6" role="banner" aria-label="オンラインショップ">
+      <header className="mb-6" role="banner" aria-label={SHOP_TITLE}>
         <div
           className={clsx(
             "bg-gradient-to-br rounded-2xl border shadow-lg",
@@ -861,9 +946,9 @@ export default function ProductsECClient() {
                   "whitespace-nowrap truncate",
                   isDark ? "text-white" : "text-gray-900"
                 )}
-                title="オンラインショップ"
+                title={SHOP_TITLE}
               >
-                オンラインショップ
+                {SHOP_TITLE}
               </h1>
             </div>
 
@@ -926,18 +1011,34 @@ export default function ProductsECClient() {
             </div>
           </div>
 
-          {/* サブタイトル */}
           <p
             className={clsx(
               "mt-2 text-xs sm:text-base",
               isDark ? "text-white/80" : "text-gray-600"
             )}
           >
-            公式オンラインストア / Online Store
+            {SHOP_SUBTITLE}
           </p>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link
+            href={TERMS_PATH}
+            className={clsx(
+              "inline-flex items-center gap-1 text-xs sm:text-sm underline decoration-dotted",
+              isDark
+                ? "text-white/90 hover:text-white"
+                : "text-gray-700 hover:text-gray-900"
+            )}
+          >
+            {TERMS_T[uiLang] ?? TERMS_T.ja}
+            <span aria-hidden>→</span>
+          </Link>
+
+          <span className={clsx(isDark ? "text-white/40" : "text-gray-400")}>
+            ・
+          </span>
+
           <Link
             href={REFUND_PATH}
             className={clsx(
@@ -960,6 +1061,15 @@ export default function ProductsECClient() {
         priceText={freeShipPriceText}
         sticky
       />
+
+      <p
+        className={clsx(
+          "mt-3 text-[11px] sm:text-xs mb-5",
+          isDark ? "text-white/70" : "text-gray-500"
+        )}
+      >
+        ※ {INTERNATIONAL_FEES_NOTICE}
+      </p>
 
       {ecStop && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
