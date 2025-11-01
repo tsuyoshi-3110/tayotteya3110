@@ -141,7 +141,9 @@ export default function HoursSection() {
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-8 text-neutral-900">
-       <h1 className="text-3xl font-extrabold tracking-tight mb-4 text-white text-outline">営業時間</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight mb-4 text-white text-outline">
+        営業時間
+      </h1>
       <h2 className="sr-only ">営業時間</h2>
 
       {loading || !bh?.enabled ? (
@@ -204,7 +206,7 @@ export default function HoursSection() {
             </table>
           </div>
 
-          <p className="text-xs text-neutral-300 mt-6">
+          <p className="text-xs text-white text-outline mt-6">
             ※
             営業時間は目安です。状況により前後することがあります。確定のご依頼は予約フォームからお願いいたします。
           </p>
