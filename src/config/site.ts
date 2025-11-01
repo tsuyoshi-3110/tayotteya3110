@@ -19,28 +19,29 @@ export const site = {
   key: SITE_KEY,
   domain: DOMAIN,
   baseUrl: BASE_URL,
-  name: "おそうじ処 たよって屋",
-  tagline: "ハウスクリーニング・家事代行（大阪・兵庫）",
+  name: "株式会社 福源屋",
+  tagline: "大阪の美装工事・ビルメンテナンス・内装工事",
   description:
-    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。大阪市東淀川区、豊中市、吹田市など近隣も丁寧に対応。水回り・リビング・定期清掃まで安心価格。",
+    "大阪の美装工事・ビルメンテナンス・内装工事なら株式会社福源屋へ。清掃・ハウスクリーニング・定期・日常清掃や現場作業員派遣まで対応。",
   keywords: [
-    "おそうじ処たよって屋",
-    "たよって屋",
+    "株式会社福源屋",
+    "福源屋",
+    "美装工事",
+    "ビルメンテナンス",
+    "清掃",
     "ハウスクリーニング",
-    "家事代行",
-    "整理収納",
+    "定期清掃",
+    "内装工事",
     "大阪",
-    "兵庫",
-    "大阪市東淀川区",
-    "水回り掃除",
-    "エアコンクリーニング",
+    "関西",
+    "交野市",
   ] as const,
-  tel: "+81 90-6559-9110",
+  tel: "+81 90-0000-0000",
   logoPath: "/ogpLogo.png",
   googleSiteVerification: "uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs",
   socials: {
-    instagram: "https://www.instagram.com/yuki.tayotte2017",
-    line: "https://lin.ee/YcKAJja",
+    instagram: "",
+    line: "",
   },
 } as const;
 
@@ -60,20 +61,18 @@ export const copy = {
   home: {
     headline: site.name,
     description:
-      "大阪府・兵庫県を中心に、ハウスクリーニング／家事代行／整理収納を提供しています。キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。",
+      "株式会社福源屋は2002年創業、大阪府交野市を拠点に関西全域で美装工事・ビルメンテナンス・定期清掃・内装工事を手掛けています。建設現場の美装やマンション・店舗の清掃、ハウスクリーニングなど幅広くご対応可能です。",
   },
 
   // Stores（/stores）用
   stores: {
-    heroTitle: `${site.name} ─ 店舗一覧`,
-    heroAreas: "大阪府・兵庫県",
+    heroTitle: `${site.name} ─ 拠点・事業所一覧`,
+    heroAreas: "大阪府交野市・大阪市ほか関西一円",
     heroLead:
-      "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
-    heroTail:
-      "各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。",
-    // ページ側で「は／を中心に」を書かなくてよい完成文
+      "株式会社福源屋は大阪府交野市の本社を拠点に、関西一円の現場に迅速対応。建設現場の美装工事やビルメンテナンス、店舗・マンションの清掃・ハウスクリーニングまで地域密着型で安心・丁寧なサービスを提供しています。",
+    heroTail: "",
     heroIntroLine:
-      `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
+      `${site.name}は大阪府交野市を拠点に、関西全域で美装工事・ビルメンテナンス・清掃を行っています。`,
   },
 } as const;
 
@@ -86,27 +85,26 @@ export const faqItems: FaqItem[] = [
   {
     question: "対応エリアはどこですか？",
     answer:
-      "大阪府・兵庫県を中心に対応しています。豊中市・吹田市・東淀川区・池田市・箕面市・尼崎市など、まずはお気軽にご相談ください。",
+      "大阪府交野市を拠点に、関西一円で対応しております。大阪市・枚方市・寝屋川市・京都府南部なども対応可能です。",
+  },
+  {
+    question: "主な業務内容は？",
+    answer:
+      "建設現場の美装工事、ビルメンテナンス、定期清掃・日常清掃、ハウスクリーニング、内装工事、現場作業員派遣などを行っています。",
   },
   {
     question: "見積もりは無料ですか？",
-    answer:
-      "はい、無料です。現地確認が必要な場合もありますが、費用はいただきません。",
+    answer: "はい。現地確認を含め、無料でお見積もりいたします。",
   },
   {
-    question: "支払い方法は？",
+    question: "法人契約は可能ですか？",
     answer:
-      "現金・銀行振込・各種キャッシュレス（ご相談ください）に対応しています。",
+      "はい、対応可能です。マンション管理会社・建設会社・店舗様など、多数の法人取引実績があります。",
   },
   {
-    question: "当日の追加依頼や延長は可能ですか？",
+    question: "急ぎの清掃依頼にも対応できますか？",
     answer:
-      "当日のスケジュール次第ですが、可能な限り柔軟に対応いたします。スタッフへご相談ください。",
-  },
-  {
-    question: "キャンセル料はかかりますか？",
-    answer:
-      "前日キャンセルは無料、当日キャンセルは作業代の50％を頂戴しております（事前連絡なしの不在は100％）。",
+      "可能な限り迅速に対応いたします。スケジュール状況により当日対応も承ります。",
   },
 ];
 
@@ -125,66 +123,58 @@ export type PageDef = {
 const PAGES = {
   home: {
     path: "/",
-    title: `${site.name}｜家事代行`,
-    description:
-      "大阪・兵庫エリア対応のハウスクリーニング／家事代行／整理収納のご案内。",
+    title: `${site.name}｜${site.tagline}`,
+    description: site.description,
     ogType: "website",
   },
   about: {
     path: "/about",
-    title: `私たちの想い｜${site.name}`,
+    title: `会社概要｜${site.name}`,
     description:
-      "お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念。",
+      "株式会社福源屋の会社概要ページ。大阪府交野市を拠点に関西一円で美装工事・ビルメンテナンス・清掃・内装工事を行っています。",
     ogType: "website",
   },
   news: {
     path: "/news",
     title: `お知らせ｜${site.name}`,
-    description: `${site.name} の最新情報・キャンペーン・営業時間などのお知らせ。`,
+    description: `${site.name} の最新情報・施工事例・採用情報などをお届けします。`,
     ogType: "website",
-  },
-  areasLocal: {
-    path: "/areas/local",
-    title: `東淀川区の家事代行・ハウスクリーニング｜${site.name}`,
-    description:
-      "東淀川区（淡路・上新庄…）で家事代行・ハウスクリーニング。定期/スポット対応。",
-    ogType: "article",
   },
   products: {
     path: "/products",
-    title: `サービス一覧｜${site.name}`,
+    title: `業務内容一覧｜${site.name}`,
     description:
-      `${site.name}の家事代行・ハウスクリーニングのサービス一覧。水回り清掃や整理整頓、エアコン掃除などを掲載。`,
-    ogType: "website",
-    ogImage: "/ogp-products.jpg",
-  },
-  productsEC: {
-    path: "/products-ec",
-    title: `サービス一覧（オンライン予約）｜${site.name}`,
-    description:
-      `${site.name}のサービス一覧（オンライン予約対応）。水回り・キッチン・浴室など日常のお手伝いをプロが丁寧に実施。`,
+      `${site.name}の美装工事・ビルメンテナンス・清掃・内装工事などの業務内容一覧をご紹介します。`,
     ogType: "website",
     ogImage: "/ogp-products.jpg",
   },
   projects: {
     path: "/projects",
-    title: `サービス一覧｜${site.name}`,
+    title: `施工事例｜${site.name}`,
     description:
-      `${site.name}のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載。`,
+      `${site.name}が手掛けた施工・清掃・リフォームなどの実績をご紹介します。`,
     ogType: "website",
   },
   stores: {
     path: "/stores",
-    title: `店舗一覧｜${site.name}`,
+    title: `拠点・事業所一覧｜${site.name}`,
     description:
-      `${site.name}の店舗一覧ページ。大阪・兵庫エリア対応の拠点情報をご紹介します。`,
+      "株式会社福源屋は大阪府交野市の本社を拠点に関西一円の現場へ迅速対応。ビルメンテナンス・清掃・内装工事など地域密着で展開しています。",
     ogType: "website",
   },
   faq: {
     path: "/faq",
     title: `よくある質問（FAQ）｜${site.name}`,
     description:
-      `料金・対応エリア・キャンセル・支払い方法など、${site.name}のハウスクリーニング／家事代行に関するよくある質問。`,
+      `${site.name}の業務内容・対応エリア・料金・法人契約などに関するよくある質問を掲載しています。`,
+    ogType: "article",
+  },
+  // ✅ 追加：areasLocal（以前の型エラー対策）
+  areasLocal: {
+    path: "/areas/local",
+    title: `大阪府交野市・大阪市の清掃・美装工事｜${site.name}`,
+    description:
+      "大阪府交野市・大阪市ほか関西一円で、美装工事・ビルメンテナンス・清掃・内装工事のご相談なら株式会社福源屋へ。地域密着で迅速対応。",
     ogType: "article",
   },
 } as const;
@@ -206,12 +196,10 @@ export const seo = {
     metadataBase: new URL(site.baseUrl),
     alternates: { canonical: pageUrl("/") },
 
-    // ✅ Search Console 所有権メタ（集中管理）
     verification: site.googleSiteVerification
       ? { google: site.googleSiteVerification }
       : undefined,
 
-    // ✅ 追加: robots 明示（Googlebot 含む / ハイフン区切りキーは文字列リテラル）
     robots: {
       index: true,
       follow: true,

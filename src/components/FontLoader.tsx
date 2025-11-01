@@ -5,7 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function FontLoader() {
-  const siteKey = "tayotteya3110";
+  const siteKey = "fukugenyaguide225";
 
   useEffect(() => {
     const fetchFont = async () => {

@@ -8,7 +8,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const SITE_KEY = "tayotteya3110";
+const SITE_KEY = "fukugenyaguide225";
 
 // "YYYY-MM-DD_pageId" → JST 0:00 Timestamp と pageId
 function parseDocId(id: string) {
