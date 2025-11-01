@@ -60,7 +60,7 @@ const PAGE_LABELS: Record<string, string> = {
   map_click: "マップアクセス",
   staffs: "スタッフ紹介ぺージ",
   jobApp: "応募ページ",
-  apply: "応募ページ",
+  apply: "予約ページ",
   blog: "ブログページ",
   menu: "料金ページ",
   company: "会社概要ページ",
@@ -322,8 +322,13 @@ export default function AnalyticsPage() {
           );
         })}
 
-         <Button asChild className="fixed top-15 right-5 z-50 w-10 h-10 rounded-full bg-blue-600 text-white text-2xl leading-none flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95">
-          <Link href="/analytics-guide" className="text-md">?</Link>
+        <Button
+          asChild
+          className="fixed top-15 right-5 z-50 w-10 h-10 rounded-full bg-blue-600 text-white text-2xl leading-none flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95"
+        >
+          <Link href="/analytics-guide" className="text-md">
+            ?
+          </Link>
         </Button>
       </div>
 
@@ -385,7 +390,10 @@ export default function AnalyticsPage() {
                     responsive: true,
                     plugins: { tooltip: { enabled: true } },
                     scales: {
-                      y: { beginAtZero: true, title: { display: true, text: "件数" } },
+                      y: {
+                        beginAtZero: true,
+                        title: { display: true, text: "件数" },
+                      },
                     },
                   }}
                 />
@@ -433,7 +441,10 @@ export default function AnalyticsPage() {
                     responsive: true,
                     plugins: { tooltip: { enabled: true } },
                     scales: {
-                      y: { beginAtZero: true, title: { display: true, text: "秒" } },
+                      y: {
+                        beginAtZero: true,
+                        title: { display: true, text: "秒" },
+                      },
                     },
                   }}
                 />
@@ -477,7 +488,10 @@ export default function AnalyticsPage() {
                   responsive: true,
                   plugins: { tooltip: { enabled: true } },
                   scales: {
-                    y: { beginAtZero: true, title: { display: true, text: "アクセス数" } },
+                    y: {
+                      beginAtZero: true,
+                      title: { display: true, text: "アクセス数" },
+                    },
                   },
                 }}
               />
@@ -494,7 +508,10 @@ export default function AnalyticsPage() {
                   responsive: true,
                   plugins: { tooltip: { enabled: true } },
                   scales: {
-                    y: { beginAtZero: true, title: { display: true, text: "アクセス数" } },
+                    y: {
+                      beginAtZero: true,
+                      title: { display: true, text: "アクセス数" },
+                    },
                   },
                 }}
               />
@@ -536,7 +553,10 @@ export default function AnalyticsPage() {
                 },
               ],
             }}
-            options={{ responsive: true, plugins: { tooltip: { enabled: true } } }}
+            options={{
+              responsive: true,
+              plugins: { tooltip: { enabled: true } },
+            }}
           />
         </div>
       )}
@@ -594,7 +614,10 @@ export default function AnalyticsPage() {
               responsive: true,
               plugins: { tooltip: { enabled: true } },
               scales: {
-                y: { beginAtZero: true, title: { display: true, text: "アクセス数" } },
+                y: {
+                  beginAtZero: true,
+                  title: { display: true, text: "アクセス数" },
+                },
               },
             }}
           />
