@@ -219,13 +219,7 @@ export default function MenuSectionCard({
     target?: MenuItem | null;
   }>({ open: false, mode: "create", target: null });
 
-  // const gradient = useThemeGradient();
-  // const isDark = useMemo(() => {
-  //   if (!gradient) return false;
-  //   return (["brandG", "brandH", "brandI"] as ThemeKey[]).some(
-  //     (k) => gradient === THEMES[k]
-  //   );
-  // }, [gradient]);
+ 
 
   /* ===== セクション／アイテム取得 ===== */
   useEffect(
