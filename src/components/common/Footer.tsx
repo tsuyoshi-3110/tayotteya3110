@@ -5,6 +5,10 @@ import Image from "next/image";
 import ScrollUpCTA from "@/components/ScrollUpCTA";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 import { FOOTER_STRINGS, site } from "@/config/site"; // ← 追加
+import { Button } from "@/components/ui/button";
+import clsx from "clsx";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+import { ArrowDownToLine } from "lucide-react";
 
 type T = {
   cta: string;
@@ -26,6 +30,7 @@ export default function Footer() {
   const t = STRINGS[lang];
   const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
   const iconSize = 48;
+  const gradient = useThemeGradient();
 
   return (
     <footer
@@ -40,6 +45,27 @@ export default function Footer() {
             label={t.cta}
             className="w-full max-w-xs sm:max-w-sm"
           />
+
+          <Button
+            asChild
+            variant="secondary"
+            className={clsx(
+              "h-12 px-5 rounded-2xl shadow-2xl font-bold text-white text-outline",
+              gradient
+                ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
+                : "bg-emerald-600 hover:bg-emerald-700"
+            )}
+          >
+            <a
+              href="/api/vcard"
+              download
+              title="連絡先を保存"
+              aria-label="連絡先を保存"
+            >
+              <ArrowDownToLine className="mr-2 h-4 w-4" />
+              連絡先を保存
+            </a>
+          </Button>
 
           {/* SNSアイコン */}
           <nav
@@ -98,7 +124,7 @@ export default function Footer() {
             <p>
               <a href="/areas/local" className="hover:underline">
                 {t.areaLinkText}
-              </a>{" "}
+              </a>
             </p>
           </div>
 
