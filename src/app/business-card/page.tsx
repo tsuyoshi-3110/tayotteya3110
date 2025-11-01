@@ -17,11 +17,11 @@ import {
 
 /* ========== 型 ========== */
 type Contact = {
-  name: string;          // ownerName
-  company?: string;      // siteName
-  email?: string;        // ownerEmail
-  phone?: string;        // ownerPhone
-  url?: string;          // QRにするURL
+  name: string; // ownerName
+  company?: string; // siteName
+  email?: string; // ownerEmail
+  phone?: string; // ownerPhone
+  url?: string; // QRにするURL
   ownerAddress?: string; // siteSettings の住所（拠点が無い時のフォールバック）
 };
 
@@ -48,13 +48,18 @@ function readStore(s: QueryDocumentSnapshot): StoreItem {
   };
 }
 
+/* 住所→GoogleマップURL（LINEでタップできるように） */
+function mapsUrl(addr: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    addr
+  )}`;
+}
+
 /* ========== ページ本体 ========== */
 export default function BusinessCardPage() {
-  // QR用URL（NEXT_PUBLIC_APP_URLがあればそれ、無ければ現在オリジン）
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const pageUrl = site?.baseUrl || origin || "https://example.com";
 
-  // Firestore: Editable / Base / Stores を購読（Editableを優先）
   const [editable, setEditable] = useState<SiteDoc>(null);
   const [base, setBase] = useState<SiteDoc>(null);
   const [stores, setStores] = useState<StoreItem[]>([]);
@@ -93,7 +98,6 @@ export default function BusinessCardPage() {
     };
   }, []);
 
-  // マージ（Editable > Base）
   const contact: Contact = useMemo(() => {
     const e = editable ?? {};
     const b = base ?? {};
@@ -109,82 +113,30 @@ export default function BusinessCardPage() {
     };
   }, [editable, base, pageUrl]);
 
-  // 拠点一覧（siteStores があればそれを使い、無ければ ownerAddress を1件化）
   const storeList: StoreItem[] = useMemo(() => {
     if (stores.length > 0) return stores;
-    if (contact.ownerAddress) return [{ name: contact.company, address: contact.ownerAddress, order: 0 }];
+    if (contact.ownerAddress)
+      return [
+        { name: contact.company, address: contact.ownerAddress, order: 0 },
+      ];
     return [];
   }, [stores, contact.ownerAddress, contact.company]);
 
-  // 共有用テキスト
   const shareText = useMemo(
     () => buildShareText(contact, storeList),
     [contact, storeList]
   );
 
-  // vCard
   const vcardText = useMemo(
     () => buildVCard(contact, storeList),
     [contact, storeList]
   );
   const vcfAnchorRef = useRef<HTMLAnchorElement | null>(null);
 
-  // Web Share対応可否（UI制御用）
-  const canWebShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
-
-  // 共有（Web Share API）: 例外でも必ずフォールバック
-  const handleShare = async () => {
-    const shareBase = {
-      title: `${contact.company ?? ""} | ${contact.name ?? ""}`,
-      text: shareText,
-      url: contact.url,
-    } as ShareData;
-
-    const navAny = navigator as any;
-    const vcf = new File([vcardText], `${contact.name || "contact"}.vcf`, {
-      type: "text/vcard",
-    });
-    const canShareFiles =
-      !!navAny?.canShare && navAny.canShare({ files: [vcf] });
-
-    try {
-      if (canShareFiles) {
-        await navAny.share({ ...shareBase, files: [vcf] });
-        return;
-      }
-      if (navigator.share) {
-        await navigator.share(shareBase);
-        return;
-      }
-      throw new Error("share-not-supported");
-    } catch {
-      // フォールバック：クリップボードへコピー
-      try {
-        await navigator.clipboard.writeText(shareText);
-        alert("共有シートが使えないため、名刺情報をコピーしました。LINEやメールに貼り付けてください。");
-      } catch {
-        // それでも無理なら URL だけ LINE プラグインへ
-        window.open(
-          `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(
-            contact.url ?? pageUrl
-          )}`,
-          "_blank"
-        );
-      }
-    }
-  };
-
-  // LINE（テキスト）・メール（本文）リンク
-  const lineTextUrl = `line://msg/text/${encodeURIComponent(shareText)}`; // スマホ専用
+  const lineTextUrl = `line://msg/text/${encodeURIComponent(shareText)}`;
   const mailto = `mailto:?subject=${encodeURIComponent(
     `${contact.company ?? ""} ${contact.name ?? ""}`
   )}&body=${encodeURIComponent(shareText)}`;
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(contact.url ?? pageUrl);
-    alert("リンクをコピーしました。");
-  };
 
   const handleDownloadVcf = () => {
     const blob = new Blob([vcardText], { type: "text/vcard;charset=utf-8" });
@@ -199,24 +151,27 @@ export default function BusinessCardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b mt-10 dark:from-neutral-900 dark:to-neutral-950">
       <div className="mx-auto max-w-3xl p-6">
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-0 bg-white/50">
           <CardHeader className="pb-2">
-            {/* 会社名と氏名は段落で分ける（役職は出さない） */}
             {contact.company && (
-              <p className="text-2xl font-bold leading-tight">{contact.company}</p>
+              <p className="text-2xl font-bold leading-tight">
+                {contact.company}
+              </p>
             )}
             <h2 className="text-lg mt-2 leading-tight">{contact.name}</h2>
           </CardHeader>
 
           <CardContent>
             <div className="grid md:grid-cols-2 gap-6 items-center">
-              {/* 左: テキスト */}
               <div className="space-y-3">
                 <div className="pt-2 text-sm space-y-1">
                   {contact.phone && (
                     <p>
                       <span className="inline-block w-14 opacity-60">TEL</span>
-                      <a href={`tel:${contact.phone}`} className="underline underline-offset-2">
+                      <a
+                        href={`tel:${contact.phone}`}
+                        className="underline underline-offset-2"
+                      >
                         {contact.phone}
                       </a>
                     </p>
@@ -224,26 +179,37 @@ export default function BusinessCardPage() {
                   {contact.email && (
                     <p>
                       <span className="inline-block w-14 opacity-60">MAIL</span>
-                      <a href={`mailto:${contact.email}`} className="underline underline-offset-2">
+                      <a
+                        href={`mailto:${contact.email}`}
+                        className="underline underline-offset-2"
+                      >
                         {contact.email}
                       </a>
                     </p>
                   )}
                   <p>
                     <span className="inline-block w-14 opacity-60">WEB</span>
-                    <a href={contact.url} target="_blank" className="underline underline-offset-2">
+                    <a
+                      href={contact.url}
+                      target="_blank"
+                      className="underline underline-offset-2"
+                    >
                       {contact.url}
                     </a>
                   </p>
 
-                  {/* 拠点一覧（複数対応） */}
                   {storeList.length > 0 && (
                     <div className="pt-2">
                       <p className="opacity-60 text-xs mb-1">拠点</p>
                       <ul className="list-disc ml-5 space-y-1">
                         {storeList.map((s, i) => (
-                          <li key={`${s.name ?? "store"}-${i}`} className="text-sm">
-                            {s.name ? <span className="font-medium">{s.name}：</span> : null}
+                          <li
+                            key={`${s.name ?? "store"}-${i}`}
+                            className="text-sm"
+                          >
+                            {s.name ? (
+                              <span className="font-medium">{s.name}：</span>
+                            ) : null}
                             <span>{s.address}</span>
                           </li>
                         ))}
@@ -253,53 +219,32 @@ export default function BusinessCardPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-4">
-                  <Button
-                    onClick={handleShare}
-                    disabled={!canWebShare}
-                    className="rounded-2xl px-4 py-5"
-                  >
-                    共有（AirDrop / LINE / メール）
-                  </Button>
-
-                  {/* スマホの LINE アプリに “テキスト” を直接送る */}
                   <a href={lineTextUrl} className="inline-block">
                     <Button variant="secondary" className="rounded-2xl">
-                      LINEで送る（テキスト）
+                      LINEで送る
                     </Button>
                   </a>
-
-                  {/* メール本文に “テキスト” を入れる */}
                   <a href={mailto} className="inline-block">
                     <Button variant="secondary" className="rounded-2xl">
-                      メールで送る（テキスト）
+                      メールで送る
                     </Button>
                   </a>
-
-                  <Button variant="outline" onClick={handleCopy} className="rounded-2xl">
-                    リンクをコピー
-                  </Button>
-
-                  <Button variant="ghost" onClick={handleDownloadVcf} className="rounded-2xl">
-                    vCardを保存（.vcf）
+                  <Button
+                    variant="secondary"
+                    onClick={handleDownloadVcf}
+                    className="rounded-2xl"
+                  >
+                    vCardを保存
                   </Button>
                   <a ref={vcfAnchorRef} className="hidden" aria-hidden />
                 </div>
-
-                <p className="text-xs text-muted-foreground pt-2">
-                  ※ Web Share API は HTTPS 環境の iOS Safari / Android Chrome などで動作します。
-                  「LINEで送る（テキスト）」はスマホ専用リンクです（デスクトップでは動作しない場合があります）。
-                </p>
               </div>
 
-              {/* 右: QRコード */}
               <div className="flex flex-col items-center justify-center gap-4 py-6">
                 <div className="bg-white dark:bg-neutral-800 p-5 rounded-2xl shadow">
                   <QRCode value={contact.url ?? pageUrl} size={196} />
                 </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  あなたの Pageit URL を QR に変換しています。<br />
-                  カメラで読み取ってもらえば、そのままサイトへアクセスできます。
-                </p>
+                <p className="text-sm text-muted-foreground text-center">URL</p>
               </div>
             </div>
           </CardContent>
@@ -323,10 +268,13 @@ function buildShareText(c: Contact, stores: StoreItem[]) {
     for (const s of stores) {
       if (!s.address && !s.name) continue;
       const head = s.name ? `${s.name}: ` : "";
-      lines.push(`・${head}${s.address ?? ""}`);
+      const addr = s.address ?? "";
+      lines.push(`・${head}${addr}`);
+      if (addr) lines.push(`MAP: ${mapsUrl(addr)}`); // ← 住所の直後にGoogleマップURL
     }
   } else if (c.ownerAddress) {
     lines.push(`ADDR: ${c.ownerAddress}`);
+    lines.push(`MAP: ${mapsUrl(c.ownerAddress)}`); // ← フォールバック住所にも地図リンク
   }
 
   if (c.url) lines.push(`URL: ${c.url}`);
@@ -334,7 +282,11 @@ function buildShareText(c: Contact, stores: StoreItem[]) {
 }
 
 function escVCard(text: string) {
-  return text.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
 }
 
 function buildVCard(c: Contact, stores: StoreItem[]) {
@@ -346,10 +298,11 @@ function buildVCard(c: Contact, stores: StoreItem[]) {
     stores.length > 0
       ? stores
           .filter((s) => s.address)
-          .map((s) =>
-            `ADR;TYPE=WORK${s.name ? `;LABEL=${escVCard(s.name)}` : ""}:;;${escVCard(
-              s.address!
-            )};;;;`
+          .map(
+            (s) =>
+              `ADR;TYPE=WORK${
+                s.name ? `;LABEL=${escVCard(s.name)}` : ""
+              }:;;${escVCard(s.address!)};;;;`
           )
       : c.ownerAddress
       ? [`ADR;TYPE=WORK:;;${escVCard(c.ownerAddress)};;;;`]
