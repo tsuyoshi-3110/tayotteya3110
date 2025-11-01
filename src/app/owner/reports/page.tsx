@@ -241,28 +241,24 @@ export default async function ReportsPage({
         <a
           href={q(7)}
           className={btnClass(isQuickActive(7))}
-          aria-pressed={isQuickActive(7)}
         >
           直近7日
         </a>
         <a
           href={q(30)}
           className={btnClass(isQuickActive(30))}
-          aria-pressed={isQuickActive(30)}
         >
           直近30日
         </a>
         <a
           href={q(90)}
           className={btnClass(isQuickActive(90))}
-          aria-pressed={isQuickActive(90)}
         >
           直近90日
         </a>
         <a
           href={q(365)}
           className={btnClass(isQuickActive(365))}
-          aria-pressed={isQuickActive(365)}
         >
           直近1年
         </a>

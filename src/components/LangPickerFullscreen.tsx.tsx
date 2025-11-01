@@ -52,7 +52,7 @@ export default function LangPickerFullscreen({
     } catch {
       return [];
     }
-  }, [open]);
+  }, []);
 
   const onPick = (k: UILang) => {
     setUiLang(k);

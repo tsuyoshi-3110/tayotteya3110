@@ -37,7 +37,7 @@ export default function FontLoader() {
     };
 
     fetchFont();
-  }, [SITE_KEY]);
+  }, []);
 
   return null;
 }
