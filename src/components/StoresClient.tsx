@@ -93,6 +93,7 @@ type Store = {
   order?: number;
   createdAt?: any;
   updatedAt?: any;
+  phone?: string;
 };
 
 type Base = { name: string; address: string; description?: string };
@@ -217,6 +218,7 @@ export default function StoresClient() {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
+  const [phone, setPhone] = useState("");
   // 店舗個別の口コミ表示フラグ
   const [showReviews, setShowReviews] = useState(true);
 
@@ -345,7 +347,9 @@ export default function StoresClient() {
           base,
           t,
           ...(geo ? { geo } : {}),
-          showReviews: data.showReviews ?? true, // ★ 追加：既定はtrue
+          showReviews: data.showReviews ?? true,
+          // ★ 追加
+          phone: typeof data.phone === "string" ? data.phone : undefined,
         } as StoreDoc;
       });
       docs.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
@@ -363,6 +367,7 @@ export default function StoresClient() {
     setDescription("");
     setShowReviews(true); // ★ 新規は既定でON
     setFile(null);
+    setPhone("");
     setFormMode("add");
   };
 
@@ -374,6 +379,7 @@ export default function StoresClient() {
     setDescription(s.base?.description ?? s.description ?? "");
     setShowReviews(s.showReviews ?? true); // ★ 既存を反映
     setFile(null);
+    setPhone(s.phone ?? "");
     setFormMode("edit");
   };
 
@@ -548,6 +554,8 @@ export default function StoresClient() {
         originalFileName?: string;
         geo?: Geo;
         showReviews: boolean;
+        // ★ 追加
+        phone?: string;
       } = {
         base,
         t,
@@ -558,7 +566,9 @@ export default function StoresClient() {
         updatedAt: serverTimestamp(),
         ...(originalFileName && { originalFileName }),
         ...(geo ? { geo } : {}),
-        showReviews, // ★ 追加
+        showReviews,
+        // ★ 追加（未入力なら入れない）
+        ...(phone.trim() ? { phone: phone.trim() } : {}),
       };
 
       if (isEdit) {
@@ -777,6 +787,15 @@ export default function StoresClient() {
               onChange={(e) => setAddress(e.target.value)}
               className="w-full border px-3 py-2 rounded mb-3"
               rows={2}
+              disabled={uploading || submitFlag}
+            />
+
+            <input
+              type="tel"
+              placeholder="電話番号（任意） 例：06-1234-5678 / +81 6-1234-5678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-3"
               disabled={uploading || submitFlag}
             />
 
@@ -1085,6 +1104,19 @@ function StoreCard({
             </div>
           ))}
         </div>
+
+        {/* 住所表示ブロックのすぐ下など、見やすい位置に追加 */}
+        {s.phone && (
+          <p className="text-sm mt-1">
+            <a
+              href={`tel:${s.phone}`}
+              className="underline"
+              aria-label="店舗に電話する"
+            >
+              TEL: {s.phone}
+            </a>
+          </p>
+        )}
 
         {locDescription && (
           <p className="text-sm whitespace-pre-wrap">{locDescription}</p>

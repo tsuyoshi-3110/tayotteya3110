@@ -106,7 +106,7 @@ export function PhoneSection() {
               {formatDisplay(phone)}
             </a>
           ) : (
-            <p className="text-white text-lg">※ 電話番号が未登録です</p>
+            <p className="text-white text-lg">※ 電話番号(代表)が未登録です</p>
           )}
 
           {isLoggedIn && (

@@ -20,7 +20,7 @@ type Contact = {
   name: string; // ownerName
   company?: string; // siteName
   email?: string; // ownerEmail
-  phone?: string; // ownerPhone
+  phone?: string; // ownerPhone（全体表示用）
   url?: string; // QRにするURL
   ownerAddress?: string; // siteSettings の住所（拠点が無い時のフォールバック）
 };
@@ -37,6 +37,8 @@ type StoreItem = {
   name?: string;
   address?: string;
   order?: number;
+  /** 店舗個別の電話（任意） */
+  phone?: string;
 };
 
 function readStore(s: QueryDocumentSnapshot): StoreItem {
@@ -45,6 +47,10 @@ function readStore(s: QueryDocumentSnapshot): StoreItem {
     name: typeof d?.name === "string" ? d.name : undefined,
     address: typeof d?.address === "string" ? d.address : undefined,
     order: typeof d?.order === "number" ? d.order : 9_999,
+    phone:
+      typeof d?.phone === "string" && d.phone.trim()
+        ? d.phone.trim()
+        : undefined,
   };
 }
 
@@ -98,6 +104,7 @@ export default function BusinessCardPage() {
     };
   }, []);
 
+  // 上部の「TEL」は siteSettings(Editable>Base) をそのまま使う
   const contact: Contact = useMemo(() => {
     const e = editable ?? {};
     const b = base ?? {};
@@ -113,6 +120,7 @@ export default function BusinessCardPage() {
     };
   }, [editable, base, pageUrl]);
 
+  // 拠点はそのまま siteStores の値を表示（電話は店舗ごとの phone がある時のみ）
   const storeList: StoreItem[] = useMemo(() => {
     if (stores.length > 0) return stores;
     if (contact.ownerAddress)
@@ -202,17 +210,31 @@ export default function BusinessCardPage() {
                     <div className="pt-2">
                       <p className="opacity-60 text-xs mb-1">拠点</p>
                       <ul className="list-disc ml-5 space-y-1">
-                        {storeList.map((s, i) => (
-                          <li
-                            key={`${s.name ?? "store"}-${i}`}
-                            className="text-sm"
-                          >
-                            {s.name ? (
-                              <span className="font-medium">{s.name}：</span>
-                            ) : null}
-                            <span>{s.address}</span>
-                          </li>
-                        ))}
+                        {storeList.map((s, i) => {
+                          const phone = s.phone?.trim() || ""; // ← 店舗の phone のみ表示
+                          return (
+                            <li
+                              key={`${s.name ?? "store"}-${i}`}
+                              className="text-sm"
+                            >
+                              {s.name ? (
+                                <span className="font-medium">{s.name}：</span>
+                              ) : null}
+                              <span>{s.address}</span>
+                              {phone && (
+                                <div className="mt-0.5">
+                                  <span className="opacity-60 mr-1">TEL</span>
+                                  <a
+                                    href={`tel:${phone}`}
+                                    className="underline underline-offset-2"
+                                  >
+                                    {phone}
+                                  </a>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
@@ -260,7 +282,7 @@ function buildShareText(c: Contact, stores: StoreItem[]) {
   if (c.company) lines.push(c.company);
   if (c.name) lines.push(c.name);
 
-  if (c.phone) lines.push(`TEL: ${c.phone}`);
+  if (c.phone) lines.push(`TEL: ${c.phone}`); // ← 上部は siteSettings
   if (c.email) lines.push(`MAIL: ${c.email}`);
 
   if (stores.length > 0) {
@@ -270,11 +292,14 @@ function buildShareText(c: Contact, stores: StoreItem[]) {
       const head = s.name ? `${s.name}: ` : "";
       const addr = s.address ?? "";
       lines.push(`・${head}${addr}`);
-      if (addr) lines.push(`MAP: ${mapsUrl(addr)}`); // ← 住所の直後にGoogleマップURL
+      // 店舗TELは siteStores にある時だけ
+      if (s.phone?.trim()) lines.push(`  TEL: ${s.phone.trim()}`);
+      if (addr) lines.push(`  MAP: ${mapsUrl(addr)}`);
     }
   } else if (c.ownerAddress) {
     lines.push(`ADDR: ${c.ownerAddress}`);
-    lines.push(`MAP: ${mapsUrl(c.ownerAddress)}`); // ← フォールバック住所にも地図リンク
+    if (c.phone) lines.push(`TEL: ${c.phone}`);
+    lines.push(`MAP: ${mapsUrl(c.ownerAddress)}`);
   }
 
   if (c.url) lines.push(`URL: ${c.url}`);
