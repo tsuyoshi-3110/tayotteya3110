@@ -7,8 +7,8 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
-const SITE_KEY = "tayotteya3110";
 const EXCLUDED = new Set(["login", "analytics", "community", "postList"]);
 
 function ymdToTs(ymd: string, endOfDay = false) {

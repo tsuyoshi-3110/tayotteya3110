@@ -22,14 +22,15 @@ import UILangFloatingPicker from "../UILangFloatingPicker";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { doc, onSnapshot } from "firebase/firestore";
+import { siteName } from "@/config/site";
 
 /* ===== 多言語辞書 ===== */
 type Keys =
   | "home"
   | "menuTitle"
-  | "projects" // ★ 追加：旧 products（施工実績）
-  | "products" // ★ 新設：商品一覧
-  | "productsEC" // EC
+  | "projects"
+  | "products"
+  | "productsEC"
   | "staffs"
   | "pricing"
   | "areas"
@@ -46,7 +47,8 @@ type Keys =
   | "analytics"
   | "admin"
   | "aiChat"
-  | "hours";
+  | "hours"
+  | "business-card"; // ★ 追加：電子名刺
 
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
@@ -72,6 +74,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "管理者ログイン",
     aiChat: "AIサポート",
     hours: "営業時間",
+    "business-card": "デジタル名刺",
   },
   en: {
     menuTitle: "Menu",
@@ -96,6 +99,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Administrator Login",
     aiChat: "AI Chat",
     hours: "Hours",
+    "business-card": "Business Card",
   },
   zh: {
     menuTitle: "菜单",
@@ -120,6 +124,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "管理员登录",
     aiChat: "AI聊天",
     hours: "营业时间",
+    "business-card": "电子名片",
   },
   "zh-TW": {
     menuTitle: "選單",
@@ -144,6 +149,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "管理者登入",
     aiChat: "AI聊天",
     hours: "營業時間",
+    "business-card": "電子名片",
   },
   ko: {
     menuTitle: "메뉴",
@@ -168,6 +174,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "관리자 로그인",
     aiChat: "AI 채팅",
     hours: "영업시간",
+    "business-card": "디지털 명함",
   },
   fr: {
     menuTitle: "Menu",
@@ -192,6 +199,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Connexion administrateur",
     aiChat: "Chat IA",
     hours: "Horaires",
+    "business-card": "Carte de visite numérique",
   },
   es: {
     menuTitle: "Menú",
@@ -216,6 +224,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Inicio de sesión de administrador",
     aiChat: "Chat IA",
     hours: "Horario",
+    "business-card": "Tarjeta de presentación digital",
   },
   de: {
     menuTitle: "Menü",
@@ -240,6 +249,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Administrator-Anmeldung",
     aiChat: "AI-Chat",
     hours: "Öffnungszeiten",
+    "business-card": "Digitale Visitenkarte",
   },
   pt: {
     menuTitle: "Menu",
@@ -264,6 +274,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Login do administrador",
     aiChat: "Chat IA",
     hours: "Horário",
+    "business-card": "Cartão de visita digital",
   },
   it: {
     menuTitle: "Menu",
@@ -288,6 +299,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Accesso amministratore",
     aiChat: "Chat IA",
     hours: "Orari",
+    "business-card": "Biglietto da visita digitale",
   },
   ru: {
     menuTitle: "Меню",
@@ -312,6 +324,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Вход администратора",
     aiChat: "AI-чат",
     hours: "Часы работы",
+    "business-card": "Цифровая визитка",
   },
   th: {
     menuTitle: "เมนู",
@@ -336,6 +349,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "เข้าสู่ระบบผู้ดูแล",
     aiChat: "แชต AI",
     hours: "เวลาเปิดทำการ",
+    "business-card": "นามบัตรดิจิทัล",
   },
   vi: {
     menuTitle: "Menu",
@@ -360,6 +374,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Đăng nhập quản trị",
     aiChat: "Trò chuyện AI",
     hours: "Giờ làm việc",
+    "business-card": "Danh thiếp số",
   },
   id: {
     menuTitle: "Menu",
@@ -384,6 +399,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "Masuk admin",
     aiChat: "Obrolan AI",
     hours: "Jam operasional",
+    "business-card": "Kartu nama digital",
   },
   hi: {
     menuTitle: "मेनू",
@@ -408,6 +424,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "प्रशासक लॉगिन",
     aiChat: "AI चैट",
     hours: "समय",
+    "business-card": "डिजिटल विज़िटिंग कार्ड",
   },
   ar: {
     menuTitle: "القائمة",
@@ -432,6 +449,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     admin: "تسجيل دخول المسؤول",
     aiChat: "دردشة الذكاء الاصطناعي",
     hours: "ساعات العمل",
+    "business-card": "بطاقة عمل رقمية",
   },
 };
 
@@ -443,9 +461,8 @@ const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "productsEC", href: "/productsEC" },
   { key: "home", href: "/" },
-  { key: "projects", href: "/projects" }, // ★ 旧 products の中身はこちらへ
-  { key: "products", href: "/products" }, // ★ 新しい商品一覧
-
+  { key: "projects", href: "/projects" },
+  { key: "products", href: "/products" },
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
   { key: "hours", href: "/hours" },
@@ -464,7 +481,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
 type EditableSettings = {
   visibleMenuKeys?: string[];
   i18n?: { enabled?: boolean; langs?: UILang[] };
-  businessHours?: { enabled?: boolean }; // ★ 追加
+  businessHours?: { enabled?: boolean };
 };
 
 export default function Header({ className = "" }: { className?: string }) {
@@ -502,8 +519,6 @@ export default function Header({ className = "" }: { className?: string }) {
         // ヘッダーで許可しているキーだけを使う
         const allowedKeys = new Set(MENU_ITEMS.map((m) => m.key));
 
-        // 1) Firestore の visibleMenuKeys があればそれをベースに
-        // 2) なければ、ヘッダーが持つ全メニューをベースに
         const baseFromDoc = Array.isArray(data.visibleMenuKeys)
           ? data.visibleMenuKeys.filter(
               (k): k is (typeof MENU_ITEMS)[number]["key"] =>
@@ -513,7 +528,6 @@ export default function Header({ className = "" }: { className?: string }) {
 
         const nextSet = new Set(baseFromDoc);
 
-        // businessHours によって hours を強制加除
         const bhEnabled = data.businessHours?.enabled === true;
         if (bhEnabled) nextSet.add("hours");
         else nextSet.delete("hours");
@@ -548,7 +562,7 @@ export default function Header({ className = "" }: { className?: string }) {
 
   const rtl = uiLang === "ar";
 
-  // 日本語固定ラベル
+  // 日本語固定ラベル（必要ならここに "business-card" を追加してもOK）
   const JP_ALWAYS = new Set<Keys>([
     "timeline",
     "community",
@@ -620,7 +634,7 @@ export default function Header({ className = "" }: { className?: string }) {
             unoptimized
           />
         )}
-        お掃除処たよって屋
+        {siteName}
       </Link>
 
       {/* ハンバーガー */}
@@ -713,6 +727,14 @@ export default function Header({ className = "" }: { className?: string }) {
                       className="text-center text-lg text-white text-outline"
                     >
                       {labelOf("analytics")}
+                    </Link>
+                    {/* ★ 電子名刺リンク（ログイン時表示） */}
+                    <Link
+                      href="/business-card"
+                      onClick={() => setOpen(false)}
+                      className="text-center text-lg text-white text-outline"
+                    >
+                      {labelOf("business-card")}
                     </Link>
                   </>
                 )}

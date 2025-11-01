@@ -86,7 +86,7 @@ export const AI_SITE: AiSiteConfig = {
   url: "https://tayotteya.shop",
   areasByLang: {
     ja: "大阪・兵庫（例：大阪市東淀川区／豊中市／吹田市 など）",
-    en: "Osaka & Hyogo (e.g., Higashiyodogawa, Toyonaka, Suita)",
+    en: "Osaka & Hyogo (e.g., local, Toyonaka, Suita)",
   },
   servicesByLang: {
     ja: ["ハウスクリーニング", "エアコンクリーニング", "家事代行", "整理収納"],

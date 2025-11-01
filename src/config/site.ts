@@ -15,6 +15,9 @@ try {
 /* =========================
    サイト固有（ここだけ編集）
 ========================= */
+
+export const siteName = "お掃除処　たよって屋";
+
 export const site = {
   key: SITE_KEY,
   domain: DOMAIN,
@@ -48,7 +51,9 @@ export const site = {
    便利ヘルパ
 ========================= */
 export const pageUrl = (path = "/") =>
-  `${site.baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  `${site.baseUrl.replace(/\/$/, "")}${
+    path.startsWith("/") ? path : `/${path}`
+  }`;
 
 const ogImage = (p?: string) => pageUrl(p ?? site.logoPath);
 
@@ -71,11 +76,247 @@ export const copy = {
       "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
     heroTail:
       "各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。",
-    // ページ側で「は／を中心に」を書かなくてよい完成文
-    heroIntroLine:
-      `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
+    heroIntroLine: `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
+  },
+
+  /** ローカルエリアページ（/areas/local） */
+  areasLocal: {
+    // ページ見出し
+    h1: "東淀川区の家事代行・ハウスクリーニング",
+    lead: "淡路・上新庄・だいどう豊里・井高野・柴島など東淀川区全域に対応。",
+
+    // サービスブロック
+    services: [
+      {
+        title: "家事代行（単発／定期）",
+        bullets: [
+          "掃除・片付け・洗濯・買い物代行",
+          "お子様／高齢者の見守り（家事の範囲内）",
+          "女性スタッフ指名可",
+        ],
+      },
+      {
+        title: "ハウスクリーニング",
+        bullets: [
+          "水回り（キッチン・浴室・洗面・トイレ）",
+          "エアコンクリーニング",
+          "引越し前後・空室クリーニング",
+        ],
+      },
+    ],
+
+    // カバレッジ
+    coverageTitle: "対応エリア（東淀川区）",
+    coverageBody:
+      "淡路・東淡路・菅原・豊新・上新庄・瑞光・小松・南江口・北江口・井高野・大桐・大隅・豊里・大道南・柴島・下新庄 ほか",
+
+    // FAQ（→ 構造化データに流用）
+    faq: [
+      {
+        q: "東淀川区で当日予約は可能ですか？",
+        a: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
+      },
+      {
+        q: "鍵預かりでの不在クリーニングは対応していますか？",
+        a: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
+      },
+      {
+        q: "当日のお願いは可能ですか？",
+        a: "スケジュールに空きがあれば対応いたします。まずはお問い合わせください。",
+      },
+      {
+        q: "鍵預かりや在宅不要の対応は？",
+        a: "条件を確認のうえ、適切に管理して対応可能です。",
+      },
+    ],
+
+    // お問い合わせブロック
+    contactTitle: "お問い合わせ",
+    contactText:
+      "予約状況の確認・見積りは、LINE／メールフォームからお気軽にどうぞ。",
+
+    // 下部ナビ
+    toProductsText: "トップページへ",
   },
 } as const;
+
+/* =========================
+   ★ Footer 用 L10N（追加）
+========================= */
+export type FooterI18n = {
+  cta: string;
+  snsAria: string;
+  instagramAlt: string;
+  lineAlt: string;
+  siteAria: string;
+  siteAlt: string;
+  areaLinkText: string;
+  rights: string;
+};
+
+/** Footer の多言語テキスト */
+export const FOOTER_STRINGS: Record<string, FooterI18n> = {
+  ja: {
+    cta: "無料相談・お問い合わせ",
+    snsAria: "SNSリンク",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "公式サイト",
+    siteAlt: site.name, // ← サイト名に追従
+    areaLinkText: "東淀川区の家事代行・ハウスクリーニング",
+    rights: "All rights reserved.",
+  },
+  en: {
+    cta: "Contact us",
+    snsAria: "Social links",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Official website",
+    siteAlt: "Tayotteya (Official)",
+    areaLinkText: "Housekeeping & house cleaning in local",
+    rights: "All rights reserved.",
+  },
+  zh: {
+    cta: "免费咨询・联系",
+    snsAria: "社交链接",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "官网",
+    siteAlt: "Tayotteya 官方网站",
+    areaLinkText: "东淀川区的家政与家居清洁",
+    rights: "版权所有。",
+  },
+  "zh-TW": {
+    cta: "免費諮詢・聯絡我們",
+    snsAria: "社群連結",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "官方網站",
+    siteAlt: "Tayotteya 官方網站",
+    areaLinkText: "東淀川區的家事服務・居家清潔",
+    rights: "版權所有。",
+  },
+  ko: {
+    cta: "문의하기",
+    snsAria: "SNS 링크",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "공식 사이트",
+    siteAlt: "Tayotteya 공식",
+    areaLinkText: "히가시요도가와구 가사도우미·하우스 클리닝",
+    rights: "판권 소유.",
+  },
+  fr: {
+    cta: "Nous contacter",
+    snsAria: "Liens sociaux",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Site officiel",
+    siteAlt: "Tayotteya (Officiel)",
+    areaLinkText: "Ménage & nettoyage domestique à local",
+    rights: "Tous droits réservés.",
+  },
+  es: {
+    cta: "Contáctanos",
+    snsAria: "Enlaces sociales",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Sitio oficial",
+    siteAlt: "Tayotteya (Oficial)",
+    areaLinkText: "Servicio doméstico y limpieza en local",
+    rights: "Todos los derechos reservados.",
+  },
+  de: {
+    cta: "Kontakt",
+    snsAria: "Soziale Links",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Offizielle Website",
+    siteAlt: "Tayotteya (Offiziell)",
+    areaLinkText: "Haushaltshilfe & Hausreinigung in local",
+    rights: "Alle Rechte vorbehalten.",
+  },
+  pt: {
+    cta: "Fale conosco",
+    snsAria: "Redes sociais",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Site oficial",
+    siteAlt: "Tayotteya (Oficial)",
+    areaLinkText: "Serviços domésticos e limpeza em local",
+    rights: "Todos os direitos reservados.",
+  },
+  it: {
+    cta: "Contattaci",
+    snsAria: "Link social",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Sito ufficiale",
+    siteAlt: "Tayotteya (Ufficiale)",
+    areaLinkText: "Servizi domestici e pulizie a local",
+    rights: "Tutti i diritti riservati.",
+  },
+  ru: {
+    cta: "Связаться с нами",
+    snsAria: "Ссылки на соцсети",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Официальный сайт",
+    siteAlt: "Tayotteya (Официальный)",
+    areaLinkText: "Бытовые услуги и уборка в районе Хигасийодогава",
+    rights: "Все права защищены.",
+  },
+  th: {
+    cta: "ติดต่อเรา",
+    snsAria: "ลิงก์โซเชียล",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "เว็บไซต์ทางการ",
+    siteAlt: "Tayotteya (ทางการ)",
+    areaLinkText: "แม่บ้านและทำความสะอาดในเขตฮิกาชิโยโดกาวะ",
+    rights: "สงวนลิขสิทธิ์",
+  },
+  vi: {
+    cta: "Liên hệ",
+    snsAria: "Liên kết mạng xã hội",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Trang chính thức",
+    siteAlt: "Tayotteya (Chính thức)",
+    areaLinkText: "Dọn dẹp & giúp việc nhà tại local",
+    rights: "Mọi quyền được bảo lưu.",
+  },
+  id: {
+    cta: "Hubungi kami",
+    snsAria: "Tautan sosial",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "Situs resmi",
+    siteAlt: "Tayotteya (Resmi)",
+    areaLinkText: "Jasa bersih-bersih & asisten rumah tangga di local",
+    rights: "Hak cipta dilindungi.",
+  },
+  hi: {
+    cta: "संपर्क करें",
+    snsAria: "सोशल लिंक",
+    instagramAlt: "Instagram",
+    lineAlt: "LINE",
+    siteAria: "आधिकारिक वेबसाइट",
+    siteAlt: "Tayotteya (आधिकारिक)",
+    areaLinkText: "हिगाशी-योदोगावा में हाउसकीपिंग व हाउस क्लीनिंग",
+    rights: "सर्वाधिकार सुरक्षित।",
+  },
+  ar: {
+    cta: "اتصل بنا",
+    snsAria: "روابط التواصل الاجتماعي",
+    instagramAlt: "إنستغرام",
+    lineAlt: "لاين",
+    siteAria: "الموقع الرسمي",
+    siteAlt: "تايوتيّا (رسمي)",
+    areaLinkText: "خدمات التدبير المنزلي وتنظيف المنازل في هيغашي يودوغاوا",
+    rights: "جميع الحقوق محفوظة.",
+  },
+};
 
 /* =========================
    ★ FAQ データ（ここで集約管理）
@@ -153,51 +394,47 @@ const PAGES = {
   products: {
     path: "/products",
     title: `サービス一覧｜${site.name}`,
-    description:
-      `${site.name}の家事代行・ハウスクリーニングのサービス一覧。水回り清掃や整理整頓、エアコン掃除などを掲載。`,
+    description: `${site.name}の家事代行・ハウスクリーニングのサービス一覧。水回り清掃や整理整頓、エアコン掃除などを掲載。`,
     ogType: "website",
     ogImage: "/ogp-products.jpg",
   },
   productsEC: {
     path: "/products-ec",
     title: `サービス一覧（オンライン予約）｜${site.name}`,
-    description:
-      `${site.name}のサービス一覧（オンライン予約対応）。水回り・キッチン・浴室など日常のお手伝いをプロが丁寧に実施。`,
+    description: `${site.name}のサービス一覧（オンライン予約対応）。水回り・キッチン・浴室など日常のお手伝いをプロが丁寧に実施。`,
     ogType: "website",
     ogImage: "/ogp-products.jpg",
   },
   projects: {
     path: "/projects",
     title: `サービス一覧｜${site.name}`,
-    description:
-      `${site.name}のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載。`,
+    description: `${site.name}のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載。`,
     ogType: "website",
   },
   stores: {
     path: "/stores",
     title: `店舗一覧｜${site.name}`,
-    description:
-      `${site.name}の店舗一覧ページ。大阪・兵庫エリア対応の拠点情報をご紹介します。`,
+    description: `${site.name}の店舗一覧ページ。大阪・兵庫エリア対応の拠点情報をご紹介します。`,
     ogType: "website",
   },
   faq: {
     path: "/faq",
     title: `よくある質問（FAQ）｜${site.name}`,
-    description:
-      `料金・対応エリア・キャンセル・支払い方法など、${site.name}のハウスクリーニング／家事代行に関するよくある質問。`,
+    description: `料金・対応エリア・キャンセル・支払い方法など、${site.name}のハウスクリーニング／家事代行に関するよくある質問。`,
     ogType: "article",
   },
 } as const;
 
 export type PageKey = keyof typeof PAGES;
-export const pages: Record<PageKey, PageDef> =
-  PAGES as unknown as Record<PageKey, PageDef>;
+export const pages: Record<PageKey, PageDef> = PAGES as unknown as Record<
+  PageKey,
+  PageDef
+>;
 
 /* =========================
    使い回し Metadata ビルダー
 ========================= */
 export const seo = {
-  // 全ページ共通（app/layout.tsx の metadata に）
   base: (): Metadata => ({
     title: `${site.name}｜${site.tagline}`,
     description: site.description,
@@ -206,12 +443,10 @@ export const seo = {
     metadataBase: new URL(site.baseUrl),
     alternates: { canonical: pageUrl("/") },
 
-    // ✅ Search Console 所有権メタ（集中管理）
     verification: site.googleSiteVerification
       ? { google: site.googleSiteVerification }
       : undefined,
 
-    // ✅ 追加: robots 明示（Googlebot 含む / ハイフン区切りキーは文字列リテラル）
     robots: {
       index: true,
       follow: true,
@@ -231,7 +466,12 @@ export const seo = {
       siteName: site.name,
       type: "website",
       images: [
-        { url: pageUrl(site.logoPath), width: 1200, height: 630, alt: `${site.name} OGP` },
+        {
+          url: pageUrl(site.logoPath),
+          width: 1200,
+          height: 630,
+          alt: `${site.name} OGP`,
+        },
       ],
       locale: "ja_JP",
     },
@@ -251,7 +491,6 @@ export const seo = {
     },
   }),
 
-  // ページ個別
   page: (key: PageKey, extra?: Partial<Metadata>): Metadata => {
     const p = pages[key];
     return {
@@ -264,7 +503,9 @@ export const seo = {
         description: p.description,
         url: pageUrl(p.path),
         siteName: site.name,
-        images: [{ url: ogImage(p.ogImage), width: 1200, height: 630, alt: site.name }],
+        images: [
+          { url: ogImage(p.ogImage), width: 1200, height: 630, alt: site.name },
+        ],
         locale: "ja_JP",
         type: p.ogType,
       },
@@ -278,3 +519,19 @@ export const seo = {
     };
   },
 };
+
+
+export type QA = { q: string; a: string };
+
+// これまで: export function faqToJsonLd(faq: { q: string; a: string }[]) {
+export function faqToJsonLd(faq: ReadonlyArray<QA>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
+  };
+}
