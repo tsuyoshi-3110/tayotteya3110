@@ -620,7 +620,7 @@ export default function Header({ className = "" }: { className?: string }) {
             unoptimized
           />
         )}
-        株式会社　福源屋
+        お掃除処たよって屋
       </Link>
 
       {/* ハンバーガー */}

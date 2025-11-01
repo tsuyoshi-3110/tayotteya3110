@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
-const SITE_KEY = "fukugenyaguide225";
+const SITE_KEY = "tayotteya3110";
 
 export function useHeaderLogoUrl(): string {
   const [url, setUrl] = useState("");

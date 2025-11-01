@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const SITE_KEY = "fukugenyaguide225";
+const SITE_KEY = "tayotteya3110";
 const EXCLUDED = new Set(["login", "analytics", "community", "postList"]);
 
 const range = (

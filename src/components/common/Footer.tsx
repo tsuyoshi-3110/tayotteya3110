@@ -1,6 +1,8 @@
 // components/common/Footer.tsx
 "use client";
 
+import Image from "next/image";
+import ScrollUpCTA from "@/components/ScrollUpCTA";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
 type T = {
@@ -21,8 +23,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "公式サイト",
-    siteAlt: "株式会社 福源屋",
-    areaLinkText: "大阪・関西の美装工事・ビルメンテナンス",
+    siteAlt: "おそうじ処 たよって屋",
+    areaLinkText: "東淀川区の家事代行・ハウスクリーニング",
     rights: "All rights reserved.",
   },
   en: {
@@ -31,8 +33,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Official website",
-    siteAlt: "Fukugenya (Official)",
-    areaLinkText: "Building cleaning & maintenance in Osaka/Kansai",
+    siteAlt: "Tayotteya (Official)",
+    areaLinkText: "Housekeeping & house cleaning in Higashiyodogawa",
     rights: "All rights reserved.",
   },
   zh: {
@@ -41,8 +43,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官网",
-    siteAlt: "福源屋 官方",
-    areaLinkText: "大阪/关西的美装工程与楼宇维护",
+    siteAlt: "Tayotteya 官方网站",
+    areaLinkText: "东淀川区的家政与家居清洁",
     rights: "版权所有。",
   },
   "zh-TW": {
@@ -51,8 +53,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官方網站",
-    siteAlt: "福源屋 官方",
-    areaLinkText: "大阪/關西的美裝工程與大樓維護",
+    siteAlt: "Tayotteya 官方網站",
+    areaLinkText: "東淀川區的家事服務・居家清潔",
     rights: "版權所有。",
   },
   ko: {
@@ -61,8 +63,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "공식 사이트",
-    siteAlt: "후쿠겐야 공식",
-    areaLinkText: "오사카/간사이 미장 공사·빌딩 유지관리",
+    siteAlt: "Tayotteya 공식",
+    areaLinkText: "히가시요도가와구 가사도우미·하우스 클리닝",
     rights: "판권 소유.",
   },
   fr: {
@@ -71,8 +73,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site officiel",
-    siteAlt: "Fukugenya (Officiel)",
-    areaLinkText: "Nettoyage & maintenance de bâtiments à Osaka/Kansai",
+    siteAlt: "Tayotteya (Officiel)",
+    areaLinkText: "Ménage & nettoyage domestique à Higashiyodogawa",
     rights: "Tous droits réservés.",
   },
   es: {
@@ -81,8 +83,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sitio oficial",
-    siteAlt: "Fukugenya (Oficial)",
-    areaLinkText: "Limpieza y mantenimiento en Osaka/Kansai",
+    siteAlt: "Tayotteya (Oficial)",
+    areaLinkText: "Servicio doméstico y limpieza en Higashiyodogawa",
     rights: "Todos los derechos reservados.",
   },
   de: {
@@ -91,8 +93,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Offizielle Website",
-    siteAlt: "Fukugenya (Offiziell)",
-    areaLinkText: "Gebäudereinigung & -wartung in Osaka/Kansai",
+    siteAlt: "Tayotteya (Offiziell)",
+    areaLinkText: "Haushaltshilfe & Hausreinigung in Higashiyodogawa",
     rights: "Alle Rechte vorbehalten.",
   },
   pt: {
@@ -101,8 +103,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site oficial",
-    siteAlt: "Fukugenya (Oficial)",
-    areaLinkText: "Limpeza e manutenção em Osaka/Kansai",
+    siteAlt: "Tayotteya (Oficial)",
+    areaLinkText: "Serviços domésticos e limpeza em Higashiyodogawa",
     rights: "Todos os direitos reservados.",
   },
   it: {
@@ -111,8 +113,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sito ufficiale",
-    siteAlt: "Fukugenya (Ufficiale)",
-    areaLinkText: "Pulizie e manutenzione a Osaka/Kansai",
+    siteAlt: "Tayotteya (Ufficiale)",
+    areaLinkText: "Servizi domestici e pulizie a Higashiyodogawa",
     rights: "Tutti i diritti riservati.",
   },
   ru: {
@@ -121,8 +123,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Официальный сайт",
-    siteAlt: "Fukugenya (Официальный)",
-    areaLinkText: "Уборка и обслуживание зданий в Осаке/Кансай",
+    siteAlt: "Tayotteya (Официальный)",
+    areaLinkText: "Бытовые услуги и уборка в районе Хигасийодогава",
     rights: "Все права защищены.",
   },
   th: {
@@ -131,8 +133,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "เว็บไซต์ทางการ",
-    siteAlt: "Fukugenya (ทางการ)",
-    areaLinkText: "งานทำความสะอาดและบำรุงรักษาในโอซาก้า/คันไซ",
+    siteAlt: "Tayotteya (ทางการ)",
+    areaLinkText: "แม่บ้านและทำความสะอาดในเขตฮิกาชิโยโดกาวะ",
     rights: "สงวนลิขสิทธิ์",
   },
   vi: {
@@ -141,8 +143,8 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Trang chính thức",
-    siteAlt: "Fukugenya (Chính thức)",
-    areaLinkText: "Vệ sinh & bảo trì tại Osaka/Kansai",
+    siteAlt: "Tayotteya (Chính thức)",
+    areaLinkText: "Dọn dẹp & giúp việc nhà tại Higashiyodogawa",
     rights: "Mọi quyền được bảo lưu.",
   },
   id: {
@@ -151,9 +153,9 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Situs resmi",
-    siteAlt: "Fukugenya (Resmi)",
+    siteAlt: "Tayotteya (Resmi)",
     areaLinkText:
-      "Jasa pembersihan & pemeliharaan di Osaka/Kansai",
+      "Jasa bersih-bersih & asisten rumah tangga di Higashiyodogawa",
     rights: "Hak cipta dilindungi.",
   },
   hi: {
@@ -162,9 +164,9 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "आधिकारिक वेबसाइट",
-    siteAlt: "Fukugenya (आधिकारिक)",
+    siteAlt: "Tayotteya (आधिकारिक)",
     areaLinkText:
-      "ओसाका/कंसाई में भवन सफाई व मेंटेनेंस",
+      "हिगाशी-योदोगावा में हाउसकीपिंग व हाउस क्लीनिंग",
     rights: "सर्वाधिकार सुरक्षित।",
   },
   ar: {
@@ -173,9 +175,9 @@ const STRINGS: Record<UILang, T> = {
     instagramAlt: "إنستغرام",
     lineAlt: "لاين",
     siteAria: "الموقع الرسمي",
-    siteAlt: "فوكوغينيا (رسمي)",
+    siteAlt: "تايوتيّا (رسمي)",
     areaLinkText:
-      "تنظيف وصيانة المباني في أوساكا/كانساي",
+      "خدمات التدبير المنزلي وتنظيف المنازل في هيغاشي يودوغاوا",
     rights: "جميع الحقوق محفوظة.",
   },
 };
@@ -185,7 +187,7 @@ export default function Footer() {
   const lang = (uiLang in STRINGS ? uiLang : "ja") as UILang;
   const t = STRINGS[lang];
   const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
-
+  const iconSize = 48;
 
   return (
     <footer
@@ -194,28 +196,79 @@ export default function Footer() {
     >
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="flex flex-col items-center gap-6 text-center">
-          {/* CTA（リンク無しのためボタン風のダミー表示） */}
-          <div
-            aria-label={t.cta}
-            className="w-full max-w-xs sm:max-w-sm rounded-xl bg-primary px-6 py-3 font-semibold text-white/90 shadow hover:opacity-90"
+          {/* CTA */}
+          <ScrollUpCTA
+            href="/contact"
+            label={t.cta}
+            className="w-full max-w-xs sm:max-w-sm"
+          />
+
+          {/* SNSアイコン */}
+          <nav
+            className="flex items-center justify-center gap-5"
+            aria-label={t.snsAria}
           >
-            {t.cta}
-          </div>
+            <a
+              href="https://www.instagram.com/yuki.tayotte2017"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.instagramAlt}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/instagram-logo.png"
+                alt={t.instagramAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
+            <a
+              href="https://lin.ee/YcKAJja"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.lineAlt}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/line-logo.png"
+                alt={t.lineAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
+            <a
+              href="https://tayotteya.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.siteAria}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/tayotteya_circle_image.png"
+                alt={t.siteAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
+          </nav>
 
-
-
-          {/* エリアテキスト（リンク無し） */}
+          {/* エリアリンク（SEO） */}
           <div className="space-y-1 text-xs leading-tight">
             <p>
-              <span className="opacity-90">{t.areaLinkText}</span>
+              <a href="/areas/higashiyodogawa" className="hover:underline">
+                {t.areaLinkText}
+              </a>{" "}
             </p>
           </div>
 
           {/* コピーライト */}
           <div className="space-y-1">
-            <p className="font-semibold leading-tight">株式会社 福源屋</p>
+            <p className="font-semibold leading-tight">おそうじ処 たよって屋</p>
             <p className="text-xs leading-tight">
-              © {new Date().getFullYear()} 株式会社 福源屋. {t.rights}
+              © {new Date().getFullYear()} Tayotteya. {t.rights}
             </p>
           </div>
         </div>
