@@ -112,35 +112,47 @@ function buildVCard(c: Contact, stores: StoreItem[]) {
   const [last, first] = displayName.includes(" ")
     ? displayName.split(" ")
     : [displayName, ""];
-  const adrLines: string[] =
-    stores.length > 0
-      ? stores
-          .filter((s) => s.address)
-          .map(
-            (s) =>
-              `ADR;TYPE=WORK${
-                s.name ? `;LABEL=${escVCard(s.name)}` : ""
-              }:;;${escVCard(s.address!)};;;;`
-          )
-      : c.ownerAddress
-      ? [`ADR;TYPE=WORK:;;${escVCard(c.ownerAddress)};;;;`]
-      : [];
 
-  return [
+  const single = stores.length === 1 ? stores[0] : null;
+
+  // ★ 優先電話番号：店舗 → サイト（owner/代表）
+  const preferredPhone =
+    (single?.phone && single.phone.trim()) || (c.phone && c.phone.trim()) || "";
+
+  const lines = [
     "BEGIN:VCARD",
     "VERSION:3.0",
     `N:${escVCard(last)};${escVCard(first)};;;`,
     `FN:${escVCard(displayName)}`,
-    c.company ? `ORG:${escVCard(c.company)}` : "",
-    c.phone ? `TEL;TYPE=CELL,VOICE:${escVCard(c.phone)}` : "",
-    c.email ? `EMAIL;TYPE=INTERNET:${escVCard(c.email)}` : "",
-    c.url ? `URL:${escVCard(c.url)}` : "",
-    ...adrLines,
-    "END:VCARD",
-  ]
-    .filter(Boolean)
-    .join("\r\n"); // vCardはCRLFが相性良い
+  ];
+
+  // 会社名のみ（部署は入れない）
+  if (c.company) lines.push(`ORG:${escVCard(c.company)}`);
+
+  // 単一店舗のときだけ TITLE に店舗名
+  if (single?.name) lines.push(`TITLE:${escVCard(single.name)}`);
+
+  // ★ TEL は優先電話番号を使用（空なら出力しない）
+  if (preferredPhone) lines.push(`TEL;TYPE=CELL,VOICE:${escVCard(preferredPhone)}`);
+
+  if (c.email) lines.push(`EMAIL;TYPE=INTERNET:${escVCard(c.email)}`);
+  if (c.url) lines.push(`URL:${escVCard(c.url)}`);
+
+  // 住所は LABEL なしで純住所だけ
+  if (stores.length > 0) {
+    for (const s of stores) {
+      if (s.address) lines.push(`ADR;TYPE=WORK:;;${escVCard(s.address)};;;;`);
+    }
+  } else if (c.ownerAddress) {
+    lines.push(`ADR;TYPE=WORK:;;${escVCard(c.ownerAddress)};;;;`);
+  }
+
+  lines.push("END:VCARD");
+  return lines.join("\r\n");
 }
+
+
+
 
 /* vCardテキスト→File */
 function buildVCardFile(c: Contact, stores: StoreItem[]) {
