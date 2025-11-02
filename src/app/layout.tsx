@@ -1,4 +1,4 @@
-// /app/layout.tsx
+// app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
@@ -66,6 +66,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ...(site.tel ? { telephone: site.tel } : {}),
         address: PUBLIC_ADDRESS.postal,
         hasMap: PUBLIC_ADDRESS.hasMap,
+        /** ★ここを追加 → 任意の価格帯（￥〜￥￥￥） */
+        priceRange: "￥￥",
       },
     ],
   };
