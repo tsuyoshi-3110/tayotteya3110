@@ -10,16 +10,16 @@ import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import { CartProvider } from "@/lib/cart/CartContext";
+import { CartProvider } from "@/lib/cart/CartContext"; // ← これを追加
 import {
   kosugiMaru, notoSansJP, shipporiMincho, reggaeOne, yomogi, hachiMaruPop,
 } from "@/lib/font";
-import { seo, site } from "@/config/site";
+import { seo, site, pageUrl } from "@/config/site";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
-// ✅ 全ページ共通のメタは site.ts に集約
+// 共通メタ
 export const metadata: Metadata = seo.base();
 
 export const viewport: Viewport = {
@@ -29,18 +29,48 @@ export const viewport: Viewport = {
   ],
 };
 
+function toLD(obj: unknown) {
+  return JSON.stringify(obj).replace(/<\//g, "<\\/");
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // WebSite 構造化データ（SearchActionは検索ページがある場合だけ追加してOK）
-  const ldWebsite = {
+  const sameAs = Object.values(site.socials).filter(Boolean);
+
+  const ldGraph = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: site.name,
-    url: site.baseUrl,
-    // potentialAction: {
-    //   "@type": "SearchAction",
-    //   target: `${site.baseUrl}/search?q={search_term_string}`,
-    //   "query-input": "required name=search_term_string",
-    // },
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${site.baseUrl}#org`,
+        name: site.name,
+        url: site.baseUrl,
+        logo: pageUrl(site.logoPath),
+        ...(site.tel ? { telephone: site.tel } : {}),
+        ...(sameAs.length ? { sameAs } : {}),
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${site.baseUrl}#website`,
+        name: site.name,
+        url: site.baseUrl,
+        publisher: { "@id": `${site.baseUrl}#org` },
+        // 検索ページがある場合のみ有効化
+        // potentialAction: {
+        //   "@type": "SearchAction",
+        //   target: `${site.baseUrl}/search?q={search_term_string}`,
+        //   "query-input": "required name=search_term_string",
+        // },
+      },
+      ...(site.tel
+        ? [{
+            "@type": "LocalBusiness",
+            "@id": `${site.baseUrl}#local`,
+            name: site.name,
+            url: site.baseUrl,
+            telephone: site.tel,
+          }]
+        : []),
+    ],
   };
 
   return (
@@ -55,17 +85,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <link rel="preload" as="image" href={site.logoPath} type="image/png" />
-        {/* ✅ Search Console meta は seo.base() から自動出力 */}
         <Script
-          id="ld-website"
+          id="ld-graph"
           type="application/ld+json"
           strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ldWebsite) }}
+          dangerouslySetInnerHTML={{ __html: toLD(ldGraph) }}
         />
       </head>
 
       <body className="relative min-h-[100dvh] flex flex-col">
-        {/* ⬇ 重複していた SubscriptionOverlay はここだけに */}
         <WallpaperBackground />
         <ThemeBackground />
         <AnalyticsLogger />
