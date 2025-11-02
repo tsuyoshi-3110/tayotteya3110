@@ -1,4 +1,4 @@
-// app/layout.tsx
+// /app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
@@ -11,14 +11,9 @@ import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { CartProvider } from "@/lib/cart/CartContext";
-import { seo, site, pageUrl } from "@/config/site";
+import { seo, site, pageUrl, PUBLIC_ADDRESS } from "@/config/site";
 import {
-  kosugiMaru,
-  notoSansJP,
-  shipporiMincho,
-  reggaeOne,
-  yomogi,
-  hachiMaruPop,
+  kosugiMaru, notoSansJP, shipporiMincho, reggaeOne, yomogi, hachiMaruPop,
 } from "@/lib/font";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
@@ -40,6 +35,7 @@ function toLD(obj: unknown) {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const BASE = site.baseUrl.replace(/\/$/, "");
   const sameAs = Object.values(site.socials).filter(Boolean);
+  const mainImage = pageUrl(site.logoPath);
 
   const ldGraph = {
     "@context": "https://schema.org",
@@ -49,7 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "@id": `${BASE}#org`,
         name: site.name,
         url: site.baseUrl,
-        logo: pageUrl(site.logoPath),
+        logo: mainImage,
+        image: [mainImage],
         ...(site.tel ? { telephone: site.tel } : {}),
         ...(sameAs.length ? { sameAs } : {}),
       },
@@ -60,6 +57,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         url: site.baseUrl,
         publisher: { "@id": `${BASE}#org` },
       },
+      {
+        "@type": "LocalBusiness",
+        "@id": `${BASE}#local`,
+        name: site.name,
+        url: site.baseUrl,
+        image: [mainImage],
+        ...(site.tel ? { telephone: site.tel } : {}),
+        address: PUBLIC_ADDRESS.postal,
+        hasMap: PUBLIC_ADDRESS.hasMap,
+      },
     ],
   };
 
@@ -67,14 +74,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="ja"
       className={[
-        geistSans.variable,
-        geistMono.variable,
-        kosugiMaru.variable,
-        notoSansJP.variable,
-        yomogi.variable,
-        hachiMaruPop.variable,
-        reggaeOne.variable,
-        shipporiMincho.variable,
+        geistSans.variable, geistMono.variable,
+        kosugiMaru.variable, notoSansJP.variable,
+        yomogi.variable, hachiMaruPop.variable,
+        reggaeOne.variable, shipporiMincho.variable,
         "antialiased",
       ].join(" ")}
     >

@@ -17,7 +17,8 @@ import { type PageDef } from "@/types/PageDef";
 /* =========================
    URL / 環境ユーティリティ
 ========================= */
-const ENV_BASE_URL_RAW = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const ENV_BASE_URL_RAW =
+  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const BASE_URL = ENV_BASE_URL_RAW.replace(/\/$/, "");
 
 function safeHost(input: string, fallback = "localhost:3000"): string {
@@ -129,10 +130,47 @@ export const siteName = SITE_BRAND; // 互換：従来の siteName を残す
 export const site = createSite(SITE_OVERRIDES);
 
 /* =========================
+   住所（公開用）←★追加
+   ※ ownerAddress は公開しない。SEO/リッチリザルト用にこちらを使う。
+========================= */
+export type PublicAddress = {
+  text: string; // 表示用
+  postal: {
+    "@type": "PostalAddress";
+    addressCountry: "JP";
+    addressRegion: string;
+    addressLocality: string;
+    streetAddress: string;
+    postalCode?: string;
+  };
+  hasMap: string; // Google Maps 検索URL
+};
+function mapUrlFromText(text: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    text
+  )}`;
+}
+
+/** 店舗の公開住所（必要に応じてこの値だけ編集） */
+export const PUBLIC_ADDRESS: PublicAddress = {
+  text: "大阪府豊中市小曽根3-6-13",
+  postal: {
+    "@type": "PostalAddress",
+    addressCountry: "JP",
+    addressRegion: "大阪府",
+    addressLocality: "豊中市",
+    streetAddress: "小曽根3-6-13",
+  },
+  hasMap: mapUrlFromText("大阪府豊中市小曽根3-6-13"),
+};
+
+/* =========================
    便利ヘルパ
 ========================= */
 export const pageUrl = (path = "/") =>
-  `${site.baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  `${site.baseUrl.replace(/\/$/, "")}${
+    path.startsWith("/") ? path : `/${path}`
+  }`;
 
 const ogImage = (p?: string) => pageUrl(p ?? site.logoPath);
 
@@ -151,7 +189,8 @@ export const copy = {
   stores: {
     heroTitle: `${site.name} ─ 店舗一覧`,
     heroAreas: "大阪府・兵庫県",
-    heroLead: "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
+    heroLead:
+      "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
     heroTail:
       "各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。",
     heroIntroLine: `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
@@ -167,11 +206,19 @@ export const copy = {
     services: [
       {
         title: "家事代行（単発／定期）",
-        bullets: ["掃除・片付け・洗濯・買い物代行", "お子様／高齢者の見守り（家事の範囲内）", "女性スタッフ指名可"],
+        bullets: [
+          "掃除・片付け・洗濯・買い物代行",
+          "お子様／高齢者の見守り（家事の範囲内）",
+          "女性スタッフ指名可",
+        ],
       },
       {
         title: "ハウスクリーニング",
-        bullets: ["水回り（キッチン・浴室・洗面・トイレ）", "エアコンクリーニング", "引越し前後・空室クリーニング"],
+        bullets: [
+          "水回り（キッチン・浴室・洗面・トイレ）",
+          "エアコンクリーニング",
+          "引越し前後・空室クリーニング",
+        ],
       },
     ],
 
@@ -182,15 +229,28 @@ export const copy = {
 
     // FAQ（→ 構造化データに流用）
     faq: [
-      { q: "東淀川区で当日予約は可能ですか？", a: "当日の空き状況によっては対応可能です。まずはお問い合わせください。" },
-      { q: "鍵預かりでの不在クリーニングは対応していますか？", a: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。" },
-      { q: "当日のお願いは可能ですか？", a: "スケジュールに空きがあれば対応いたします。まずはお問い合わせください。" },
-      { q: "鍵預かりや在宅不要の対応は？", a: "条件を確認のうえ、適切に管理して対応可能です。" },
+      {
+        q: "東淀川区で当日予約は可能ですか？",
+        a: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
+      },
+      {
+        q: "鍵預かりでの不在クリーニングは対応していますか？",
+        a: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
+      },
+      {
+        q: "当日のお願いは可能ですか？",
+        a: "スケジュールに空きがあれば対応いたします。まずはお問い合わせください。",
+      },
+      {
+        q: "鍵預かりや在宅不要の対応は？",
+        a: "条件を確認のうえ、適切に管理して対応可能です。",
+      },
     ],
 
     // お問い合わせブロック
     contactTitle: "お問い合わせ",
-    contactText: "予約状況の確認・見積りは、LINE／メールフォームからお気軽にどうぞ。",
+    contactText:
+      "予約状況の確認・見積りは、LINE／メールフォームからお気軽にどうぞ。",
 
     // 下部ナビ
     toProductsText: "トップページへ",
@@ -374,12 +434,29 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
 export const faqItems: FaqItem[] = [
   {
     question: "対応エリアはどこですか？",
-    answer: "大阪府・兵庫県を中心に対応しています。豊中市・吹田市・東淀川区・池田市・箕面市・尼崎市など、まずはお気軽にご相談ください。",
+    answer:
+      "大阪府・兵庫県を中心に対応しています。豊中市・吹田市・東淀川区・池田市・箕面市・尼崎市など、まずはお気軽にご相談ください。",
   },
-  { question: "見積もりは無料ですか？", answer: "はい、無料です。現地確認が必要な場合もありますが、費用はいただきません。" },
-  { question: "支払い方法は？", answer: "現金・銀行振込・各種キャッシュレス（ご相談ください）に対応しています。" },
-  { question: "当日の追加依頼や延長は可能ですか？", answer: "当日のスケジュール次第ですが、可能な限り柔軟に対応いたします。スタッフへご相談ください。" },
-  { question: "キャンセル料はかかりますか？", answer: "前日キャンセルは無料、当日キャンセルは作業代の50％を頂戴しております（事前連絡なしの不在は100％）。" },
+  {
+    question: "見積もりは無料ですか？",
+    answer:
+      "はい、無料です。現地確認が必要な場合もありますが、費用はいただきません。",
+  },
+  {
+    question: "支払い方法は？",
+    answer:
+      "現金・銀行振込・各種キャッシュレス（ご相談ください）に対応しています。",
+  },
+  {
+    question: "当日の追加依頼や延長は可能ですか？",
+    answer:
+      "当日のスケジュール次第ですが、可能な限り柔軟に対応いたします。スタッフへご相談ください。",
+  },
+  {
+    question: "キャンセル料はかかりますか？",
+    answer:
+      "前日キャンセルは無料、当日キャンセルは作業代の50％を頂戴しております（事前連絡なしの不在は100％）。",
+  },
 ];
 
 /* =========================
@@ -389,13 +466,15 @@ const PAGES = {
   home: {
     path: "/",
     title: `${site.name}｜家事代行`,
-    description: "大阪・兵庫エリア対応のハウスクリーニング／家事代行／整理収納のご案内。",
+    description:
+      "大阪・兵庫エリア対応のハウスクリーニング／家事代行／整理収納のご案内。",
     ogType: "website",
   },
   about: {
     path: "/about",
     title: `私たちの想い｜${site.name}`,
-    description: "お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念。",
+    description:
+      "お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念。",
     ogType: "website",
   },
   news: {
@@ -407,7 +486,8 @@ const PAGES = {
   areasLocal: {
     path: "/areas/local",
     title: `東淀川区の家事代行・ハウスクリーニング｜${site.name}`,
-    description: "東淀川区（淡路・上新庄…）で家事代行・ハウスクリーニング。定期/スポット対応。",
+    description:
+      "東淀川区（淡路・上新庄…）で家事代行・ハウスクリーニング。定期/スポット対応。",
     ogType: "article",
   },
   products: {
@@ -445,7 +525,10 @@ const PAGES = {
 } as const;
 
 export type PageKey = keyof typeof PAGES;
-const pages: Record<PageKey, PageDef> = PAGES as unknown as Record<PageKey, PageDef>;
+const pages: Record<PageKey, PageDef> = PAGES as unknown as Record<
+  PageKey,
+  PageDef
+>;
 
 /* =========================
    SEO メタデータビルダー
@@ -466,7 +549,13 @@ export const seo = {
     robots: {
       index: true,
       follow: true,
-      googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large", "max-video-preview": -1 },
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-snippet": -1,
+        "max-image-preview": "large",
+        "max-video-preview": -1,
+      },
     },
 
     openGraph: {
@@ -475,7 +564,14 @@ export const seo = {
       url: pageUrl("/"),
       siteName: site.name,
       type: "website",
-      images: [{ url: pageUrl(site.logoPath), width: 1200, height: 630, alt: `${site.name} OGP` }],
+      images: [
+        {
+          url: pageUrl(site.logoPath),
+          width: 1200,
+          height: 630,
+          alt: `${site.name} OGP`,
+        },
+      ],
       locale: "ja_JP",
     },
     twitter: {
@@ -485,7 +581,10 @@ export const seo = {
       images: [pageUrl(site.logoPath)],
     },
     icons: {
-      icon: [ { url: "/favicon.ico?v=4" }, { url: "/icon.png", type: "image/png", sizes: "any" } ],
+      icon: [
+        { url: "/favicon.ico?v=4" },
+        { url: "/icon.png", type: "image/png", sizes: "any" },
+      ],
       apple: "/icon.png",
       shortcut: "/favicon.ico?v=4",
     },
@@ -503,7 +602,14 @@ export const seo = {
         description: p.description,
         url: pageUrl(p.path),
         siteName: site.name,
-        images: [{ url: ogImage((p as any).ogImage), width: 1200, height: 630, alt: site.name }],
+        images: [
+          {
+            url: ogImage((p as any).ogImage),
+            width: 1200,
+            height: 630,
+            alt: site.name,
+          },
+        ],
         locale: "ja_JP",
         type: p.ogType,
       },
@@ -526,7 +632,11 @@ export function faqToJsonLd(faq: ReadonlyArray<QA>) {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: faq.map((item) => ({ "@type": "Question", name: item.q, acceptedAnswer: { "@type": "Answer", text: item.a } })),
+    mainEntity: faq.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: { "@type": "Answer", text: item.a },
+    })),
   };
 }
 
@@ -549,8 +659,30 @@ export const AI_SITE: AiSiteConfig = {
   languages: {
     default: "ja",
     allowed: [
-      "ja", "en", "zh", "zh-TW", "ko", "fr", "es", "de", "pt", "it", "ru", "th", "vi", "id", "hi", "ar",
+      "ja",
+      "en",
+      "zh",
+      "zh-TW",
+      "ko",
+      "fr",
+      "es",
+      "de",
+      "pt",
+      "it",
+      "ru",
+      "th",
+      "vi",
+      "id",
+      "hi",
+      "ar",
     ],
   },
-  limits: { qaBase: 30, qaOwner: 40, qaLearned: 60, menuLines: 120, productLines: 120, keywords: 200 },
+  limits: {
+    qaBase: 30,
+    qaOwner: 40,
+    qaLearned: 60,
+    menuLines: 120,
+    productLines: 120,
+    keywords: 200,
+  },
 };
