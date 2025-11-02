@@ -1,6 +1,7 @@
 // app/layout.tsx
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/common/Header";
 import Footer from "@/components/common/Footer";
@@ -18,7 +19,7 @@ import { seo, site } from "@/config/site";
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
-// ✅ ここは1行だけ：全ページ共通のメタは site.ts に集約
+// ✅ 全ページ共通のメタは site.ts に集約
 export const metadata: Metadata = seo.base();
 
 export const viewport: Viewport = {
@@ -29,6 +30,19 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // WebSite 構造化データ（SearchActionは検索ページがある場合だけ追加してOK）
+  const ldWebsite = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: site.name,
+    url: site.baseUrl,
+    // potentialAction: {
+    //   "@type": "SearchAction",
+    //   target: `${site.baseUrl}/search?q={search_term_string}`,
+    //   "query-input": "required name=search_term_string",
+    // },
+  };
+
   return (
     <html
       lang="ja"
@@ -41,15 +55,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <link rel="preload" as="image" href={site.logoPath} type="image/png" />
-        {/* ✅ Search Console meta は seo.base() から自動出力されるので不要 */}
+        {/* ✅ Search Console meta は seo.base() から自動出力 */}
+        <Script
+          id="ld-website"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ldWebsite) }}
+        />
       </head>
 
       <body className="relative min-h-[100dvh] flex flex-col">
-        <SubscriptionOverlay siteKey={SITE_KEY} />
-        <AnalyticsLogger />
+        {/* ⬇ 重複していた SubscriptionOverlay はここだけに */}
         <WallpaperBackground />
         <ThemeBackground />
-
+        <AnalyticsLogger />
         <CartProvider>
           <SubscriptionOverlay siteKey={SITE_KEY} />
           <Header />

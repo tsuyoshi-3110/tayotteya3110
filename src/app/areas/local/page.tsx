@@ -1,7 +1,7 @@
 // app/areas/local/page.tsx
 import Link from "next/link";
 import type { Metadata } from "next";
-import { seo, pageUrl, copy, pages, faqToJsonLd } from "@/config/site";
+import { seo, pageUrl, copy, faqToJsonLd } from "@/config/site";
 
 // すべての固有情報は /config/site.ts に集約
 export const metadata: Metadata = seo.page("areasLocal");
@@ -47,7 +47,7 @@ export default function AreasLocalPage() {
           </details>
         ))}
 
-        {/* 3問目以降を出したい場合は以下のように */}
+        {/* 3問目以降を出したい場合は以下 */}
         {/* {C.faq.slice(2).map(({ q, a }) => (
           <details key={q}>
             <summary className="cursor-pointer font-medium">{q}</summary>
@@ -63,7 +63,7 @@ export default function AreasLocalPage() {
 
       {/* 内部リンク（config の定義に追従） */}
       <nav className="text-sm underline">
-        <Link href={pageUrl(pages.home.path)}>{C.toProductsText}</Link>
+        <Link href={pageUrl("/")}>{C.toProductsText}</Link>
       </nav>
 
       {/* FAQ 構造化データ（XSS回避で < を無害化） */}

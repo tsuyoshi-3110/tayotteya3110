@@ -1,14 +1,27 @@
 // /app/sitemap.ts
 import { type MetadataRoute } from "next";
-import { pages, pageUrl } from "@/config/site";
+import { pageUrl } from "@/config/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-  // /config/site.ts の pages 定義から自動生成
-  return Object.values(pages).map((p) => ({
-    url: pageUrl(p.path),
+  const now = new Date().toISOString();
+
+  // 必要な固定ページだけ列挙（必要に応じて追加/削除）
+  const paths = [
+    "/",
+    "/about",
+    "/news",
+    "/areas/local",
+    "/products",
+    "/products-ec",
+    "/projects",
+    "/stores",
+    "/faq",
+  ];
+
+  return paths.map((path) => ({
+    url: pageUrl(path),
     lastModified: now,
-    changeFrequency: p.path === "/" ? "weekly" : "monthly",
-    priority: p.path === "/" ? 1 : 0.8,
+    changeFrequency: path === "/" ? "daily" : "weekly",
+    priority: path === "/" ? 1.0 : 0.6,
   }));
 }

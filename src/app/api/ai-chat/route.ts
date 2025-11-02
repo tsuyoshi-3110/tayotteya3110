@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { adminDb } from "@/lib/firebase-admin";
-import { AI_SITE, LANG_NAME, t } from "@/config/ai-site";
+import { LANG_NAME, t } from "@/config/ai-site";
+import { AI_SITE } from "@/config/site";
 import { retrieveKB, hitsToPassages } from "@/lib/kb";
 import { inventoryPassages } from "@/lib/inventory";
 
