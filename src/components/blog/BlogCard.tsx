@@ -39,8 +39,7 @@ function legacyToBlocks(post: BlogPost): BlogBlock[] {
       type: m.type,
       url: m.url,
       path: (m as any).path,
-      title:
-        (m as any).title ?? (m as any).caption ?? (m as any).alt ?? "",
+      title: (m as any).title ?? (m as any).caption ?? (m as any).alt ?? "",
       caption: (m as any).caption,
     } as unknown as BlogBlock);
   }
@@ -127,25 +126,36 @@ export default function BlogCard({
 
   // カテゴリ名の取得（表示用）
   const [catLabel, setCatLabel] = useState<string>("");
+  const catKey = (post as any)?.categoryKey ?? "";
+
   useEffect(() => {
+    let alive = true;
     (async () => {
       try {
-        const key = (post as any).categoryKey as string | null;
-        if (!SITE_KEY || !key) {
-          setCatLabel("");
+        if (!SITE_KEY || !catKey) {
+          if (alive) setCatLabel("");
           return;
         }
-        const snap = await getDoc(doc(db, "siteBlogs", SITE_KEY, "meta", "config"));
-        const cats = Array.isArray((snap.data() as any)?.categories)
-          ? ((snap.data() as any).categories as Array<{ key: string; label: string }>)
+
+        const snap = await getDoc(
+          doc(db, "siteBlogs", SITE_KEY, "meta", "config")
+        );
+        const raw = (snap.data() as any)?.categories;
+        const cats: Array<{ key: string; label: string }> = Array.isArray(raw)
+          ? raw
           : [];
-        const hit = cats.find((c) => c.key === key);
-        setCatLabel(hit?.label ?? "");
+
+        const hit = cats.find((c) => c.key === catKey);
+        if (alive) setCatLabel(hit?.label ?? "");
       } catch {
-        setCatLabel("");
+        if (alive) setCatLabel("");
       }
     })();
-  }, [post?.id]);
+
+    return () => {
+      alive = false;
+    };
+  }, [catKey]); // ← ここを catKey のみに
 
   return (
     <article
@@ -159,10 +169,7 @@ export default function BlogCard({
       )}
     >
       <div
-        className={clsx(
-          "p-4 space-y-4",
-          isDark ? "text-white" : "text-black"
-        )}
+        className={clsx("p-4 space-y-4", isDark ? "text-white" : "text-black")}
       >
         {/* タイトル */}
         <h3

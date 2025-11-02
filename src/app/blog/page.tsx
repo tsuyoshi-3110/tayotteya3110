@@ -183,7 +183,7 @@ export default function BlogListPage() {
     setLastDoc(null);
     setNoMore(false);
     loadFirstPage();
-  }, [SITE_KEY, selectedKey, loadFirstPage]);
+  }, [selectedKey, loadFirstPage]);
 
   /* ===================== UI ===================== */
   return (

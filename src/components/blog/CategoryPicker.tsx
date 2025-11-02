@@ -49,7 +49,7 @@ export default function CategoryPicker({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-md border px-2 text-sm bg-white/50 rounded-lg"
+        className="h-9  border px-2 text-sm bg-white/50 rounded-lg"
       >
         {options.map((o) => (
           <option key={o.key} value={o.key}>
