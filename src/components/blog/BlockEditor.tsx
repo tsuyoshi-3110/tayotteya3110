@@ -726,12 +726,16 @@ export default function BlockEditor({ value, onChange, postIdForPath }: Props) {
                   <div className="space-y-3">
                     <div className="overflow-hidden rounded-lg border border-black/10">
                       {b.type === "image" ? (
-                        <Image
-                          src={(b as any).url}
-                          alt=""
-                          className="max-h-[420px] w-full bg-black/5 object-contain"
-                          unoptimized
-                        />
+                        <div className="relative w-full aspect-[16/9] bg-black/5">
+                          <Image
+                            src={(b as any).url}
+                            alt=""
+                            fill
+                            className="object-contain"
+                            sizes="(max-width: 768px) 100vw, 800px"
+                            unoptimized
+                          />
+                        </div>
                       ) : (
                         <video
                           src={(b as any).url}

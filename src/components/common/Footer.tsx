@@ -4,11 +4,11 @@
 import Image from "next/image";
 import ScrollUpCTA from "@/components/ScrollUpCTA";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
-import { FOOTER_STRINGS, site } from "@/config/site"; // ← 追加
-import { Button } from "@/components/ui/button";
+import { FOOTER_STRINGS, site } from "@/config/site";
 import clsx from "clsx";
 import { useThemeGradient } from "@/lib/useThemeGradient";
-import { ArrowDownToLine } from "lucide-react";
+// 追加
+import VCardDownloadButton from "@/components/common/VCardDownloadButton";
 
 type T = {
   cta: string;
@@ -46,26 +46,16 @@ export default function Footer() {
             className="w-full max-w-xs sm:max-w-sm"
           />
 
-          <Button
-            asChild
-            variant="secondary"
+          {/* 連絡先ダウンロード（本店/単店/複数ピッカー/オーナーの自動分岐） */}
+          <VCardDownloadButton
             className={clsx(
               "h-12 px-5 rounded-2xl shadow-2xl font-bold text-white text-outline",
               gradient
                 ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
                 : "bg-emerald-600 hover:bg-emerald-700"
             )}
-          >
-            <a
-              href="/api/vcard"
-              download
-              title="連絡先を保存"
-              aria-label="連絡先を保存"
-            >
-              <ArrowDownToLine className="mr-2 h-4 w-4" />
-              連絡先を保存
-            </a>
-          </Button>
+            label="連絡先を保存"
+          />
 
           {/* SNSアイコン */}
           <nav
