@@ -32,6 +32,7 @@ import { ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ImageLogoControls from "@/components/ImageLogoControls";
 import { Clock } from "lucide-react";
+import { Search } from "lucide-react";
 
 // UI言語一覧（既存定義を利用）
 import { LANGS } from "@/lib/langs";
@@ -790,6 +791,56 @@ const TOP_DISPLAYABLE_ITEMS = [
   "hours",
 ];
 
+function SeoGuideCard() {
+  return (
+    <Card className="shadow-xl bg-white/60 backdrop-blur-sm border border-gray-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <Search size={18} />
+          SEO対策の基本とコツ
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-4 text-sm leading-relaxed text-black">
+        <p>
+          Pageitは、Googleが評価しやすい構造（高速・軽量・構造化データ対応）で作られています。
+          つまり、<strong>「土台のSEO」ではWordPress等の一般的なCMSよりも有利</strong>です。
+          残るのは「中身＝運用」です。
+        </p>
+
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            <strong>① 定期的にお知らせ・事例を投稿</strong>
+            ：更新頻度があるサイトは検索に強くなります。
+          </li>
+          <li>
+            <strong>② 画像には説明を入れる</strong>
+            ：AIやGoogleは画像の内容も理解します。
+            ALTテキストやタイトルに「掃除例」「施工事例」などのキーワードを。
+          </li>
+          <li>
+            <strong>③ Googleビジネスに登録</strong>：
+            PageitのURLを店舗情報に設定し、「住所・電話・営業時間」を一致させてください（NAP一致）。
+          </li>
+          <li>
+            <strong>④ SNSやLINEからリンク</strong>：
+            SNS→ホームページへの導線が増えるとSEOの信頼性が上がります。
+          </li>
+          <li>
+            <strong>⑤ 地域名＋サービス名を意識</strong>：
+            「豊中市　ハウスクリーニング」など、検索されやすい組み合わせをタイトルや説明に。
+          </li>
+        </ul>
+
+        <p>
+          これらを継続するだけで、自然と検索順位が安定して上がっていきます。
+          Pageitの構造はその努力を最大限活かせるように設計されています。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* =========================
    ページ本体
 ========================= */
@@ -1270,7 +1321,7 @@ export default function LoginPage() {
                             </div>
                           )}
                           {guideAcceptedAt && (
-                            <div className="text-[11px] text-gray-400">
+                            <div className="text-[11px] text-black">
                               同意済み：
                               {String(
                                 new Date(
@@ -1360,8 +1411,12 @@ export default function LoginPage() {
               {/* Stripe Connect 連携カード */}
               <StripeConnectCard />
 
+
+
               {/* Ship&co への導線（Stripeの近くに設置） */}
               {hasConnect && <ShipAndCoLinkCard />}
+
+               <SeoGuideCard />
 
               {/* アカウント操作（※既存そのまま） */}
               <Card className="shadow-xl bg白/50">
@@ -1383,6 +1438,8 @@ export default function LoginPage() {
                   </Button>
                 </CardContent>
               </Card>
+
+
             </div>
           )}
         </>
