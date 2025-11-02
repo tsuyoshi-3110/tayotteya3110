@@ -10,16 +10,20 @@ import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import { CartProvider } from "@/lib/cart/CartContext"; // ← これを追加
-import {
-  kosugiMaru, notoSansJP, shipporiMincho, reggaeOne, yomogi, hachiMaruPop,
-} from "@/lib/font";
+import { CartProvider } from "@/lib/cart/CartContext";
 import { seo, site, pageUrl } from "@/config/site";
+import {
+  kosugiMaru,
+  notoSansJP,
+  shipporiMincho,
+  reggaeOne,
+  yomogi,
+  hachiMaruPop,
+} from "@/lib/font";
 
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
-// 共通メタ
 export const metadata: Metadata = seo.base();
 
 export const viewport: Viewport = {
@@ -30,10 +34,11 @@ export const viewport: Viewport = {
 };
 
 function toLD(obj: unknown) {
-  return JSON.stringify(obj).replace(/<\//g, "<\\/");
+  return JSON.stringify(obj).replace(/</g, "\\u003c");
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const BASE = site.baseUrl.replace(/\/$/, "");
   const sameAs = Object.values(site.socials).filter(Boolean);
 
   const ldGraph = {
@@ -41,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@graph": [
       {
         "@type": "Organization",
-        "@id": `${site.baseUrl}#org`,
+        "@id": `${BASE}#org`,
         name: site.name,
         url: site.baseUrl,
         logo: pageUrl(site.logoPath),
@@ -50,38 +55,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       },
       {
         "@type": "WebSite",
-        "@id": `${site.baseUrl}#website`,
+        "@id": `${BASE}#website`,
         name: site.name,
         url: site.baseUrl,
-        publisher: { "@id": `${site.baseUrl}#org` },
-        // 検索ページがある場合のみ有効化
-        // potentialAction: {
-        //   "@type": "SearchAction",
-        //   target: `${site.baseUrl}/search?q={search_term_string}`,
-        //   "query-input": "required name=search_term_string",
-        // },
+        publisher: { "@id": `${BASE}#org` },
       },
-      ...(site.tel
-        ? [{
-            "@type": "LocalBusiness",
-            "@id": `${site.baseUrl}#local`,
-            name: site.name,
-            url: site.baseUrl,
-            telephone: site.tel,
-          }]
-        : []),
     ],
   };
 
   return (
     <html
       lang="ja"
-      className={`
-        ${geistSans.variable} ${geistMono.variable}
-        ${kosugiMaru.variable} ${notoSansJP.variable}
-        ${yomogi.variable} ${hachiMaruPop.variable} ${reggaeOne.variable} ${shipporiMincho.variable}
-        antialiased
-      `}
+      className={[
+        geistSans.variable,
+        geistMono.variable,
+        kosugiMaru.variable,
+        notoSansJP.variable,
+        yomogi.variable,
+        hachiMaruPop.variable,
+        reggaeOne.variable,
+        shipporiMincho.variable,
+        "antialiased",
+      ].join(" ")}
     >
       <head>
         <link rel="preload" as="image" href={site.logoPath} type="image/png" />
