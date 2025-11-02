@@ -195,7 +195,7 @@ export default function BlogListPage() {
         <CategoryPicker
           value={selectedKey}
           onChange={setSelectedKey}
-          showManageButton
+          showManageButton={!!user}
         />
       </div>
 
