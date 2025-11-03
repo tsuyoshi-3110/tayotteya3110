@@ -7,7 +7,7 @@ export type BlogCategory = { key: string; label: string };
 export const DEFAULT_CATEGORIES: BlogCategory[] = [
   { key: "news", label: "お知らせ" },
   { key: "campaign", label: "キャンペーン" },
-  { key: "blog", label: "ブログ" },
+  { key: "blog", label: "取材はこちら" },
   { key: "column", label: "コラム" },
 ];
 

@@ -30,22 +30,22 @@ import { type UILang, useUILang } from "@/lib/langsState";
 /* ===== 定数 ===== */
 const PAGE_SIZE = 20;
 const BLOG_T: Record<UILang, string> = {
-  ja: "ブログ",
-  en: "Blog",
-  zh: "博客",
-  "zh-TW": "部落格",
-  ko: "블로그",
-  fr: "Blog",
-  es: "Blog",
-  de: "Blog",
-  pt: "Blog",
-  it: "Blog",
-  ru: "Блог",
-  th: "บล็อก",
-  vi: "Blog",
-  id: "Blog",
-  hi: "ब्लॉग",
-  ar: "المدونة",
+  ja: "取材はこちら",
+  en: "Media / Press Inquiries",
+  zh: "媒体采访",
+  "zh-TW": "媒體採訪",
+  ko: "취재 문의",
+  fr: "Demandes de presse",
+  es: "Solicitudes de prensa",
+  de: "Presseanfragen",
+  pt: "Solicitações de imprensa",
+  it: "Richieste stampa",
+  ru: "Запросы СМИ",
+  th: "ติดต่อสื่อมวลชน",
+  vi: "Yêu cầu phỏng vấn",
+  id: "Permintaan liputan media",
+  hi: "मीडिया पूछताछ",
+  ar: "استفسارات إعلامية",
 };
 const DARK_KEYS: ThemeKey[] = ["brandG", "brandH", "brandI"];
 

@@ -48,7 +48,7 @@ type Keys =
   | "admin"
   | "aiChat"
   | "hours"
-  | "business-card"; // ★ 追加：電子名刺
+  | "business-card";
 
 const T: Record<UILang, Record<Keys, string>> = {
   ja: {
@@ -62,7 +62,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "対応エリア",
     stores: "店舗一覧",
     story: "私たちの思い",
-    blog: "ブログ",
+    blog: "取材はこちら",
     news: "お知らせ",
     company: "会社概要",
     reserve: "ご予約はこちら",
@@ -87,7 +87,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Service Areas",
     stores: "Store List",
     story: "Our Story",
-    blog: "Blog",
+    blog: "Media / Press Inquiries",
     news: "News",
     company: "Company Profile",
     reserve: "Book Here",
@@ -112,7 +112,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "服务区域",
     stores: "门店列表",
     story: "我们的理念",
-    blog: "博客",
+    blog: "媒体采访",
     news: "公告",
     company: "公司简介",
     reserve: "点击预约",
@@ -137,7 +137,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "服務範圍",
     stores: "門市列表",
     story: "我們的理念",
-    blog: "部落格",
+    blog: "媒體採訪",
     news: "最新消息",
     company: "公司簡介",
     reserve: "預約請點此",
@@ -162,7 +162,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "서비스 지역",
     stores: "매장 목록",
     story: "우리의 이야기",
-    blog: "블로그",
+    blog: "취재 문의",
     news: "공지사항",
     company: "회사 소개",
     reserve: "예약하기",
@@ -187,7 +187,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Zones desservies",
     stores: "Liste des magasins",
     story: "Notre histoire",
-    blog: "Blog",
+    blog: "Demandes de presse",
     news: "Actualités",
     company: "Profil de l’entreprise",
     reserve: "Réserver ici",
@@ -212,7 +212,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Áreas de servicio",
     stores: "Lista de tiendas",
     story: "Nuestra historia",
-    blog: "Blog",
+    blog: "Solicitudes de prensa",
     news: "Noticias",
     company: "Perfil de la empresa",
     reserve: "Reservar aquí",
@@ -237,7 +237,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Einsatzgebiete",
     stores: "Filialübersicht",
     story: "Unsere Geschichte",
-    blog: "Blog",
+    blog: "Presseanfragen",
     news: "Neuigkeiten",
     company: "Unternehmensprofil",
     reserve: "Hier buchen",
@@ -262,7 +262,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Áreas de atendimento",
     stores: "Lista de lojas",
     story: "Nossa história",
-    blog: "Blog",
+    blog: "Solicitações de imprensa",
     news: "Notícias",
     company: "Perfil da empresa",
     reserve: "Reservar aqui",
@@ -287,7 +287,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Aree servite",
     stores: "Elenco negozi",
     story: "La nostra storia",
-    blog: "Blog",
+    blog: "Richieste stampa",
     news: "Notizie",
     company: "Profilo aziendale",
     reserve: "Prenota qui",
@@ -312,7 +312,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Районы обслуживания",
     stores: "Список магазинов",
     story: "Наша история",
-    blog: "Блог",
+    blog: "Запросы СМИ",
     news: "Новости",
     company: "О компании",
     reserve: "Онлайн-запись",
@@ -337,7 +337,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "พื้นที่ให้บริการ",
     stores: "รายชื่อร้านค้า",
     story: "เรื่องราวของเรา",
-    blog: "บล็อก",
+    blog: "ติดต่อสื่อมวลชน",
     news: "ข่าวสาร",
     company: "ข้อมูลบริษัท",
     reserve: "จองที่นี่",
@@ -362,7 +362,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Khu vực phục vụ",
     stores: "Danh sách cửa hàng",
     story: "Câu chuyện của chúng tôi",
-    blog: "Blog",
+    blog: "Yêu cầu phỏng vấn",
     news: "Tin tức",
     company: "Hồ sơ công ty",
     reserve: "Đặt lịch tại đây",
@@ -387,7 +387,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "Area layanan",
     stores: "Daftar toko",
     story: "Kisah kami",
-    blog: "Blog",
+    blog: "Permintaan liputan media",
     news: "Berita",
     company: "Profil perusahaan",
     reserve: "Pesan di sini",
@@ -412,7 +412,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "सेवा क्षेत्र",
     stores: "स्टोर सूची",
     story: "हमारी कहानी",
-    blog: "ब्लॉग",
+    blog: "मीडिया पूछताछ",
     news: "समाचार",
     company: "कंपनी प्रोफ़ाइल",
     reserve: "यहाँ बुक करें",
@@ -437,7 +437,7 @@ const T: Record<UILang, Record<Keys, string>> = {
     areas: "مناطق الخدمة",
     stores: "قائمة المتاجر",
     story: "قصتنا",
-    blog: "المدونة",
+    blog: "استفسارات إعلامية",
     news: "الأخبار",
     company: "نبذة عن الشركة",
     reserve: "احجز هنا",
@@ -453,6 +453,7 @@ const T: Record<UILang, Record<Keys, string>> = {
   },
 };
 
+/* ===== 以下は元コードと同一 ===== */
 const HEADER_H = "3rem";
 const TRIPLE_TAP_INTERVAL_MS = 500;
 const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
@@ -477,6 +478,7 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "aiChat", href: "/ai" },
   { key: "partners", href: "/jobApp" },
 ];
+
 
 type EditableSettings = {
   visibleMenuKeys?: string[];

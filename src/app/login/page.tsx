@@ -766,7 +766,7 @@ const MENU_ITEMS: { key: string; label: string }[] = [
   { key: "areas", label: "対応エリア" },
   { key: "stores", label: "店舗一覧" },
   { key: "story", label: "私たちの思い" },
-  { key: "blog", label: "ブログ" },
+  { key: "blog", label: "取材はこちら" },
   { key: "news", label: "お知らせ" },
   { key: "company", label: "会社概要" },
   { key: "contact", label: "無料相談・お問合せ" },
