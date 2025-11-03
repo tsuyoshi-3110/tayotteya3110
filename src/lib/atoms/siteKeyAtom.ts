@@ -6,4 +6,4 @@ export const partnerSiteKeyAtom = atomWithStorage<string | null>(
   null
 );
 
-export const SITE_KEY = "venusTotalBeaty";
+export const SITE_KEY = "tayotteya3110";

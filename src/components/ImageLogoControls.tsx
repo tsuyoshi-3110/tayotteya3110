@@ -14,7 +14,7 @@ import ThemeWallpaper from "./ThemeWallpaper";
 import HeaderLogoPicker from "./HeaderLogoPicker";
 
 type Props = {
-  /** どのサイトの設定か（例: "venusTotalBeaty"） */
+  /** どのサイトの設定か（例: "tayotteya3110"） */
   siteKey: string;
   /** Firestore のコレクション（既定: "siteSettingsEditable"） */
   collectionName?: string;

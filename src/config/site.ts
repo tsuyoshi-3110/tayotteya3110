@@ -1,5 +1,5 @@
 /*
- * Refactored /config/site.ts （Venus Total Beauty 版）
+ * Refactored /config/site.ts
  * 目的：新規 Pageit 作成時に「最小の上書き」だけで全体が組み上がるようにする。
  * 使い方：
  *   1) SITE_BRAND / SITE_OVERRIDES の値だけを書き換える（店舗名・キャッチ・説明など）
@@ -81,7 +81,7 @@ function createSite(overrides: SiteOverrides) {
     description: overrides.description,
     keywords: overrides.keywords as readonly string[],
     tel: overrides.tel ?? "",
-    logoPath: overrides.logoPath ?? "/logo.png",
+    logoPath: overrides.logoPath ?? "/ogpLogo.png",
     googleSiteVerification: overrides.googleSiteVerification ?? "",
     socials: {
       instagram: overrides.socials?.instagram ?? "",
@@ -95,37 +95,32 @@ function createSite(overrides: SiteOverrides) {
 /* =========================
    ★ 店舗ごとの最小上書き（ここだけ編集）
 ========================= */
-const SITE_BRAND = "Venus Total Beauty"; // 表示用のフル表記
+const SITE_BRAND = "お掃除処　たよって屋"; // 表示用のフル表記（全角スペース等もOK）
 
 const SITE_OVERRIDES: SiteOverrides = {
-  name: "Venus Total Beauty",
-  tagline: "東淀川区淡路のネイルサロン",
+  name: "おそうじ処 たよって屋",
+  tagline: "ハウスクリーニング・家事代行（大阪・兵庫）",
   description:
-    "大阪市東淀川区淡路にあるネイルサロン『Venus Total Beauty』。丁寧なケアと高品質な仕上がりが自慢です。",
+    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。大阪市東淀川区、豊中市、吹田市など近隣も丁寧に対応。水回り・リビング・定期清掃まで安心価格。",
   keywords: [
-    "Venus Total Beauty",
-    "ビーナス トータルビューティー",
-    "ネイルサロン",
+    "おそうじ処たよって屋",
+    "たよって屋",
+    "ハウスクリーニング",
+    "家事代行",
+    "整理収納",
+    "大阪",
+    "兵庫",
     "大阪市東淀川区",
-    "淡路",
-    "ジェルネイル",
-    "フットネイル",
-    "ネイルケア",
-    "ワンカラー",
-    "フレンチ",
-    "グラデーション",
+    "水回り掃除",
+    "エアコンクリーニング",
   ],
-  tel: "",
-  logoPath: "/logo.png",
-  googleSiteVerification: "",
+  tel: "+81 90-6559-9110",
+  logoPath: "/ogpLogo.png",
+  googleSiteVerification: "uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs",
   socials: {
-    instagram: "",
-    line: "",
-    x: "",
-    facebook: "",
+    instagram: "https://www.instagram.com/yuki.tayotte2017",
+    line: "https://lin.ee/YcKAJja",
   },
-  // ユーザー指定に合わせた公開URL（末尾スラッシュは自動で削除）
-  baseUrl: "https://venusTotalBeaty-homepage.vercel.app/",
 };
 
 /* =========================
@@ -135,8 +130,8 @@ export const siteName = SITE_BRAND; // 互換：従来の siteName を残す
 export const site = createSite(SITE_OVERRIDES);
 
 /* =========================
-   住所（公開用）
-   ※ 具体住所が未定のため、エリア表記のみ。
+   住所（公開用）←★追加
+   ※ ownerAddress は公開しない。SEO/リッチリザルト用にこちらを使う。
 ========================= */
 export type PublicAddress = {
   text: string; // 表示用
@@ -156,17 +151,17 @@ function mapUrlFromText(text: string) {
   )}`;
 }
 
-/** サロンの公開住所（必要に応じてこの値だけ編集） */
+/** 店舗の公開住所（必要に応じてこの値だけ編集） */
 export const PUBLIC_ADDRESS: PublicAddress = {
-  text: "大阪市東淀川区淡路",
+  text: "大阪府豊中市小曽根3-6-13",
   postal: {
     "@type": "PostalAddress",
     addressCountry: "JP",
     addressRegion: "大阪府",
-    addressLocality: "大阪市東淀川区",
-    streetAddress: "淡路",
+    addressLocality: "豊中市",
+    streetAddress: "小曽根3-6-13",
   },
-  hasMap: mapUrlFromText("大阪市東淀川区淡路"),
+  hasMap: mapUrlFromText("大阪府豊中市小曽根3-6-13"),
 };
 
 /* =========================
@@ -187,72 +182,78 @@ export const copy = {
   home: {
     headline: site.name,
     description:
-      "丁寧なケアと高品質な仕上がりが自慢のプライベートネイルサロン。ご希望のデザイン・肌なじみ・持ちの良さまで、ライフスタイルに合わせてご提案します。",
+      "大阪府・兵庫県を中心に、ハウスクリーニング／家事代行／整理収納を提供しています。キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。",
   },
 
-  // Stores（/stores）用：単一店舗だが既存構成に合わせて文言調整
+  // Stores（/stores）用
   stores: {
-    heroTitle: `${site.name} ─ サロン情報`,
-    heroAreas: "大阪市東淀川区・淡路",
-    heroLead: "落ち着いた空間で丁寧に施術いたします。",
+    heroTitle: `${site.name} ─ 店舗一覧`,
+    heroAreas: "大阪府・兵庫県",
+    heroLead:
+      "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
     heroTail:
-      "アクセス・営業情報・お問い合わせは各ページをご覧ください。",
-    heroIntroLine: `${site.name}は大阪市東淀川区・淡路エリアにあるネイルサロンです。`,
+      "各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。",
+    heroIntroLine: `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
   },
 
   /** ローカルエリアページ（/areas/local） */
   areasLocal: {
     // ページ見出し
-    h1: "淡路のネイルサロン（東淀川区）",
-    lead: "大阪市東淀川区・淡路エリアで、丁寧なケアと仕上がりを大切にしたネイルをご提供。",
+    h1: "東淀川区の家事代行・ハウスクリーニング",
+    lead: "淡路・上新庄・だいどう豊里・井高野・柴島など東淀川区全域に対応。",
 
     // サービスブロック
     services: [
       {
-        title: "ハンドジェル",
-        bullets: ["ワンカラー／グラデーション／フレンチ", "定番～トレンドデザイン", "オフ・ケア込みメニューあり"],
+        title: "家事代行（単発／定期）",
+        bullets: [
+          "掃除・片付け・洗濯・買い物代行",
+          "お子様／高齢者の見守り（家事の範囲内）",
+          "女性スタッフ指名可",
+        ],
       },
       {
-        title: "フットジェル・ケア",
-        bullets: ["フットワンカラー／アート", "爪まわりのケア", "季節デザインのご提案"],
-      },
-      {
-        title: "オフ・ケア・リペア",
-        bullets: ["自店オフ／他店オフ", "甘皮ケア", "フィルイン・補強（メニューにより）"],
+        title: "ハウスクリーニング",
+        bullets: [
+          "水回り（キッチン・浴室・洗面・トイレ）",
+          "エアコンクリーニング",
+          "引越し前後・空室クリーニング",
+        ],
       },
     ],
 
     // カバレッジ
-    coverageTitle: "対応エリア（目安）",
+    coverageTitle: "対応エリア（東淀川区）",
     coverageBody:
-      "淡路・東淡路・菅原・豊新・上新庄・瑞光・小松・北江口・井高野・豊里・大道南 ほか（東淀川区周辺）",
+      "淡路・東淡路・菅原・豊新・上新庄・瑞光・小松・南江口・北江口・井高野・大桐・大隅・豊里・大道南・柴島・下新庄 ほか",
 
     // FAQ（→ 構造化データに流用）
     faq: [
       {
-        q: "オフのみの予約は可能ですか？",
-        a: "可能です。自店・他店いずれも対応します（料金はメニューに準じます）。",
+        q: "東淀川区で当日予約は可能ですか？",
+        a: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
       },
       {
-        q: "長さ出しや補強はできますか？",
-        a: "一部メニューで対応可能です。ご予約時にご相談ください。",
+        q: "鍵預かりでの不在クリーニングは対応していますか？",
+        a: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
       },
       {
-        q: "支払い方法は何がありますか？",
-        a: "現金のほかキャッシュレスも順次対応予定です。詳細は当日ご案内します。",
+        q: "当日のお願いは可能ですか？",
+        a: "スケジュールに空きがあれば対応いたします。まずはお問い合わせください。",
       },
       {
-        q: "予約の変更やキャンセルは可能ですか？",
-        a: "前日までのご連絡をお願いします。当日の変更はお電話またはLINEでご相談ください。",
+        q: "鍵預かりや在宅不要の対応は？",
+        a: "条件を確認のうえ、適切に管理して対応可能です。",
       },
     ],
 
     // お問い合わせブロック
-    contactTitle: "ご予約・お問い合わせ",
-    contactText: "空き状況の確認・メニュー相談は、LINE／フォームからお気軽にどうぞ。",
+    contactTitle: "お問い合わせ",
+    contactText:
+      "予約状況の確認・見積りは、LINE／メールフォームからお気軽にどうぞ。",
 
     // 下部ナビ
-    toProductsText: "メニューを見る",
+    toProductsText: "トップページへ",
   },
 } as const;
 
@@ -266,163 +267,163 @@ function footerAlt(name: string) {
 /** Footer の多言語テキスト */
 export const FOOTER_STRINGS: Record<string, FooterI18n> = {
   ja: {
-    cta: "ご予約・お問い合わせ",
+    cta: "無料相談・お問い合わせ",
     snsAria: "SNSリンク",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "公式サイト",
     siteAlt: site.name,
-    areaLinkText: "淡路のネイルサロン（東淀川区）",
+    areaLinkText: "東淀川区の家事代行・ハウスクリーニング",
     rights: "All rights reserved.",
   },
   en: {
-    cta: "Book / Contact",
+    cta: "Contact us",
     snsAria: "Social links",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Official website",
     siteAlt: footerAlt(site.name),
-    areaLinkText: "Nail salon in Awaji, Higashiyodogawa",
+    areaLinkText: "Housekeeping & house cleaning in local",
     rights: "All rights reserved.",
   },
   zh: {
-    cta: "预约・咨询",
+    cta: "免费咨询・联系",
     snsAria: "社交链接",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官网",
-    siteAlt: `Venus Total Beauty 官方网站`,
-    areaLinkText: "东淀川区・淡路的美甲沙龙",
+    siteAlt: `Tayotteya 官方网站`,
+    areaLinkText: "东淀川区的家政与家居清洁",
     rights: "版权所有。",
   },
   "zh-TW": {
-    cta: "預約・洽詢",
+    cta: "免費諮詢・聯絡我們",
     snsAria: "社群連結",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官方網站",
-    siteAlt: `Venus Total Beauty 官方網站`,
-    areaLinkText: "東淀川區・淡路的美甲沙龍",
+    siteAlt: `Tayotteya 官方網站`,
+    areaLinkText: "東淀川區的家事服務・居家清潔",
     rights: "版權所有。",
   },
   ko: {
-    cta: "예약 / 문의",
+    cta: "문의하기",
     snsAria: "SNS 링크",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "공식 사이트",
-    siteAlt: `Venus Total Beauty 공식`,
-    areaLinkText: "히가시요도가와구 아와지의 네일 살롱",
+    siteAlt: `Tayotteya 공식`,
+    areaLinkText: "히가시요도가와구 가사도우미·하우스 클리닝",
     rights: "판권 소유.",
   },
   fr: {
-    cta: "Réserver / Contact",
+    cta: "Nous contacter",
     snsAria: "Liens sociaux",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site officiel",
-    siteAlt: `Venus Total Beauty (Officiel)`,
-    areaLinkText: "Salon de manucure à Awaji (Higashiyodogawa)",
+    siteAlt: `Tayotteya (Officiel)`,
+    areaLinkText: "Ménage & nettoyage domestique à local",
     rights: "Tous droits réservés.",
   },
   es: {
-    cta: "Reservas / Contacto",
+    cta: "Contáctanos",
     snsAria: "Enlaces sociales",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sitio oficial",
-    siteAlt: `Venus Total Beauty (Oficial)`,
-    areaLinkText: "Salón de uñas en Awaji, Higashiyodogawa",
+    siteAlt: `Tayotteya (Oficial)`,
+    areaLinkText: "Servicio doméstico y limpieza en local",
     rights: "Todos los derechos reservados.",
   },
   de: {
-    cta: "Buchen / Kontakt",
+    cta: "Kontakt",
     snsAria: "Soziale Links",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Offizielle Website",
-    siteAlt: `Venus Total Beauty (Offiziell)`,
-    areaLinkText: "Nagelstudio in Awaji (Higashiyodogawa)",
+    siteAlt: `Tayotteya (Offiziell)`,
+    areaLinkText: "Haushaltshilfe & Hausreinigung in local",
     rights: "Alle Rechte vorbehalten.",
   },
   pt: {
-    cta: "Reserva / Contato",
+    cta: "Fale conosco",
     snsAria: "Redes sociais",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site oficial",
-    siteAlt: `Venus Total Beauty (Oficial)`,
-    areaLinkText: "Salão de unhas em Awaji, Higashiyodogawa",
+    siteAlt: `Tayotteya (Oficial)`,
+    areaLinkText: "Serviços domésticos e limpeza em local",
     rights: "Todos os direitos reservados.",
   },
   it: {
-    cta: "Prenota / Contatti",
+    cta: "Contattaci",
     snsAria: "Link social",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sito ufficiale",
-    siteAlt: `Venus Total Beauty (Ufficiale)`,
-    areaLinkText: "Nail salon a Awaji (Higashiyodogawa)",
+    siteAlt: `Tayotteya (Ufficiale)`,
+    areaLinkText: "Servizi domestici e pulizie a local",
     rights: "Tutti i diritti riservati.",
   },
   ru: {
-    cta: "Запись / Контакты",
+    cta: "Связаться с нами",
     snsAria: "Ссылки на соцсети",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Официальный сайт",
-    siteAlt: `Venus Total Beauty (Официальный)`,
-    areaLinkText: "Ногтевой салон в районе Авадзи (Хигасийодогава)",
+    siteAlt: `Tayotteya (Официальный)`,
+    areaLinkText: "Бытовые услуги и уборка в районе Хигасийодогава",
     rights: "Все права защищены.",
   },
   th: {
-    cta: "จองคิว / ติดต่อ",
+    cta: "ติดต่อเรา",
     snsAria: "ลิงก์โซเชียล",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "เว็บไซต์ทางการ",
-    siteAlt: `Venus Total Beauty (ทางการ)`,
-    areaLinkText: "ร้านทำเล็บที่อาวาจิ เขตฮิกาชิโยโดกาวะ",
+    siteAlt: `Tayotteya (ทางการ)`,
+    areaLinkText: "แม่บ้านและทำความสะอาดในเขตฮิกาชิโยโดกาวะ",
     rights: "สงวนลิขสิทธิ์",
   },
   vi: {
-    cta: "Đặt lịch / Liên hệ",
+    cta: "Liên hệ",
     snsAria: "Liên kết mạng xã hội",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Trang chính thức",
-    siteAlt: `Venus Total Beauty (Chính thức)`,
-    areaLinkText: "Tiệm nails tại Awaji (Higashiyodogawa)",
+    siteAlt: `Tayotteya (Chính thức)`,
+    areaLinkText: "Dọn dẹp & giúp việc nhà tại local",
     rights: "Mọi quyền được bảo lưu.",
   },
   id: {
-    cta: "Booking / Kontak",
+    cta: "Hubungi kami",
     snsAria: "Tautan sosial",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Situs resmi",
-    siteAlt: `Venus Total Beauty (Resmi)`,
-    areaLinkText: "Salon kuku di Awaji, Higashiyodogawa",
+    siteAlt: `Tayotteya (Resmi)`,
+    areaLinkText: "Jasa bersih-bersih & asisten rumah tangga di local",
     rights: "Hak cipta dilindungi.",
   },
   hi: {
-    cta: "बुकिंग / संपर्क",
+    cta: "संपर्क करें",
     snsAria: "सोशल लिंक",
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "आधिकारिक वेबसाइट",
-    siteAlt: `Venus Total Beauty (आधिकारिक)`,
-    areaLinkText: "अवाजी, हिगाशी-योदोगावा का नेल सैलून",
+    siteAlt: `Tayotteya (आधिकारिक)`,
+    areaLinkText: "हिगाशी-योदोगावा में हाउसकीपिंग व हाउस क्लीनिंग",
     rights: "सर्वाधिकार सुरक्षित।",
   },
   ar: {
-    cta: "حجز / تواصل",
+    cta: "اتصل بنا",
     snsAria: "روابط التواصل الاجتماعي",
     instagramAlt: "إنستغرام",
     lineAlt: "لاين",
     siteAria: "الموقع الرسمي",
-    siteAlt: `Venus Total Beauty (رسمي)` as unknown as string,
-    areaLinkText: "صالون أظافر في أواجي (هيغاشي يودوغاوا)",
+    siteAlt: `تايوتيّا (رسمي)` as unknown as string,
+    areaLinkText: "خدمات التدبير المنزلي وتنظيف المنازل في هيغاشي يودوغاوا",
     rights: "جميع الحقوق محفوظة.",
   },
 };
@@ -432,28 +433,29 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
 ========================= */
 export const faqItems: FaqItem[] = [
   {
-    question: "メニューの所要時間はどのくらいですか？",
+    question: "対応エリアはどこですか？",
     answer:
-      "デザインにより前後しますが、ハンドジェルのワンカラーで約60〜90分が目安です。初回の方はカウンセリング分を少し長めにいただきます。",
+      "大阪府・兵庫県を中心に対応しています。豊中市・吹田市・東淀川区・池田市・箕面市・尼崎市など、まずはお気軽にご相談ください。",
   },
   {
-    question: "オフ代はかかりますか？",
+    question: "見積もりは無料ですか？",
     answer:
-      "自店オフ・他店オフいずれもメニューにより異なります。ご予約ページの料金表をご確認ください。",
+      "はい、無料です。現地確認が必要な場合もありますが、費用はいただきません。",
   },
   {
     question: "支払い方法は？",
-    answer: "現金のほか、キャッシュレス決済にも順次対応予定です。",
+    answer:
+      "現金・銀行振込・各種キャッシュレス（ご相談ください）に対応しています。",
   },
   {
-    question: "予約の変更・キャンセルは可能ですか？",
+    question: "当日の追加依頼や延長は可能ですか？",
     answer:
-      "前日までの変更・キャンセルは無料です。当日の場合はLINEまたはお電話でご相談ください。",
+      "当日のスケジュール次第ですが、可能な限り柔軟に対応いたします。スタッフへご相談ください。",
   },
   {
-    question: "長さ出しや補強はできますか？",
+    question: "キャンセル料はかかりますか？",
     answer:
-      "一部メニューで対応可能です。爪の状態によりご提案が変わりますので、事前にご相談ください。",
+      "前日キャンセルは無料、当日キャンセルは作業代の50％を頂戴しております（事前連絡なしの不在は100％）。",
   },
 ];
 
@@ -463,61 +465,61 @@ export const faqItems: FaqItem[] = [
 const PAGES = {
   home: {
     path: "/",
-    title: `${site.name}｜${site.tagline}`,
+    title: `${site.name}｜家事代行`,
     description:
-      "丁寧なケアと高品質な仕上がりが自慢のネイルサロン。大阪市東淀川区・淡路で営業中。",
+      "大阪・兵庫エリア対応のハウスクリーニング／家事代行／整理収納のご案内。",
     ogType: "website",
   },
   about: {
     path: "/about",
-    title: `サロンについて｜${site.name}`,
+    title: `私たちの想い｜${site.name}`,
     description:
-      "カウンセリングからケア、仕上げまで一つひとつ丁寧に。プライベート空間でリラックスしてお過ごしください。",
+      "お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念。",
     ogType: "website",
   },
   news: {
     path: "/news",
     title: `お知らせ｜${site.name}`,
-    description: `${site.name} の最新情報・キャンペーン・営業スケジュールなど。`,
+    description: `${site.name} の最新情報・キャンペーン・営業時間などのお知らせ。`,
     ogType: "website",
   },
   areasLocal: {
     path: "/areas/local",
-    title: `淡路のネイルサロン（東淀川区）｜${site.name}`,
+    title: `東淀川区の家事代行・ハウスクリーニング｜${site.name}`,
     description:
-      "東淀川区・淡路エリアで、ハンド／フットのジェルネイル・ケア・オフに対応。",
+      "東淀川区（淡路・上新庄…）で家事代行・ハウスクリーニング。定期/スポット対応。",
     ogType: "article",
   },
   products: {
     path: "/products",
-    title: `メニュー・料金｜${site.name}`,
-    description: `${site.name}のメニュー・料金一覧。ハンド／フット、ワンカラー、グラデ、フレンチ、オフ・ケアなど。`,
+    title: `サービス一覧｜${site.name}`,
+    description: `${site.name}の家事代行・ハウスクリーニングのサービス一覧。水回り清掃や整理整頓、エアコン掃除などを掲載。`,
     ogType: "website",
-    ogImage: "/logo.png",
+    ogImage: "/ogp-products.jpg",
   },
   productsEC: {
     path: "/products-ec",
-    title: `オンライン予約｜${site.name}`,
-    description: `${site.name}のオンライン予約ページ。空き状況のご確認・ご予約はこちらから。`,
+    title: `サービス一覧（オンライン予約）｜${site.name}`,
+    description: `${site.name}のサービス一覧（オンライン予約対応）。水回り・キッチン・浴室など日常のお手伝いをプロが丁寧に実施。`,
     ogType: "website",
-    ogImage: "/logo.png",
+    ogImage: "/ogp-products.jpg",
   },
   projects: {
     path: "/projects",
-    title: `デザイン例・ギャラリー｜${site.name}`,
-    description: `季節のデザインや人気アートのギャラリー。仕上がりの雰囲気をご覧ください。`,
+    title: `サービス一覧｜${site.name}`,
+    description: `${site.name}のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載。`,
     ogType: "website",
   },
   stores: {
     path: "/stores",
-    title: `アクセス｜${site.name}`,
-    description: `${site.name}へのアクセス・周辺情報のご案内。`,
+    title: `店舗一覧｜${site.name}`,
+    description: `${site.name}の店舗一覧ページ。大阪・兵庫エリア対応の拠点情報をご紹介します。`,
     ogType: "website",
   },
   faq: {
     path: "/faq",
     title: `よくある質問（FAQ）｜${site.name}`,
-    description: `料金・オフ・支払い方法・予約変更など、${site.name}に関するご質問にお答えします。`,
+    description: `料金・対応エリア・キャンセル・支払い方法など、${site.name}のハウスクリーニング／家事代行に関するよくある質問。`,
     ogType: "article",
   },
 } as const;
@@ -530,7 +532,6 @@ const pages: Record<PageKey, PageDef> = PAGES as unknown as Record<
 
 /* =========================
    SEO メタデータビルダー
-   （指定の metadata 相当を自動生成）
 ========================= */
 export const seo = {
   base: (): Metadata => ({
@@ -559,8 +560,7 @@ export const seo = {
 
     openGraph: {
       title: `${site.name}｜${site.tagline}`,
-      description:
-        "丁寧なケアと高品質な仕上がりが自慢のネイルサロン。大阪市東淀川区淡路で営業中。",
+      description: site.description,
       url: pageUrl("/"),
       siteName: site.name,
       type: "website",
@@ -647,14 +647,14 @@ export const AI_SITE: AiSiteConfig = {
   brand: site.name,
   url: site.baseUrl,
   areasByLang: {
-    ja: "大阪市東淀川区・淡路",
-    en: "Awaji, Higashiyodogawa, Osaka",
+    ja: "大阪・兵庫（例：大阪市東淀川区／豊中市／吹田市 など）",
+    en: "Osaka & Hyogo (e.g., local, Toyonaka, Suita)",
   },
   servicesByLang: {
-    ja: ["ハンドジェル", "フットジェル", "オフ・ケア", "アート・リペア"],
-    en: ["hand gel", "foot gel", "off & care", "art & repair"],
+    ja: ["ハウスクリーニング", "エアコンクリーニング", "家事代行", "整理収納"],
+    en: ["house cleaning", "A/C cleaning", "housekeeping", "organizing"],
   },
-  retail: false, // 物販ではなくサービス主体
+  retail: true,
   productPageRoute: "/products",
   languages: {
     default: "ja",

@@ -63,7 +63,22 @@ export default function Footer() {
             aria-label={t.snsAria}
           >
             <a
-              href="https://lin.ee/KaFE6fA"
+              href="https://www.instagram.com/yuki.tayotte2017"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.instagramAlt}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/instagram-logo.png"
+                alt={t.instagramAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
+            <a
+              href="https://lin.ee/YcKAJja"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={t.lineAlt}
@@ -78,14 +93,14 @@ export default function Footer() {
               />
             </a>
             <a
-              href="https://beauty.hotpepper.jp/kr/slnH000546712/"
+              href="https://tayotteya.com/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={t.siteAria}
               className="transition-opacity hover:opacity-80"
             >
               <Image
-                src="/hotpepper-logo.png"
+                src="/tayotteya_circle_image.png"
                 alt={t.siteAlt || site.name}
                 width={iconSize}
                 height={iconSize}
