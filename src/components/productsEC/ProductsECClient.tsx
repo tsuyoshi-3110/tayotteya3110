@@ -469,28 +469,36 @@ export default function ProductsECClient() {
     const ref = doc(db, "siteShippingPolicy", SITE_KEY);
     const unsub = onSnapshot(ref, (snap) => {
       const data = snap.data() as any;
-      const enabled = !!data?.enabled;
-      if (!enabled) {
+      if (!data?.enabled) {
         setFreeShipMinJPY(0);
         return;
       }
-      // thresholdByLang から UI 言語優先で取得。なければ ja、さらに無ければ最小値にフォールバック
       const table = (data?.thresholdByLang ?? {}) as Record<string, unknown>;
-      const byLang = Number(table[uiLang]);
-      const fallbackJa = Number(table["ja"]);
+
+      // "5,980円" → 5980 などに変換
+      const parse = (v: unknown) =>
+        typeof v === "number"
+          ? v
+          : typeof v === "string"
+          ? Number(v.replace(/[^\d.-]/g, ""))
+          : NaN;
+
+      const byLang = parse(table[uiLang]);
+      const fallbackJa = parse(table["ja"]);
       const candidates = Object.values(table)
-        .map((v) => Number(v))
-        .filter((n) => Number.isFinite(n) && n > 0) as number[];
+        .map(parse)
+        .filter((n) => Number.isFinite(n) && n >= 0) as number[];
+
       const minAcross = candidates.length ? Math.min(...candidates) : 0;
 
       const chosen =
-        Number.isFinite(byLang) && byLang > 0
+        Number.isFinite(byLang) && byLang >= 0
           ? byLang
-          : Number.isFinite(fallbackJa) && fallbackJa > 0
+          : Number.isFinite(fallbackJa) && fallbackJa >= 0
           ? fallbackJa
           : minAcross;
 
-      setFreeShipMinJPY(chosen ? Math.round(chosen) : 0);
+      setFreeShipMinJPY(Math.round(chosen || 0));
     });
     return () => unsub();
   }, [uiLang]);
@@ -506,11 +514,6 @@ export default function ProductsECClient() {
 
   // 追加：在庫購読（siteKey単位）
   useEffect(() => {
-    if (!isAdmin) {
-      // ★ 未ログインで読まない
-      setStockMap({});
-      return;
-    }
     const qRef = query(
       collection(db, "stock"),
       where("siteKey", "==", SITE_KEY)
@@ -531,7 +534,7 @@ export default function ProductsECClient() {
       }
     );
     return () => unsub();
-  }, [isAdmin]);
+  }, []);
 
   /* ========== セクション購読 ========== */
   useEffect(() => {
@@ -1137,7 +1140,9 @@ export default function ProductsECClient() {
               // ▼ 追加：この商品の在庫数を取得（stock の productId は p.id と同じ前提）
               const pid = (p as any).productId || p.id;
               const qty = stockMap[pid];
-              const soldOut = typeof qty === "number" && qty <= 0;
+              const soldOut =
+                (p as any).soldOut === true ||
+                (typeof qty === "number" && qty <= 0);
 
               return (
                 <SortableItem key={p.id} product={p}>
@@ -1193,10 +1198,10 @@ export default function ProductsECClient() {
                         />
                         {soldOut && (
                           <Image
-                            src="/images/soldOutImageSK.png" // public/images/soldOutImage.png
+                            src="/images/soldOutImageSK.png" // public/images/soldOutImageSK.png
                             fill
                             alt="売切れ"
-                            className="absolute inset-0 z-20 h-full w-full object-contain pointer-events-none"
+                            className="absolute inset-0 z-50 h-full w-full object-contain pointer-events-none"
                             unoptimized
                           />
                         )}

@@ -98,15 +98,13 @@ const pickStr = (v: unknown) =>
 
 /* ---------- ★商品名選択ロジック（日本語は base.title を必ず使用） ---------- */
 function pickProductNameFor(data: any, uiLang?: string | null): string {
-  const baseJa = pickStr(data?.base?.title) || pickStr(data?.title); // ← 日本語の実体名
+  const baseJa = pickStr(data?.base?.title) || pickStr(data?.title);
   const L = canonLang(uiLang);
 
-  // 日本語 UI のときは無条件で base を使用（t[] に ja が無くても英語に落ちない）
   if (L.startsWith("ja")) {
     return baseJa || "商品";
   }
 
-  // 非日本語：選択言語 → en → base の順
   const rows: Array<{ lang?: string; title?: string; body?: string }> =
     Array.isArray(data?.t) ? data.t : [];
   const findInT = (key: string) => {
@@ -132,7 +130,7 @@ function collectLocalizedNames(data: any) {
   const out: Record<string, string> = {};
   const baseJa = pickStr(data?.base?.title) || pickStr(data?.title);
   if (baseJa) {
-    out["ja"] = baseJa; // ← base は日本語として扱う
+    out["ja"] = baseJa;
     out["base"] = baseJa;
   }
   const rows: Array<{ lang?: string; title?: string; body?: string }> =
@@ -189,7 +187,7 @@ async function resolveShippingJPY(siteKey: string, uiLang?: string | null) {
   let table: Record<string, any> | undefined;
 
   if (site.exists) {
-    table = site.data; // 存在する → 中身が空でも default へは行かない
+    table = site.data;
   } else {
     const def = await getSiteDoc<Record<string, any>>(
       "siteShippingPrices",
@@ -208,7 +206,7 @@ async function resolveShippingJPY(siteKey: string, uiLang?: string | null) {
     "ja",
     "en",
   ]) {
-    if (!(k in table)) continue; // キーが無い時のみ次へ
+    if (!(k in table)) continue;
     const n = Number(table[k]);
     if (Number.isFinite(n) && n >= 0)
       return { amountJPY: Math.floor(n), langKeyUsed: k };
@@ -229,7 +227,7 @@ async function resolveThresholdPolicy(siteKey: string, uiLang?: string | null) {
 
   const enabled = pol?.enabled !== false;
   const byLang: Record<string, any> = pol?.thresholdByLang || {};
-  const defVal = Number(pol?.thresholdDefaultJPY ?? pol?.thresholdJPY) || 0; // 旧フィールド互換
+  const defVal = Number(pol?.thresholdDefaultJPY ?? pol?.thresholdJPY) || 0;
   for (const k of [
     canonLang(uiLang),
     canonLang(uiLang).split("-")[0],
@@ -249,7 +247,7 @@ function shippingLabelFor(lang?: string | null) {
   if (l.startsWith("zh-tw") || l.startsWith("zh-hant") || l.startsWith("zh-hk"))
     return "運費";
   if (l.startsWith("zh")) return "运费";
-  if (l.startsWith("ko")) return "배송비";
+  if (l.startsWith("ko")) return "배송ビ";
   if (l.startsWith("fr")) return "Frais de port";
   if (l.startsWith("de")) return "Versand";
   if (l.startsWith("es")) return "Envío";
@@ -346,7 +344,6 @@ export async function POST(req: NextRequest) {
     );
     if (unitJPY <= 0) continue;
 
-    // ★ ここが肝：日本語 UI のときは base.title を必ず使う
     const displayName = pickProductNameFor(data, lang);
 
     const names = collectLocalizedNames(data);
@@ -431,6 +428,9 @@ export async function POST(req: NextRequest) {
       .toString(36)
       .slice(2, 8)}`;
 
+    // 毎リクエスト固有の orderId（FirestoreのIDを使用）
+    const orderId = adminDb.collection("siteOrders").doc().id;
+
     const session = await stripeConnect.checkout.sessions.create({
       mode: "payment",
       line_items,
@@ -478,13 +478,13 @@ export async function POST(req: NextRequest) {
           "LU",
           "MT",
           "SK",
-          "SI", // ← 追加（EU残り）
+          "SI",
           "IS",
-          "LI", // ← 追加（EFTA残り）
+          "LI",
           "AD",
           "MC",
           "SM",
-          "VA", // ← 追加（欧州マイクロステート）
+          "VA",
           "NZ",
           "TH",
           "VN",
@@ -498,9 +498,13 @@ export async function POST(req: NextRequest) {
         ],
       },
 
-      payment_intent_data: { transfer_group: transferGroup },
+      payment_intent_data: {
+        transfer_group: transferGroup,
+        metadata: { orderId, siteKey },
+      },
       metadata: {
         siteKey,
+        orderId,
         uiLang: lang ?? "",
         lang: canonLang(lang || "ja"),
         currency: "JPY",
@@ -512,7 +516,7 @@ export async function POST(req: NextRequest) {
         freeShippingEnabled: String(freeEnabled),
         freeShippingThresholdJPY: String(thresholdJPY),
       },
-      client_reference_id: siteKey,
+      client_reference_id: orderId,
       success_url,
       cancel_url,
     });
@@ -522,6 +526,7 @@ export async function POST(req: NextRequest) {
       .doc(session.id)
       .set({
         siteKey,
+        orderId,
         status: "pending",
         items: pendingItems,
         subtotalJPY: subtotalMinorJPY,
