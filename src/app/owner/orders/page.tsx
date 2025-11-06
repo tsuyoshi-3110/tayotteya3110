@@ -2,6 +2,7 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import Pager from "./Pager";
+import RefundRequestButton from "@/components/RefundRequestButton";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -184,9 +185,22 @@ export default async function OrdersPage({
                       {(o.items ?? []).map((it, i) => (
                         <li
                           key={i}
-                          className="border-b last:border-none pb-1 text-gray-800"
+                          className="border-b last:border-none pb-1 text-gray-800 flex items-center justify-between gap-2"
                         >
-                          {it.name} ×{it.qty}（{jpy(it.unitAmount)}）
+                          <span className="min-w-0">
+                            {it.name} ×{it.qty}（{jpy(it.unitAmount)}）
+                          </span>
+
+                          {/* 返金依頼ボタン（通知は transferLogs へ） */}
+                          <RefundRequestButton
+                            siteKey={o.siteKey}
+                            orderId={o.id as string}
+                            item={it}
+                            customerName={o.customer?.name}
+                            customerEmail={o.customer?.email}
+                            customerPhone={o.customer?.phone}
+                            addressText={addressText}
+                          />
                         </li>
                       ))}
                     </ul>
