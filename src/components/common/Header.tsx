@@ -460,10 +460,10 @@ const IGNORE_SELECTOR = "a,button,input,select,textarea,[role='button']";
 
 /* ===== メニュー定義 ===== */
 const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
-  { key: "productsEC", href: "/productsEC" },
   { key: "home", href: "/" },
-  { key: "projects", href: "/projects" },
+  { key: "productsEC", href: "/productsEC" },
   { key: "products", href: "/products" },
+  { key: "projects", href: "/projects" },
   { key: "staffs", href: "/staffs" },
   { key: "pricing", href: "/menu" },
   { key: "hours", href: "/hours" },
@@ -478,7 +478,6 @@ const MENU_ITEMS: { key: keyof (typeof T)["ja"]; href: string }[] = [
   { key: "aiChat", href: "/ai" },
   { key: "partners", href: "/jobApp" },
 ];
-
 
 type EditableSettings = {
   visibleMenuKeys?: string[];
