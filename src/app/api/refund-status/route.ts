@@ -1,53 +1,89 @@
-// Nodeランタイムで実行
+// app/api/refund-status/route.ts
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { adminDb } from "@/lib/firebase-admin";
+import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
-// 返却型
-type RefundStatus = "none" | "requested" | "processed" | "refunded";
+type Body = {
+  siteKey?: string;
+  orderId?: string;
+  itemName?: string; // 任意（商品単位で依頼済み判定したいとき）
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const { orderId, siteKey } = (await req.json()) as {
-      orderId?: string;
-      siteKey?: string;
-    };
+    const body = (await req.json()) as Body | null;
+    const siteKey = body?.siteKey || SITE_KEY;
+    const orderId = body?.orderId;
+    const itemName = body?.itemName;
+
     if (!orderId) {
-      return NextResponse.json(
-        { error: "orderId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ status: "none" as const });
     }
 
-    // Stripe の Charges 検索（metadataに orderId / siteKey を入れている前提）
-    // ※ destination charge（プラットフォーム課金）なら platform 側の検索でヒットします。
-    const query = siteKey
-      ? `metadata['orderId']:'${orderId}' AND metadata['siteKey']:'${siteKey}'`
-      : `metadata['orderId']:'${orderId}'`;
+    // 1) siteOrders（正式な注文レコード）を優先判定
+    //    ここで Firestore に保存された返金結果を見て「返金済み/一部返金」を返す。
+    const orderSnap = await adminDb.collection("siteOrders").doc(orderId).get();
+    if (orderSnap.exists) {
+      const o = orderSnap.data() as any;
 
-    const search = await stripe.charges.search({ query, limit: 1 });
-    if (search.data.length === 0) {
-      return NextResponse.json({ status: "none" satisfies RefundStatus });
+      // よく使うフィールド名に対応（いずれかが true/一致していれば返金済み扱い）
+      const refundedFlag =
+        o?.refunded === true ||
+        o?.status === "refunded" ||
+        o?.payment_status === "refunded" ||
+        !!o?.refundId; // 単発返金の痕跡が doc に付く場合
+
+      if (refundedFlag) {
+        return NextResponse.json({ status: "refunded" as const });
+      }
+
+      // 一部返金の痕跡があれば processed 扱い（存在すれば true とするライトな判定）
+      const partialFlag =
+        (typeof o?.refundedAmount === "number" && o.refundedAmount > 0) ||
+        (Array.isArray(o?.refunds) && o.refunds.length > 0);
+
+      if (partialFlag) {
+        return NextResponse.json({ status: "processed" as const });
+      }
     }
 
-    const charge = search.data[0];
-    const amount = charge.amount ?? 0; // 課金額（最小単位）
-    const amountRefunded = charge.amount_refunded ?? 0;
+    // 2) refundRequests の依頼履歴で補完（インデックス不要: すべて等価比較 & orderBy なし）
+    //    商品単位で見たい場合のみ item.name で絞る。
+    let baseQuery = adminDb
+      .collection("refundRequests")
+      .where("type", "==", "refundRequest")
+      .where("siteKey", "==", siteKey)
+      .where("orderId", "==", orderId);
 
-    let status: RefundStatus = "none";
-    if (amountRefunded > 0 && amountRefunded < amount) status = "processed"; // 一部返金
-    if (amountRefunded >= amount && amount > 0) status = "refunded"; // 全額返金
+    if (itemName) {
+      baseQuery = baseQuery.where("item.name", "==", itemName);
+    }
 
-    return NextResponse.json({
-      status,
-      amount,
-      amountRefunded,
-      chargeId: charge.id,
-      paymentIntentId: charge.payment_intent,
-    });
-  } catch (e: any) {
-    console.error("[refund-status] error", e);
-    return NextResponse.json({ error: "internal error" }, { status: 500 });
+    // まずは確定系（refunded）
+    let snap = await baseQuery.where("status", "==", "refunded").limit(1).get();
+    if (!snap.empty) {
+      return NextResponse.json({ status: "refunded" as const });
+    }
+
+    // 次に処理中・一部返金（processed）
+    snap = await baseQuery.where("status", "==", "processed").limit(1).get();
+    if (!snap.empty) {
+      return NextResponse.json({ status: "processed" as const });
+    }
+
+    // 最後に依頼済み（requested）
+    snap = await baseQuery.where("status", "==", "requested").limit(1).get();
+    if (!snap.empty) {
+      return NextResponse.json({ status: "requested" as const });
+    }
+
+    // どれも該当なし
+    return NextResponse.json({ status: "none" as const });
+  } catch (e) {
+    console.error("[refund-status] error:", e);
+    // エラー時も UI を止めない
+    return NextResponse.json({ status: "none" as const });
   }
 }

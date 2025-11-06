@@ -81,10 +81,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1) docId が来たら、transferLogs から読み取って送信
+    // 1) docId が来たら、refundRequests から読み取って送信
     if (body.docId) {
       const snap = await adminDb
-        .collection("transferLogs")
+        .collection("refundRequests")
         .doc(body.docId)
         .get();
       if (!snap.exists) {
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       status: "requested" as const,
       createdAt: FieldValue.serverTimestamp(),
     };
-    const ref = await adminDb.collection("transferLogs").add(docData);
+    const ref = await adminDb.collection("refundRequests").add(docData);
 
     const subject = `[返金依頼] ${docData.siteKey} / 注文 ${orderId}`;
     const lines = [

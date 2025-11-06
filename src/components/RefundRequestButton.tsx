@@ -16,8 +16,6 @@ export default function RefundRequestButton({
   customerEmail,
   customerPhone,
   addressText,
-  // 親が渡せる場合はここで上書き
-  refundStatus,
 }: {
   siteKey: string;
   orderId: string;
@@ -26,17 +24,15 @@ export default function RefundRequestButton({
   customerEmail?: string;
   customerPhone?: string;
   addressText?: string;
-  refundStatus?: RefundStatus;
 }) {
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [remoteStatus, setRemoteStatus] = useState<RefundStatus>("none");
 
-  // ▼ 表示サイズを統一（高さ: 32px / 最小幅: 96px）
+  // サイズは統一（高さ:32px / 最小幅:96px）
   const BTN_BASE =
-    "ml-2 inline-flex items-center justify-center rounded border px-3 text-xs h-8 min-w-[96px] whitespace-nowrap";
+    "inline-flex items-center justify-center rounded border px-3 text-xs h-8 min-w-[96px] whitespace-nowrap";
 
-  // ▼ Stripe 実態からの自動判定（初期表示で一度だけ）
-  const [remoteStatus, setRemoteStatus] = useState<RefundStatus | null>(null);
+  // 初期表示でサーバーから状態を取得（保持）
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -44,42 +40,36 @@ export default function RefundRequestButton({
         const res = await fetch("/api/refund-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, siteKey }),
+          body: JSON.stringify({
+            siteKey,
+            orderId,
+            itemName: item?.name ?? undefined,
+          }),
         });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!aborted && json?.status) {
+        const json = await res.json().catch(() => ({}));
+        if (!aborted && res.ok && json?.status) {
           setRemoteStatus(json.status as RefundStatus);
         }
       } catch {
-        // 失敗してもUXを阻害しない（通常ボタン表示）
+        // 失敗してもUIは既定のまま
       }
     })();
     return () => {
       aborted = true;
     };
-  }, [orderId, siteKey]);
+  }, [siteKey, orderId, item?.name]);
 
-  // ▼ 表示用の最終ステータス（Stripe実態 > 親からの渡し値 > 既定）
-  const effectiveStatus: RefundStatus = remoteStatus ?? refundStatus ?? "none";
-  const isFullyRefunded = effectiveStatus === "refunded";
-  const isPartiallyRefunded = effectiveStatus === "processed";
-  const isRequested = effectiveStatus === "requested";
+  const isFullyRefunded = remoteStatus === "refunded";
+  const isPartiallyRefunded = remoteStatus === "processed";
+  const isRequested = remoteStatus === "requested";
 
-  async function handleClick() {
-    if (sending || sent || isFullyRefunded || isPartiallyRefunded || isRequested) return;
-
-    const ok = confirm("この商品について返金依頼を送信します。よろしいですか？");
-    if (!ok) return;
-
-    const reason = prompt("返金理由（任意）を入力してください：") ?? "";
-
+  async function sendRequest(intent: "first" | "retry") {
     setSending(true);
     try {
       const uid = auth.currentUser?.uid ?? null;
 
-      // 1) Firestore に保存
-      const docRef = await addDoc(collection(db, "transferLogs"), {
+      // Firestore へログ追加
+      const docRef = await addDoc(collection(db, "refundRequests"), {
         type: "refundRequest",
         siteKey,
         orderId,
@@ -91,12 +81,14 @@ export default function RefundRequestButton({
           addressText: addressText || null,
         },
         requestedByUid: uid,
-        status: "requested", // 管理側で processed / refunded / declined 等に更新
-        reason: reason.trim() || null,
+        status: "requested", // 管理側で processed / refunded / canceled 等に更新
+        reason: null,
         createdAt: serverTimestamp(),
+        // 既依頼後の再送を区別したい場合の最低限メタ
+        retry: intent === "retry",
       });
 
-      // 2) 通知APIを呼ぶ（docId から内容取得してメール送信）
+      // 通知API（メール）
       let notified = false;
       try {
         const res = await fetch("/api/refund-request", {
@@ -106,58 +98,102 @@ export default function RefundRequestButton({
         });
         if (res.ok) notified = true;
       } catch {
-        // noop（下のアラートで案内）
+        // noop
       }
 
-      setSent(true);
+      // 状態を保持
+      setRemoteStatus("requested");
+
       alert(
         notified
-          ? "返金依頼を送信しました。管理側に通知されました。"
+          ? intent === "retry"
+            ? "返金依頼を再送しました。"
+            : "返金依頼を送信しました。"
           : "返金依頼は保存されましたが、通知に失敗しました。時間をおいて再度お試しください。"
       );
     } catch (e) {
       console.error(e);
-      alert("送信に失敗しました。通信状態を確認してください。");
+      alert("送信に失敗しました。通信状態をご確認ください。");
     } finally {
       setSending(false);
     }
   }
 
-  // ▼ 返金済み（全額）
+  async function handleClick() {
+    if (sending) return;
+
+    // 返金済み・一部返金は操作不可
+    if (isFullyRefunded || isPartiallyRefunded) return;
+
+    // 既に依頼済み → 再送の確認
+    if (isRequested) {
+      const ok = confirm("すでに依頼済みです。再度依頼を送信しますか？");
+      if (!ok) return;
+      return sendRequest("retry");
+    }
+
+    // 初回依頼
+    const ok = confirm(
+      "この商品について返金依頼を送信します。よろしいですか？"
+    );
+    if (!ok) return;
+    return sendRequest("first");
+  }
+
+  // 返金済み（全額）
   if (isFullyRefunded) {
     return (
-      <span className={`${BTN_BASE} bg-gray-200 text-gray-600 cursor-default`} title="返金済み（全額）">
+      <span
+        className={`${BTN_BASE} bg-gray-200 text-gray-600 cursor-default`}
+        title="返金済み（全額）"
+      >
         返金済み
       </span>
     );
   }
 
-  // ▼ 一部返金
+  // 一部返金
   if (isPartiallyRefunded) {
     return (
-      <span className={`${BTN_BASE} bg-gray-200 text-gray-600 cursor-default`} title="一部返金済み">
+      <span
+        className={`${BTN_BASE} bg-gray-200 text-gray-600 cursor-default`}
+        title="一部返金済み"
+      >
         一部返金
       </span>
     );
   }
 
-  // ▼ 依頼済み（サーバーステータス） or 今回送信済み
-  if (isRequested || sent) {
+  // 依頼済み（オレンジ表示・再送可能）
+  if (isRequested) {
     return (
-      <span className={`${BTN_BASE} bg-gray-200 text-gray-500 cursor-default`} title="送信済み">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={sending}
+        className={`${BTN_BASE} ${
+          sending
+            ? "bg-orange-200 text-orange-700 border-orange-300 cursor-wait"
+            : "bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200"
+        }`}
+        title="依頼済み（クリックで再送）"
+      >
+        {sending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
         依頼済み
-      </span>
+      </button>
     );
   }
 
-  // ▼ 通常ボタン
+  // 通常（未依頼）
   return (
     <button
       type="button"
       onClick={handleClick}
       disabled={sending}
       className={`${BTN_BASE} ${
-        sending ? "bg-gray-200 text-gray-500 cursor-default" : "bg-white hover:bg-gray-50 text-gray-800"
+        sending
+          ? "bg-gray-200 text-gray-500 cursor-wait"
+          : "bg-white hover:bg-gray-50 text-gray-800"
       }`}
       title="返金依頼を送信"
     >
