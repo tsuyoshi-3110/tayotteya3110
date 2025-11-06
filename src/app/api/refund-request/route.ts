@@ -40,7 +40,10 @@ type RefundPayload = {
 };
 
 function jpy(n: number) {
-  return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(n);
+  return new Intl.NumberFormat("ja-JP", {
+    style: "currency",
+    currency: "JPY",
+  }).format(n);
 }
 
 async function sendMail(lines: string[], subject: string) {
@@ -72,14 +75,23 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as RefundPayload | null;
     if (!body) {
-      return NextResponse.json({ ok: false, error: "invalid_body" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "invalid_body" },
+        { status: 400 }
+      );
     }
 
     // 1) docId が来たら、transferLogs から読み取って送信
     if (body.docId) {
-      const snap = await adminDb.collection("transferLogs").doc(body.docId).get();
+      const snap = await adminDb
+        .collection("transferLogs")
+        .doc(body.docId)
+        .get();
       if (!snap.exists) {
-        return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+        return NextResponse.json(
+          { ok: false, error: "not_found" },
+          { status: 404 }
+        );
       }
       const d = snap.data() as any;
 
@@ -88,7 +100,9 @@ export async function POST(req: NextRequest) {
       const lines = [
         `サイト: ${siteKey}`,
         `注文ID: ${d.orderId}`,
-        `商品: ${d.item?.name ?? ""} ×${d.item?.qty ?? 1}（${jpy(Number(d.item?.unitAmount || 0))}）`,
+        `商品: ${d.item?.name ?? ""} ×${d.item?.qty ?? 1}（${jpy(
+          Number(d.item?.unitAmount || 0)
+        )}）`,
         `顧客: ${d.customer?.name ?? ""}`,
         `メール: ${d.customer?.email ?? ""}`,
         `電話: ${d.customer?.phone ?? ""}`,
@@ -109,14 +123,21 @@ export async function POST(req: NextRequest) {
     // 2) docId が無い場合は、直接ペイロードでログ作成 → 送信
     const { siteKey, orderId, item } = body;
     if (!orderId || !item?.name || !Number.isFinite(item?.unitAmount)) {
-      return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "invalid_payload" },
+        { status: 400 }
+      );
     }
 
     const docData = {
       type: "refundRequest",
       siteKey: siteKey || SITE_KEY,
       orderId,
-      item: { name: item.name, qty: Number(item.qty || 1), unitAmount: Number(item.unitAmount || 0) },
+      item: {
+        name: item.name,
+        qty: Number(item.qty || 1),
+        unitAmount: Number(item.unitAmount || 0),
+      },
       customer: body.customer ?? null,
       addressText: body.addressText ?? "",
       reason: (body.reason ?? "") || null,
@@ -129,7 +150,9 @@ export async function POST(req: NextRequest) {
     const lines = [
       `サイト: ${docData.siteKey}`,
       `注文ID: ${orderId}`,
-      `商品: ${item.name} ×${item.qty ?? 1}（${jpy(Number(item.unitAmount || 0))}）`,
+      `商品: ${item.name} ×${item.qty ?? 1}（${jpy(
+        Number(item.unitAmount || 0)
+      )}）`,
       `顧客: ${body.customer?.name ?? ""}`,
       `メール: ${body.customer?.email ?? ""}`,
       `電話: ${body.customer?.phone ?? ""}`,
@@ -147,6 +170,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, id: ref.id });
   } catch (e) {
     console.error("[refund-request] error:", e);
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    const msg =
+      e instanceof Error
+        ? e.message
+        : typeof e === "string"
+        ? e
+        : JSON.stringify(e);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
