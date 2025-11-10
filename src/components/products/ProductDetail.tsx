@@ -1,12 +1,10 @@
-// src/components/ProductDetail.tsx
+// src/components/products/ProductDetail.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import clsx from "clsx";
 import { v4 as uuid } from "uuid";
-import imageCompression from "browser-image-compression";
 import { motion } from "framer-motion";
 
 import { useThemeGradient } from "@/lib/useThemeGradient";
@@ -24,102 +22,44 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+import { getStorage, ref, deleteObject } from "firebase/storage";
 
 import CardSpinner from "../CardSpinner";
 import { BusyOverlay } from "../BusyOverlay";
+import ProductMedia from "../ProductMedia";
 
 /* ファイル形式ユーティリティ */
-import {
-  IMAGE_MIME_TYPES,
-  VIDEO_MIME_TYPES,
-  extFromMime,
-} from "@/lib/fileTypes";
+import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
+
+/* アップロード共通ロジック（一覧と同じ） */
+import { uploadProductMedia } from "@/lib/media/uploadProductMedia";
 
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
-/* ▼ 多言語対応：UI言語 & 対応言語一覧 */
-import { LANGS, type LangKey } from "@/lib/langs";
-import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+/* ▼ 多言語対応：UI言語 & LangKey */
+import { type LangKey } from "@/lib/langs";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 
 /* ▼ 為替レート（カード一覧と同様の通貨表示ロジックを適用） */
 import { useFxRates } from "@/lib/fx/client";
 
-/* ===== 言語→通貨/ロケール と表示関数 ===== */
-const CURRENCY_BY_LANG: Record<UILang, { currency: string; locale: string }> = {
-  ja: { currency: "JPY", locale: "ja-JP" },
-  en: { currency: "USD", locale: "en-US" },
-  zh: { currency: "CNY", locale: "zh-CN" },
-  "zh-TW": { currency: "TWD", locale: "zh-TW" },
-  ko: { currency: "KRW", locale: "ko-KR" },
-  fr: { currency: "EUR", locale: "fr-FR" },
-  es: { currency: "EUR", locale: "es-ES" },
-  de: { currency: "EUR", locale: "de-DE" },
-  pt: { currency: "BRL", locale: "pt-BR" },
-  it: { currency: "EUR", locale: "it-IT" },
-  ru: { currency: "RUB", locale: "ru-RU" },
-  th: { currency: "THB", locale: "th-TH" },
-  vi: { currency: "VND", locale: "vi-VN" },
-  id: { currency: "IDR", locale: "id-ID" },
-  hi: { currency: "INR", locale: "hi-IN" },
-  ar: { currency: "AED", locale: "ar-AE" },
-};
+/* ▼ 価格・通貨ユーティリティ（一覧と共通） */
+import {
+  formatPriceFromJPY,
+  TAX_T,
+  TAX_RATE,
+  rint,
+  toInclYen,
+  toExclYen,
+} from "./priceUtils";
 
-function formatPriceFromJPY(
-  amountJPY: number,
-  uiLang: UILang,
-  rates: Record<string, number> | null
-) {
-  const map = CURRENCY_BY_LANG[uiLang] ?? { currency: "JPY", locale: "ja-JP" };
-  const { currency, locale } = map;
-  if (!rates || currency === "JPY" || rates[currency] == null) {
-    return {
-      text: new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "JPY",
-      }).format(amountJPY),
-      approx: false,
-    };
-  }
-  const converted = amountJPY * rates[currency];
-  return {
-    text: new Intl.NumberFormat(locale, { style: "currency", currency }).format(
-      converted
-    ),
-    approx: true,
-  };
-}
-
-// ==== 税率・丸め・相互変換 ====
-const TAX_RATE = 0.1 as const; // 10%
-type RoundingPolicy = "round" | "floor" | "ceil";
-const ROUNDING_POLICY: RoundingPolicy = "round";
-
-function rint(n: number, policy: RoundingPolicy = ROUNDING_POLICY) {
-  if (policy === "floor") return Math.floor(n);
-  if (policy === "ceil") return Math.ceil(n);
-  return Math.round(n);
-}
-function toInclYen(
-  excl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) {
-  return rint((Number(excl) || 0) * (1 + taxRate), policy);
-}
-function toExclYen(
-  incl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) {
-  return rint((Number(incl) || 0) / (1 + taxRate), policy);
-}
+/* ▼ 商品の多言語フィールド処理（詳細用） */
+import {
+  ProductDoc,
+  normalizePrice,
+  pickLocalized,
+  translateAll,
+} from "./productDetailLocales";
 
 type MediaType = "image" | "video";
 
@@ -132,86 +72,12 @@ type Section = {
   order?: number;
 };
 
-type ProductDoc = Product & {
-  price: number; // 表示用（互換）: 常に税込を入れる
-  priceIncl?: number; // 追加：税込（保存用 / 読み取り用）
-  priceExcl?: number; // 追加：税抜（保存用 / 読み取り用）
-  taxRate?: number; // 追加：税率（任意）
-  base?: { title: string; body: string };
-  t?: Array<{ lang: LangKey; title?: string; body?: string }>;
-  sectionId?: string | null;
-};
-
-/* ▼ 価格を常に number に正規化（未定義/NaNは 0） */
-const normalizePrice = (v: unknown): number => {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") {
-    const n = Number(v.replace(/[^\d.-]/g, ""));
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
-};
-
-/* ▼ 表示用：UI 言語に応じてタイトル/本文を解決 */
-function pickLocalized(
-  p: ProductDoc,
-  lang: UILang
-): { title: string; body: string } {
-  if (lang === "ja") {
-    return {
-      title: p.base?.title ?? p.title ?? "",
-      body: p.base?.body ?? p.body ?? "",
-    };
-  }
-  const hit = p.t?.find((x) => x.lang === lang);
-  return {
-    title: hit?.title ?? p.base?.title ?? p.title ?? "",
-    body: hit?.body ?? p.base?.body ?? p.body ?? "",
-  };
-}
-
-/* ▼ 保存時に日本語→各言語へ翻訳（/api/translate を使用） */
-type Tr = { lang: LangKey; title: string; body: string };
-async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
-  const jobs: Promise<Tr>[] = LANGS.map(async (l) => {
-    const res = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: titleJa, body: bodyJa, target: l.key }),
-    });
-    if (!res.ok) throw new Error(`translate error: ${l.key}`);
-    const data = (await res.json()) as { title?: string; body?: string };
-    return {
-      lang: l.key,
-      title: (data.title ?? "").trim(),
-      body: (data.body ?? "").trim(),
-    };
-  });
-  const settled = await Promise.allSettled(jobs);
-
-  return settled
-    .filter((r): r is PromiseFulfilledResult<Tr> => r.status === "fulfilled")
-    .map((r) => r.value);
-}
-
-/* 税込/税抜 表示の多言語辞書（既存） */
-const TAX_T: Record<UILang, { incl: string; excl: string }> = {
-  ja: { incl: "税込", excl: "税抜" },
-  en: { incl: "tax included", excl: "tax excluded" },
-  zh: { incl: "含税", excl: "不含税" },
-  "zh-TW": { incl: "含稅", excl: "未稅" },
-  ko: { incl: "부가세 포함", excl: "부가세 별도" },
-  fr: { incl: "TTC", excl: "HT" },
-  es: { incl: "IVA incluido", excl: "sin IVA" },
-  de: { incl: "inkl. MwSt.", excl: "zzgl. MwSt." },
-  pt: { incl: "com impostos", excl: "sem impostos" },
-  it: { incl: "IVA inclusa", excl: "IVA esclusa" },
-  ru: { incl: "с НДС", excl: "без НДС" },
-  th: { incl: "รวมภาษี", excl: "ไม่รวมภาษี" },
-  vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
-  id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
-  hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "शامل الضريبة", excl: "غير شامل الضريبة" } as any, //（UIフォント差異回避のため any）
+/* 編集用メディアアイテム（既存URL + 新規File を両方扱う） */
+type EditableMediaItem = {
+  id: string;
+  url?: string;
+  file?: File;
+  type: MediaType;
 };
 
 export default function ProductDetail({ product }: { product: Product }) {
@@ -219,6 +85,9 @@ export default function ProductDetail({ product }: { product: Product }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingPercent, setUploadingPercent] = useState<number | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const uploading = progress !== null;
+
   const gradient = useThemeGradient();
   const router = useRouter();
 
@@ -258,16 +127,32 @@ export default function ProductDetail({ product }: { product: Product }) {
     normalizePrice((product as ProductDoc).price)
   );
   const [taxIncluded, setTaxIncluded] = useState(true);
-  const [file, setFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState<number | null>(null);
-  const uploading = progress !== null;
 
   // セクション選択
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
     (product as any).sectionId ?? null
   );
 
-  // product 変更時の同期
+  // 編集用メディア（画像1〜3＋動画1）
+  const [mediaItemsState, setMediaItemsState] = useState<EditableMediaItem[]>(
+    []
+  );
+
+  const maxImages = 3;
+  const maxVideos = 1;
+
+  const imageCount = useMemo(
+    () => mediaItemsState.filter((m) => m.type === "image").length,
+    [mediaItemsState]
+  );
+  const videoCount = useMemo(
+    () => mediaItemsState.filter((m) => m.type === "video").length,
+    [mediaItemsState]
+  );
+  const canAddImage = imageCount < maxImages;
+  const canAddVideo = videoCount < maxVideos;
+
+  // product 変更時の同期（表示用のみ）
   useEffect(() => {
     const pNum = normalizePrice(
       (product as ProductDoc).priceIncl ?? (product as ProductDoc).price
@@ -318,7 +203,8 @@ export default function ProductDetail({ product }: { product: Product }) {
     return () => unsub();
   }, []);
 
-  const openEditModal = () => {
+  /* ---------- 編集モーダルを開くときにメディア一覧をセット ---------- */
+  const openEditModal = useCallback(() => {
     const p = normalizePrice(displayProduct.priceIncl ?? displayProduct.price);
 
     setTitle(displayProduct.base?.title ?? displayProduct.title ?? "");
@@ -326,79 +212,180 @@ export default function ProductDetail({ product }: { product: Product }) {
     setPrice(p);
     setTaxIncluded(true);
     setSelectedSectionId(displayProduct.sectionId ?? null);
-    setFile(null);
     setProgress(null);
 
+    // Firestore の mediaItems({url,type}[]) → 編集用 state に変換
+    const rawMedia = (displayProduct as any).mediaItems as
+      | { url: string; type: MediaType }[]
+      | undefined;
+
+    let items: EditableMediaItem[] = [];
+
+    if (Array.isArray(rawMedia) && rawMedia.length > 0) {
+      items = rawMedia.map((m) => ({
+        id: uuid(),
+        url: m.url,
+        type: (m.type as MediaType) || "image",
+      }));
+    } else if (displayProduct.mediaURL) {
+      items = [
+        {
+          id: uuid(),
+          url: displayProduct.mediaURL,
+          type:
+            displayProduct.mediaType === "video"
+              ? "video"
+              : ("image" as MediaType),
+        },
+      ];
+    }
+
+    setMediaItemsState(items);
+
     setShowEdit(true);
+  }, [displayProduct]);
+
+  /* ---------- メディア編集用ハンドラ ---------- */
+
+  const handleRemoveMedia = (idx: number) => {
+    setMediaItemsState((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // 編集保存
-  const handleSave = async () => {
+  const handleAddImages = (files: FileList | null) => {
+    if (!files) return;
+
+    setMediaItemsState((prev) => {
+      const currentImageCount = prev.filter((m) => m.type === "image").length;
+      const remainingSlots = maxImages - currentImageCount;
+      if (remainingSlots <= 0) return prev;
+
+      const arr = Array.from(files);
+      const toAdd = arr
+        .filter((f) => IMAGE_MIME_TYPES.includes(f.type))
+        .slice(0, remainingSlots)
+        .map<EditableMediaItem>((f) => ({
+          id: uuid(),
+          file: f,
+          type: "image",
+        }));
+
+      if (toAdd.length === 0) return prev;
+
+      // 既に動画がある場合は、その直前に画像を挿入して動画を最後に保つ
+      const videoIndex = prev.findIndex((m) => m.type === "video");
+      if (videoIndex === -1) {
+        return [...prev, ...toAdd];
+      } else {
+        const head = prev.slice(0, videoIndex);
+        const tail = prev.slice(videoIndex);
+        return [...head, ...toAdd, ...tail];
+      }
+    });
+  };
+
+  const handleAddVideo = (file: File | null) => {
+    if (!file) return;
+    if (!VIDEO_MIME_TYPES.includes(file.type)) {
+      alert("対応していない動画形式です");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      alert("動画は 50 MB 未満にしてください");
+      return;
+    }
+
+    setMediaItemsState((prev) => {
+      const videoExists = prev.some((m) => m.type === "video");
+      if (videoExists) {
+        alert("動画は 1 つまでです");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          id: uuid(),
+          file,
+          type: "video",
+        },
+      ];
+    });
+  };
+
+  /* ---------- 編集保存 ---------- */
+  const handleSave = useCallback(async () => {
     if (!title.trim()) return alert("タイトル必須");
     if (price === "") return alert("価格を入力してください");
 
+    if (mediaItemsState.length === 0) {
+      alert("メディアを1つ以上設定してください");
+      return;
+    }
+
     setSaving(true); // BusyOverlay
+
     try {
-      // --- メディア確定 ---
-      const { mediaURL, mediaType, originalFileName } = await (async () => {
-        let mediaURL = displayProduct.mediaURL;
-        let mediaType: MediaType = displayProduct.mediaType;
-        let originalFileName = displayProduct.originalFileName as
-          | string
-          | undefined;
+      // --- メディアアップロード／確定 ---
+      const uploadedMedia: { url: string; type: MediaType }[] = [];
 
-        if (!file) return { mediaURL, mediaType, originalFileName };
+      const hasNewFile = mediaItemsState.some((m) => !!m.file);
+      if (hasNewFile) {
+        setProgress(0);
+        setUploadingPercent(0);
+      }
 
-        const isVideo = file.type.startsWith("video/");
-        mediaType = isVideo ? "video" : "image";
+      for (let index = 0; index < mediaItemsState.length; index++) {
+        const item = mediaItemsState[index];
 
-        const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
-        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
+        // 既存 URL のみ（アップロード不要）
+        if (!item.file) {
+          if (item.url) {
+            uploadedMedia.push({ url: item.url, type: item.type });
+          }
+          continue;
+        }
+
+        const f = item.file;
+
+        const isValidImage = IMAGE_MIME_TYPES.includes(f.type);
+        const isValidVideo = VIDEO_MIME_TYPES.includes(f.type);
+        const isVideo = item.type === "video" || f.type.startsWith("video/");
+
         if (!isValidImage && !isValidVideo) {
           alert("対応形式ではありません");
           throw new Error("invalid file type");
         }
-        if (isVideo && file.size > 50 * 1024 * 1024) {
+        if (isVideo && f.size > 50 * 1024 * 1024) {
           alert("動画は 50 MB 未満にしてください");
           throw new Error("video too large");
         }
 
-        const ext = isVideo ? extFromMime(file.type) : "jpg";
-        const uploadFile = isVideo
-          ? file
-          : await imageCompression(file, {
-              maxWidthOrHeight: 1200,
-              maxSizeMB: 0.7,
-              useWebWorker: true,
-              fileType: "image/jpeg",
-              initialQuality: 0.8,
-            });
-
-        const storageRef = ref(
-          getStorage(),
-          `products/public/${SITE_KEY}/${product.id}.${ext}`
-        );
-        const task = uploadBytesResumable(storageRef, uploadFile, {
-          contentType: isVideo ? file.type : "image/jpeg",
+        const up = await uploadProductMedia({
+          file: f,
+          siteKey: SITE_KEY,
+          docId: index === 0 ? product.id : `${product.id}_${index + 1}`,
+          previousType:
+            index === 0 ? (displayProduct.mediaType as any) : undefined,
+          onProgress: (pct) => {
+            setProgress(pct);
+            setUploadingPercent(pct);
+          },
         });
 
-        setProgress(0);
-        setUploadingPercent(0);
-        task.on("state_changed", (s) => {
-          const pct = Math.round((s.bytesTransferred / s.totalBytes) * 100);
-          setProgress(pct);
-          setUploadingPercent(pct);
+        uploadedMedia.push({
+          url: up.mediaURL,
+          type: up.mediaType as MediaType,
         });
+      }
 
-        await task;
-
-        mediaURL = `${await getDownloadURL(storageRef)}?v=${uuid()}`;
-        originalFileName = file.name;
+      if (hasNewFile) {
         setProgress(null);
         setUploadingPercent(null);
+      }
 
-        return { mediaURL, mediaType, originalFileName };
-      })();
+      // 代表メディア
+      const primary = uploadedMedia[0];
+      const mediaURL = primary?.url ?? "";
+      const mediaType: MediaType = primary?.type ?? "image";
 
       // --- 多言語フィールド ---
       const base = { title: title.trim(), body: (body ?? "").trim() };
@@ -409,7 +396,12 @@ export default function ProductDetail({ product }: { product: Product }) {
       const priceIncl = taxIncluded ? rint(input) : toInclYen(input);
       const priceExcl = taxIncluded ? toExclYen(priceIncl) : rint(input);
 
-      // --- Firestore 更新（price は互換のため税込を保存） ---
+      // 代表ファイル名（新規ファイルがあればその最初のもの、なければ既存）
+      const firstNewFile = mediaItemsState.find((m) => !!m.file)?.file ?? null;
+      const originalFileName =
+        firstNewFile?.name ?? (displayProduct as any).originalFileName;
+
+      // --- Firestore 更新 ---
       await updateDoc(doc(db, "siteProducts", SITE_KEY, "items", product.id), {
         title: base.title,
         body: base.body,
@@ -421,10 +413,11 @@ export default function ProductDetail({ product }: { product: Product }) {
         taxIncluded: true,
         mediaURL,
         mediaType,
+        mediaItems: uploadedMedia,
         base,
         t,
         sectionId: selectedSectionId ?? null,
-        originalFileName: originalFileName ?? displayProduct.originalFileName,
+        originalFileName: originalFileName,
         updatedAt: serverTimestamp(),
       });
 
@@ -439,10 +432,11 @@ export default function ProductDetail({ product }: { product: Product }) {
         taxRate: TAX_RATE,
         mediaURL,
         mediaType,
+        mediaItems: uploadedMedia,
         base,
         t,
         sectionId: selectedSectionId ?? null,
-        originalFileName: originalFileName ?? (prev as any).originalFileName,
+        originalFileName,
       }));
 
       setShowEdit(false);
@@ -454,7 +448,16 @@ export default function ProductDetail({ product }: { product: Product }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [
+    title,
+    body,
+    price,
+    taxIncluded,
+    mediaItemsState,
+    selectedSectionId,
+    product.id,
+    displayProduct,
+  ]);
 
   // 削除
   const handleDelete = async () => {
@@ -463,9 +466,26 @@ export default function ProductDetail({ product }: { product: Product }) {
     const storage = getStorage();
 
     try {
+      // 複数メディアがあればすべて削除を試みる
+      const rawMedia = (displayProduct as any).mediaItems as
+        | { url: string; type: MediaType }[]
+        | undefined;
+
+      const urls = new Set<string>();
+
+      if (Array.isArray(rawMedia)) {
+        rawMedia.forEach((m) => {
+          if (m.url) urls.add(m.url);
+        });
+      }
+
       if (displayProduct.mediaURL) {
-        const fileRef = ref(storage, displayProduct.mediaURL);
+        urls.add(displayProduct.mediaURL);
+      }
+
+      for (const url of urls) {
         try {
+          const fileRef = ref(storage, url);
           await deleteObject(fileRef);
         } catch (err: any) {
           if (err?.code === "storage/object-not-found") {
@@ -482,6 +502,19 @@ export default function ProductDetail({ product }: { product: Product }) {
       console.error(e);
       alert("削除に失敗しました");
     }
+  };
+
+  const moveMedia = (from: number, to: number) => {
+    setMediaItemsState((prev) => {
+      const total = prev.length;
+      if (from === to) return prev;
+      if (from < 0 || to < 0 || from >= total || to >= total) return prev;
+
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
   };
 
   if (!displayProduct) {
@@ -504,6 +537,33 @@ export default function ProductDetail({ product }: { product: Product }) {
     uiLang,
     rates
   );
+
+  // 表示用メディア（スライド）
+  const baseMediaType: MediaType =
+    displayProduct.mediaType === "video" ? "video" : "image";
+  const baseMediaSrc = displayProduct.mediaURL;
+
+  const rawDisplayMedia = (displayProduct as any).mediaItems as
+    | { url: string; type: MediaType }[]
+    | undefined;
+
+  const slides: { src: string; type: MediaType }[] =
+    Array.isArray(rawDisplayMedia) && rawDisplayMedia.length > 0
+      ? rawDisplayMedia.map((m) => ({
+          src: m.url,
+          type: (m.type as MediaType) || "image",
+        }))
+      : baseMediaSrc
+      ? [
+          {
+            src: baseMediaSrc,
+            type: baseMediaType,
+          },
+        ]
+      : [];
+
+  const primarySrc = slides[0]?.src ?? baseMediaSrc;
+  const primaryType = slides[0]?.type ?? baseMediaType;
 
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
@@ -543,27 +603,13 @@ export default function ProductDetail({ product }: { product: Product }) {
           </div>
         )}
 
-        {/* メディア */}
-        {displayProduct.mediaType === "image" ? (
-          <div className="relative w-full aspect-square">
-            <Image
-              src={displayProduct.mediaURL}
-              alt={loc.title || displayProduct.title}
-              fill
-              className="object-cover"
-              sizes="100vw"
-              unoptimized
-            />
-          </div>
-        ) : (
-          <video
-            src={displayProduct.mediaURL}
-            muted
-            playsInline
-            autoPlay
-            loop
-            preload="auto"
-            className="w-full aspect-square object-cover"
+        {/* メディア（スライド対応：複数あれば自動スライド） */}
+        {primarySrc && (
+          <ProductMedia
+            src={primarySrc}
+            type={primaryType}
+            items={slides.length > 0 ? slides : undefined}
+            alt={loc.title || displayProduct.title}
           />
         )}
 
@@ -644,6 +690,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                   type="radio"
                   checked={taxIncluded}
                   onChange={() => setTaxIncluded(true)}
+                  disabled={uploading}
                 />
                 税込
               </label>
@@ -652,6 +699,7 @@ export default function ProductDetail({ product }: { product: Product }) {
                   type="radio"
                   checked={!taxIncluded}
                   onChange={() => setTaxIncluded(false)}
+                  disabled={uploading}
                 />
                 税抜
               </label>
@@ -666,21 +714,105 @@ export default function ProductDetail({ product }: { product: Product }) {
               disabled={uploading}
             />
 
-            <input
-              type="file"
-              accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-              disabled={uploading}
-            />
+            {/* メディア一覧・追加・削除 */}
+            <div className="space-y-2">
+              <label className="text-sm">
+                メディア（画像 最大3枚・動画 最大1つ）
+              </label>
 
+              {mediaItemsState.length === 0 && (
+                <p className="text-xs text-gray-500">メディアは未設定です。</p>
+              )}
+
+              {mediaItemsState.map((m, idx) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
+                >
+                  <span className="truncate">
+                    {idx + 1}. {m.type === "image" ? "画像" : "動画"}{" "}
+                    {m.file ? `(新規: ${m.file.name})` : "(既存)"}
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    {/* 並べ替えボタン */}
+                    <button
+                      type="button"
+                      onClick={() => moveMedia(idx, idx - 1)}
+                      disabled={uploading || idx === 0}
+                      className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveMedia(idx, idx + 1)}
+                      disabled={uploading || idx === mediaItemsState.length - 1}
+                      className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                    >
+                      ↓
+                    </button>
+
+                    {/* 削除ボタン */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMedia(idx)}
+                      className="text-red-600 text-xs underline disabled:opacity-40"
+                      disabled={uploading}
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* 画像追加 */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-700">
+                  画像を追加（残り {Math.max(0, maxImages - imageCount)} 枚）
+                </label>
+                <input
+                  type="file"
+                  accept={IMAGE_MIME_TYPES.join(",")}
+                  multiple
+                  onChange={(e) => {
+                    handleAddImages(e.target.files);
+                    if (e.target) e.target.value = "";
+                  }}
+                  className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded disabled:opacity-50"
+                  disabled={uploading || !canAddImage}
+                />
+              </div>
+
+              {/* 動画追加 */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-700">
+                  動画を追加（最大1つ）
+                </label>
+                <input
+                  type="file"
+                  accept={VIDEO_MIME_TYPES.join(",")}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    if (f) {
+                      handleAddVideo(f);
+                    }
+                    if (e.target) e.target.value = "";
+                  }}
+                  className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded disabled:opacity-50"
+                  disabled={uploading || !canAddVideo}
+                />
+              </div>
+            </div>
+
+            {/* アップロード進捗 */}
             {uploading && (
               <div className="w-full flex flex-col items-center gap-2">
-                <p>アップロード中… {progress}%</p>
+                <p>アップロード中… {progress ?? 0}%</p>
                 <div className="w-full h-2 bg-gray-200 rounded">
                   <div
                     className="h-full bg-green-500 rounded transition-all"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${progress ?? 0}%` }}
                   />
                 </div>
               </div>

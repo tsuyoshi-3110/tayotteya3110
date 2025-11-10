@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   CollectionReference,
   DocumentData,
+  getDoc,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -34,7 +35,7 @@ import { uploadProductMedia } from "@/lib/media/uploadProductMedia";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
 // 多言語
-import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 import { BusyOverlay } from "../BusyOverlay";
 import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
 import { displayOf, sectionTitleLoc } from "@/lib/i18n/display";
@@ -50,234 +51,47 @@ import { useSections } from "@/hooks/useSections";
 import SectionManagerModal from "./SectionManagerModal";
 import { useFxRates } from "@/lib/fx/client";
 
-/* ===== ページ見出し（商品一覧） ===== */
-const PAGE_TITLE_T: Record<UILang, string> = {
-  ja: "商品一覧",
-  en: "Products",
-  zh: "商品一览",
-  "zh-TW": "商品一覽",
-  ko: "상품 목록",
-  fr: "Produits",
-  es: "Productos",
-  de: "Produkte",
-  pt: "Produtos",
-  it: "Prodotti",
-  ru: "Товары",
-  th: "รายการสินค้า",
-  vi: "Sản phẩm",
-  id: "Produk",
-  hi: "उत्पाद",
-  ar: "قائمة المنتجات",
+// 分割したモジュール
+import { PAGE_SIZE, MAX_VIDEO_SEC } from "./config";
+import { PAGE_TITLE_T, ALL_CATEGORY_T } from "./productsTexts";
+import {
+  TAX_T,
+  toExclYen,
+  toInclYen,
+  rint,
+  formatPriceFromJPY,
+} from "./priceUtils";
+import KeywordModal from "./KeywordModal";
+
+/* ===== フォーム用メディア型 ===== */
+type FormMediaItem = {
+  id: string;
+  type: MediaType; // "image" | "video"
+  file: File;
 };
 
-/* ================= キーワード入力モーダル ================= */
-type KeywordModalProps = {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (keywords: string[]) => void;
-};
-function KeywordModal({ open, onClose, onSubmit }: KeywordModalProps) {
-  const [k1, setK1] = useState("");
-  const [k2, setK2] = useState("");
-  const [k3, setK3] = useState("");
-
-  // モーダルを閉じたら必ずリセット
-  useEffect(() => {
-    if (!open) {
-      setK1("");
-      setK2("");
-      setK3("");
-    }
-  }, [open]);
-
-  if (!open) return null;
-
-  const handleSubmit = () => {
-    const kws = [k1, k2, k3].map((s) => s.trim()).filter(Boolean);
-    if (kws.length === 0) {
-      alert("キーワードを1つ以上入力してください（最大3つまで）");
-      return;
-    }
-    onSubmit(kws);
-    // 完了時もリセット
-    setK1("");
-    setK2("");
-    setK3("");
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md bg-white rounded-lg p-5 space-y-4 shadow-xl">
-        <h3 className="text-lg font-semibold text-center">
-          AI紹介文のキーワード
-        </h3>
-        <p className="text-sm text-gray-600 text-center">
-          最大3つまで入力できます。少なくとも1つ入力すると生成します。
-        </p>
-        <div className="space-y-2">
-          <input
-            value={k1}
-            onChange={(e) => setK1(e.target.value)}
-            placeholder="キーワード1（例：濃厚クリーム）"
-            className="w-full border rounded px-3 h-10"
-          />
-          <input
-            value={k2}
-            onChange={(e) => setK2(e.target.value)}
-            placeholder="キーワード2（任意）"
-            className="w-full border rounded px-3 h-10"
-          />
-          <input
-            value={k3}
-            onChange={(e) => setK3(e.target.value)}
-            placeholder="キーワード3（任意）"
-            className="w-full border rounded px-3 h-10"
-          />
-        </div>
-        <div className="flex gap-2 justify-center pt-1">
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-          >
-            生成する
-          </button>
-          <button
-            onClick={() => {
-              // キャンセル時もリセット
-              setK1("");
-              setK2("");
-              setK3("");
-              onClose();
-            }}
-            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            キャンセル
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== 税率・丸め ===== */
-const TAX_RATE = 0.1 as const;
-type RoundingPolicy = "round" | "floor" | "ceil";
-const ROUNDING_POLICY: RoundingPolicy = "round";
-const rint = (n: number, policy: RoundingPolicy = ROUNDING_POLICY) =>
-  policy === "floor"
-    ? Math.floor(n)
-    : policy === "ceil"
-    ? Math.ceil(n)
-    : Math.round(n);
-
-const toExclYen = (
-  incl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) => rint((Number(incl) || 0) / (1 + taxRate), policy);
-
-// ★ 税抜 → 税込
-const toInclYen = (
-  excl: number,
-  taxRate = TAX_RATE,
-  policy: RoundingPolicy = ROUNDING_POLICY
-) => rint((Number(excl) || 0) * (1 + taxRate), policy);
-
-/* ===== 表示テキスト ===== */
-const ALL_CATEGORY_T: Record<UILang, string> = {
-  ja: "全カテゴリー",
-  en: "All categories",
-  zh: "全部分类",
-  "zh-TW": "全部分類",
-  ko: "모든 카테고리",
-  fr: "Toutes les catégories",
-  es: "Todas las categorías",
-  de: "Alle Kategorien",
-  pt: "Todas as categorias",
-  it: "Tutte le categorie",
-  ru: "Все категории",
-  th: "ทุกหมวดหมู่",
-  vi: "Tất cả danh mục",
-  id: "Semua kategori",
-  hi: "सभी श्रेणियाँ",
-  ar: "كل الفئات",
+type SelectedRow = {
+  id: string;
+  type: MediaType;
+  file: File;
+  index: number;
 };
 
-const TAX_T: Record<UILang, { incl: string; excl: string }> = {
-  ja: { incl: "税込", excl: "税抜" },
-  en: { incl: "tax included", excl: "tax excluded" },
-  zh: { incl: "含税", excl: "不含税" },
-  "zh-TW": { incl: "含稅", excl: "未稅" },
-  ko: { incl: "부가세 포함", excl: "부가세 별도" },
-  fr: { incl: "TTC", excl: "HT" },
-  es: { incl: "IVA incluido", excl: "sin IVA" },
-  de: { incl: "inkl. MwSt.", excl: "zzgl. MwSt." },
-  pt: { incl: "com impostos", excl: "sem impostos" },
-  it: { incl: "IVA inclusa", excl: "IVA esclusa" },
-  ru: { incl: "с НДС", excl: "без НДС" },
-  th: { incl: "รวมภาษี", excl: "ไม่รวมภาษี" },
-  vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
-  id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
-  hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "شامل الضريبة", excl: "غير شامل الضريبة" },
-};
-
-const PAGE_SIZE = 20;
-const MAX_VIDEO_SEC = 30;
-
-/* ===== 言語→通貨/ロケール と表示関数 ===== */
-const CURRENCY_BY_LANG: Record<UILang, { currency: string; locale: string }> = {
-  ja: { currency: "JPY", locale: "ja-JP" },
-  en: { currency: "USD", locale: "en-US" },
-  zh: { currency: "CNY", locale: "zh-CN" },
-  "zh-TW": { currency: "TWD", locale: "zh-TW" },
-  ko: { currency: "KRW", locale: "ko-KR" },
-  fr: { currency: "EUR", locale: "fr-FR" },
-  es: { currency: "EUR", locale: "es-ES" },
-  de: { currency: "EUR", locale: "de-DE" },
-  pt: { currency: "BRL", locale: "pt-BR" },
-  it: { currency: "EUR", locale: "it-IT" },
-  ru: { currency: "RUB", locale: "ru-RU" },
-  th: { currency: "THB", locale: "th-TH" },
-  vi: { currency: "VND", locale: "vi-VN" },
-  id: { currency: "IDR", locale: "id-ID" },
-  hi: { currency: "INR", locale: "hi-IN" },
-  ar: { currency: "AED", locale: "ar-AE" },
-};
-
-function formatPriceFromJPY(
-  amountJPY: number,
-  uiLang: UILang,
-  rates: Record<string, number> | null
-) {
-  const { currency, locale } = CURRENCY_BY_LANG[uiLang] ?? {
-    currency: "JPY",
-    locale: "ja-JP",
-  };
-  if (!rates || currency === "JPY" || rates[currency] == null) {
-    return {
-      text: new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "JPY",
-      }).format(amountJPY),
-      approx: false,
-    };
-  }
-  const converted = amountJPY * rates[currency];
-  return {
-    text: new Intl.NumberFormat(locale, { style: "currency", currency }).format(
-      converted
-    ),
-    approx: true,
-  };
-}
+/* ======================= 本体 ======================= */
 
 export default function ProductsClient() {
   /* ===== 状態 ===== */
   const [isAdmin, setIsAdmin] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editing, setEditing] = useState<ProdDoc | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+
+  // メディア（画像1〜3枚＋動画1つ）: 並び順もこの配列の順を採用
+  const [formMedia, setFormMedia] = useState<FormMediaItem[]>([]);
+
+  // Firestore から補完用: id -> mediaItems
+  const [mediaItemsMap, setMediaItemsMap] = useState<
+    Record<string, { url: string; type: MediaType }[]>
+  >({});
 
   // 原文（日本語）
   const [title, setTitle] = useState("");
@@ -333,6 +147,31 @@ export default function ProductsClient() {
   /* ===== 権限 ===== */
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
+  /* ===== mediaItems を補完 ===== */
+  useEffect(() => {
+    const missingIds = list
+      .filter((p) => !(p as any).mediaItems && !mediaItemsMap[p.id])
+      .map((p) => p.id);
+
+    if (missingIds.length === 0) return;
+
+    missingIds.forEach(async (id) => {
+      try {
+        const snap = await getDoc(doc(productColRef, id));
+        if (!snap.exists()) return;
+        const data = snap.data() as any;
+        if (Array.isArray(data.mediaItems) && data.mediaItems.length > 0) {
+          setMediaItemsMap((prev) => ({
+            ...prev,
+            [id]: data.mediaItems,
+          }));
+        }
+      } catch (e) {
+        console.error("failed to fetch mediaItems for", id, e);
+      }
+    });
+  }, [list, productColRef, mediaItemsMap]);
+
   /* ===== ラベル ===== */
   const currentSectionLabel =
     selectedSectionId === "all"
@@ -358,7 +197,7 @@ export default function ProductsClient() {
     setTitle("");
     setBody("");
     setPrice("");
-    setFile(null);
+    setFormMedia([]);
     setFormSectionId("");
     setTaxIncluded(true); // 新規の既定は税込
   }, []);
@@ -416,41 +255,90 @@ export default function ProductsClient() {
     if (uploading) return;
     if (!title.trim()) return alert("タイトル必須");
     if (price === "") return alert("価格を入力してください");
-    if (formMode === "add" && !file) return alert("メディアを選択してください");
+
+    const hasNewMedia = formMedia.length > 0;
+
+    const existingItems = (editing as any)?.mediaItems as
+      | { url: string; type: MediaType }[]
+      | undefined;
+    const hasExistingMedia =
+      !!editing?.mediaURL ||
+      (Array.isArray(existingItems) && existingItems.length > 0);
+
+    if (formMode === "add" && !hasNewMedia && !hasExistingMedia) {
+      alert("メディアを選択してください");
+      return;
+    }
+
+    // 画像3枚・動画1本だけのはずだが、念のためチェック
+    const imageCount = formMedia.filter((m) => m.type === "image").length;
+    const videoCount = formMedia.filter((m) => m.type === "video").length;
+    if (imageCount > 3 || videoCount > 1) {
+      alert("画像は最大3枚・動画は1本までです");
+      return;
+    }
 
     setSaving(true);
     try {
       const id = editing?.id ?? uuid();
 
-      // メディア（アップロード or 既存）
+      // 既存メディアをベースに
       let mediaURL = editing?.mediaURL ?? "";
       let mediaType: MediaType = (editing?.mediaType ?? "image") as MediaType;
+      let mediaItems: { url: string; type: MediaType }[] = [];
 
-      if (file) {
-        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
-        const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
-        if (!isValidImage && !isValidVideo) {
-          alert(
-            "対応形式：画像（JPEG, PNG, WEBP, GIF）／動画（MP4, MOV など）"
-          );
-          throw new Error("invalid file type");
-        }
+      if (Array.isArray(existingItems) && existingItems.length > 0) {
+        mediaItems = existingItems.slice();
+      } else if (editing?.mediaURL) {
+        mediaItems = [{ url: editing.mediaURL, type: mediaType }];
+      }
+
+      // 新しいファイルを選択している場合は、フォームの並び順でアップロード
+      if (hasNewMedia) {
+        mediaItems = [];
+
+        const candidates = formMedia.map((m) => ({
+          file: m.file,
+          type: m.type,
+        }));
 
         setProgress(0);
         setUploadingPercent(0);
 
-        const up = await uploadProductMedia({
-          file,
-          siteKey: SITE_KEY,
-          docId: id,
-          previousType: editing?.mediaType,
-          onProgress: (pct) => {
-            setProgress(pct);
-            setUploadingPercent(pct);
-          },
-        });
-        mediaURL = up.mediaURL;
-        mediaType = up.mediaType;
+        for (let index = 0; index < candidates.length; index++) {
+          const { file: f } = candidates[index];
+
+          const isValidImage = IMAGE_MIME_TYPES.includes(f.type);
+          const isValidVideo = VIDEO_MIME_TYPES.includes(f.type);
+          if (!isValidImage && !isValidVideo) {
+            alert(
+              "対応形式：画像（JPEG, PNG, WEBP, GIF）／動画（MP4, MOV など）"
+            );
+            throw new Error("invalid file type");
+          }
+
+          const up = await uploadProductMedia({
+            file: f,
+            siteKey: SITE_KEY,
+            docId: index === 0 ? id : `${id}_${index + 1}`,
+            previousType: index === 0 ? editing?.mediaType : undefined,
+            onProgress: (pct) => {
+              setProgress(pct);
+              setUploadingPercent(pct);
+            },
+          });
+
+          mediaItems.push({
+            url: up.mediaURL,
+            type: up.mediaType as MediaType,
+          });
+
+          // 1枚目は従来の mediaURL / mediaType にも反映（互換）
+          if (index === 0) {
+            mediaURL = up.mediaURL;
+            mediaType = up.mediaType as MediaType;
+          }
+        }
 
         setProgress(null);
         setUploadingPercent(null);
@@ -478,7 +366,7 @@ export default function ProductsClient() {
         priceInputMode = "excl";
       }
 
-      // Firestore payload（添付スクショの構造を厳守）
+      // Firestore payload（添付スクショの構造 + mediaItems）
       const payload: any = {
         title: base.title,
         body: base.body,
@@ -488,11 +376,14 @@ export default function ProductsClient() {
         priceInputMode, // "incl" | "excl"
         mediaURL,
         mediaType,
+        mediaItems,
         base,
         t,
       };
 
-      const originalFileName = file?.name || editing?.originalFileName;
+      // 代表ファイル名（1枚目のメディア、なければ既存）
+      const primaryFile = formMedia[0]?.file ?? null;
+      const originalFileName = primaryFile?.name || editing?.originalFileName;
       if (originalFileName) payload.originalFileName = originalFileName;
       if (formMode === "add") payload.sectionId = formSectionId || null;
 
@@ -523,12 +414,32 @@ export default function ProductsClient() {
     price,
     taxIncluded,
     formMode,
-    file,
+    formMedia,
     editing,
     formSectionId,
     productColRef,
     closeForm,
   ]);
+
+  /* ===== 選択中メディア一覧（画像＋動画、どちらも並べ替え可能） ===== */
+  const selectedMediaRows: SelectedRow[] = formMedia.map((m, idx) => ({
+    id: m.id,
+    type: m.type,
+    file: m.file,
+    index: idx,
+  }));
+
+  const moveRow = (from: number, to: number) => {
+    setFormMedia((prev) => {
+      if (from === to) return prev;
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length)
+        return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
 
   if (!gradient) return null;
 
@@ -545,7 +456,6 @@ export default function ProductsClient() {
       {/* ヘッダー */}
       <div className="mb-10 mt-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         {/* セクションピッカー */}
-
         <div className="flex items-center gap-2 ">
           <label className="text-sm text-white text-outline opacity-70">
             表示カテゴリ:
@@ -618,7 +528,6 @@ export default function ProductsClient() {
           strategy={rectSortingStrategy}
         >
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {/* ← ここに追加 */}
             {list.length === 0 && (
               <div className="mt-16 flex items-center justify-center">
                 <div className="rounded-2xl border bg-white/30 backdrop-blur px-6 py-8 text-center shadow">
@@ -639,6 +548,27 @@ export default function ProductsClient() {
                 uiLang,
                 rates
               );
+
+              // Firestore から複数メディア（mediaItems）を取り出し
+              const rawItems =
+                ((p as any).mediaItems as
+                  | { url: string; type: MediaType }[]
+                  | undefined) ?? mediaItemsMap[p.id];
+
+              const slides: { src: string; type: MediaType }[] =
+                Array.isArray(rawItems) && rawItems.length > 0
+                  ? rawItems.map((m) => ({
+                      src: m.url,
+                      type: m.type as MediaType,
+                    }))
+                  : [
+                      {
+                        src: p.mediaURL,
+                        type: p.mediaType as MediaType,
+                      },
+                    ];
+
+              const primary = slides[0];
 
               return (
                 <SortableItem key={p.id} product={p}>
@@ -679,9 +609,11 @@ export default function ProductsClient() {
                         </div>
                       )}
 
+                      {/* スライド表示用：先頭を src/type に渡しつつ、items に全スライド */}
                       <ProductMedia
-                        src={p.mediaURL}
-                        type={p.mediaType}
+                        src={primary.src}
+                        type={primary.type}
+                        items={slides}
                         className="rounded-t-xl"
                       />
 
@@ -800,34 +732,145 @@ export default function ProductsClient() {
               {aiLoading ? "生成中…" : "AIで紹介文を生成（キーワード指定）"}
             </button>
 
-            <input
-              type="file"
-              accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                const isVideo = f.type.startsWith("video/");
-                if (!isVideo) {
-                  setFile(f);
-                  return;
-                }
-                const blobURL = URL.createObjectURL(f);
-                const vid = document.createElement("video");
-                vid.preload = "metadata";
-                vid.src = blobURL;
-                vid.onloadedmetadata = () => {
-                  URL.revokeObjectURL(blobURL);
-                  if (vid.duration > MAX_VIDEO_SEC) {
-                    alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
-                    (e.target as HTMLInputElement).value = "";
+            {/* 画像（最大3枚） */}
+            <div className="space-y-1 mt-2">
+              <label className="text-sm">画像（最大3枚）</label>
+              <input
+                type="file"
+                accept={IMAGE_MIME_TYPES.join(",")}
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []).filter((f) =>
+                    IMAGE_MIME_TYPES.includes(f.type)
+                  );
+                  if (!files.length) {
+                    e.target.value = "";
                     return;
                   }
-                  setFile(f);
-                };
-              }}
-              className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-              disabled={uploading}
-            />
+                  setFormMedia((prev) => {
+                    const currentImages = prev.filter(
+                      (m) => m.type === "image"
+                    );
+                    const remain = 3 - currentImages.length;
+                    if (remain <= 0) {
+                      alert("画像は最大3枚までです");
+                      return prev;
+                    }
+                    const toAdd = files.slice(0, remain).map((file) => ({
+                      id: uuid(),
+                      type: "image" as MediaType,
+                      file,
+                    }));
+                    return [...prev, ...toAdd];
+                  });
+                  e.target.value = "";
+                }}
+                className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
+                disabled={uploading}
+              />
+            </div>
+
+            {/* 動画（任意・1つまで） */}
+            <div className="space-y-1">
+              <label className="text-sm">動画（任意・1つまで）</label>
+              <input
+                type="file"
+                accept={VIDEO_MIME_TYPES.join(",")}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (!f) {
+                    e.target.value = "";
+                    return;
+                  }
+                  if (!VIDEO_MIME_TYPES.includes(f.type)) {
+                    alert("対応形式ではありません");
+                    e.target.value = "";
+                    return;
+                  }
+                  const blobURL = URL.createObjectURL(f);
+                  const vid = document.createElement("video");
+                  vid.preload = "metadata";
+                  vid.src = blobURL;
+                  vid.onloadedmetadata = () => {
+                    URL.revokeObjectURL(blobURL);
+                    if (vid.duration > MAX_VIDEO_SEC) {
+                      alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+                      (e.target as HTMLInputElement).value = "";
+                      return;
+                    }
+                    setFormMedia((prev) => {
+                      const hasVideo = prev.some((m) => m.type === "video");
+                      if (hasVideo) {
+                        alert("動画は1つまでです");
+                        return prev;
+                      }
+                      return [
+                        ...prev,
+                        {
+                          id: uuid(),
+                          type: "video" as MediaType,
+                          file: f,
+                        },
+                      ];
+                    });
+                    (e.target as HTMLInputElement).value = "";
+                  };
+                }}
+                className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
+                disabled={uploading}
+              />
+            </div>
+
+            {/* ▼ 選択中メディア一覧（画像・動画とも ↑↓ で並べ替え） */}
+            {selectedMediaRows.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <p className="text-sm font-semibold">選択中のメディア</p>
+                {selectedMediaRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
+                  >
+                    <span className="truncate">
+                      {row.index + 1}.{" "}
+                      {row.type === "image" ? "画像" : "動画"}（
+                      {row.file.name}）
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveRow(row.index, row.index - 1)}
+                        disabled={uploading || row.index === 0}
+                        className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveRow(row.index, row.index + 1)}
+                        disabled={
+                          uploading || row.index === selectedMediaRows.length - 1
+                        }
+                        className="text-xs px-1 py-0.5 border rounded bg白 disabled:opacity-40"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormMedia((prev) =>
+                            prev.filter((_, i) => i !== row.index)
+                          );
+                        }}
+                        disabled={uploading}
+                        className="text-red-600 text-xs underline disabled:opacity-40"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {formMode === "edit" && editing?.originalFileName && (
               <p className="text-sm text-gray-600">
@@ -839,14 +882,14 @@ export default function ProductsClient() {
               <button
                 onClick={saveProduct}
                 disabled={uploading}
-                className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 text白 rounded disabled:opacity-50"
               >
                 {formMode === "edit" ? "更新" : "追加"}
               </button>
               <button
                 onClick={closeForm}
                 disabled={uploading}
-                className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
+                className="px-4 py-2 bg-gray-500 text白 rounded disabled:opacity-50"
               >
                 閉じる
               </button>

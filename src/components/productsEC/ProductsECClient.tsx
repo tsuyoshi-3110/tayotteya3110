@@ -58,9 +58,7 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import Image from "next/image";
 
 // 多言語
-import { LANGS, type LangKey } from "@/lib/langs";
-import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
-import { type Product } from "@/types/Product";
+import { useUILang } from "@/lib/atoms/uiLangAtom";
 import { BusyOverlay } from "../BusyOverlay";
 import {
   IMAGE_MIME_TYPES,
@@ -75,291 +73,22 @@ import Link from "next/link";
 
 import { useCart } from "@/lib/cart/CartContext";
 
-/* ======================== 型＆ユーティリティ ======================== */
-
-type MediaType = "image" | "video";
-
-type Base = { title: string; body: string };
-type Tr = { lang: LangKey; title?: string; body?: string };
-
-type Section = {
-  id: string;
-  base: { title: string };
-  t: Array<{ lang: LangKey; title?: string }>;
-  createdAt?: any;
-  order?: number;
-};
-
-type ProdDoc = Product & {
-  base?: Base;
-  t?: Tr[];
-  sectionId?: string | null;
-  published?: boolean;
-  taxIncluded?: boolean;
-};
-
-// 税率(日本:10%)
-const TAX_RATE = 0.1 as const;
-const rint = (n: number) => Math.round(n);
-const toExclYen = (incl: number, rate = TAX_RATE) =>
-  rint((Number(incl) || 0) / (1 + rate));
-
-const PAGE_SIZE = 20;
-const MAX_VIDEO_SEC = 30;
-
-// 多言語ラベルの近くに追加
-const REFUND_T: Record<UILang, string> = {
-  ja: "返品・返金ポリシー",
-  en: "Refund Policy",
-  zh: "退款与退货政策",
-  "zh-TW": "退款與退貨政策",
-  ko: "환불 및 반품 정책",
-  fr: "Politique de remboursement",
-  es: "Política de reembolsos",
-  de: "Richtlinie zu Rückerstattungen",
-  pt: "Política de reembolso",
-  it: "Politica di rimborso",
-  ru: "Политика возвратов",
-  th: "นโยบายการคืนเงิน",
-  vi: "Chính sách hoàn tiền",
-  id: "Kebijakan pengembalian dana",
-  hi: "रिफंड नीति",
-  ar: "سياسة الاسترجاع",
-};
-
-const TERMS_T: Record<UILang, string> = {
-  ja: "利用規約（購入規約）",
-  en: "Terms of Purchase",
-  zh: "购买条款",
-  "zh-TW": "購買條款",
-  ko: "이용약관(구매)",
-  fr: "Conditions d’achat",
-  es: "Términos de compra",
-  de: "Kaufbedingungen",
-  pt: "Termos de compra",
-  it: "Condizioni di acquisto",
-  ru: "Условия покупки",
-  th: "เงื่อนไขการสั่งซื้อ",
-  vi: "Điều khoản mua hàng",
-  id: "Syarat pembelian",
-  hi: "खरीद शर्तें",
-  ar: "شروط الشراء",
-};
-
-const TERMS_PATH = "/terms";
-
-/* ===== ラベル多言語 ===== */
-const ALL_CATEGORY_T: Record<UILang, string> = {
-  ja: "全カテゴリー",
-  en: "All categories",
-  zh: "全部分类",
-  "zh-TW": "全部分類",
-  ko: "모든 카테고리",
-  fr: "Toutes les catégories",
-  es: "Todas las categorías",
-  de: "Alle Kategorien",
-  pt: "Todas as categorias",
-  it: "Tutte le categorie",
-  ru: "Все категории",
-  th: "ทุกหมวดหมู่",
-  vi: "Tất cả danh mục",
-  id: "Semua kategori",
-  hi: "सभी श्रेणियाँ",
-  ar: "كل الفئات",
-};
-
-const TAX_T: Record<UILang, { incl: string; excl: string }> = {
-  ja: { incl: "税込", excl: "税抜" },
-  en: { incl: "tax included", excl: "tax excluded" },
-  zh: { incl: "含税", excl: "不含税" },
-  "zh-TW": { incl: "含稅", excl: "未稅" },
-  ko: { incl: "부가세 포함", excl: "부가세 별도" },
-  fr: { incl: "TTC", excl: "HT" },
-  es: { incl: "IVA incluido", excl: "sin IVA" },
-  de: { incl: "inkl. MwSt.", excl: "zzgl. MwSt." },
-  pt: { incl: "com impostos", excl: "sem impostos" },
-  it: { incl: "IVA inclusa", excl: "IVA esclusa" },
-  ru: { incl: "с НДС", excl: "без НДС" },
-  th: { incl: "รวมภาษี", excl: "ไม่รวมภาษี" },
-  vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
-  id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
-  hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "شامل الضريبة", excl: "غير شامل الضريبة" },
-};
-
-/* ===== 表示用多言語 resolve ===== */
-function displayOf(p: Product & { base?: Base; t?: Tr[] }, lang: UILang): Base {
-  const fallback: Base = {
-    title: (p as any)?.title ?? "",
-    body: (p as any)?.body ?? "",
-  };
-  if (!p.base && !p.t) return fallback;
-  if (lang === "ja") return p.base ?? fallback;
-  const hit = p.t?.find((x) => x.lang === lang);
-  return {
-    title: (hit?.title ?? p.base?.title ?? fallback.title) || "",
-    body: (hit?.body ?? p.base?.body ?? fallback.body) || "",
-  };
-}
-
-function sectionTitleLoc(s: Section, lang: UILang): string {
-  if (lang === "ja") return s.base?.title ?? "";
-  const hit = s.t?.find((x) => x.lang === lang);
-  return hit?.title ?? s.base?.title ?? "";
-}
-
-/* ===== 翻訳（日本語→その他言語） ※ja は除外 ===== */
-async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
-  const tasks = LANGS.filter((l) => l.key !== "ja").map(async (l) => {
-    const res = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: titleJa, body: bodyJa, target: l.key }),
-    });
-    if (!res.ok) throw new Error(`translate failed: ${l.key}`);
-    const data = (await res.json()) as { title?: string; body?: string };
-    return {
-      lang: l.key,
-      title: (data.title ?? "").trim(),
-      body: (data.body ?? "").trim(),
-    };
-  });
-  return Promise.all(tasks);
-}
-
-/* ======================== 通貨表示まわり ======================== */
-/** UI言語→ロケール */
-const UILANG_TO_LOCALE: Partial<Record<UILang, string>> = {
-  ja: "ja-JP",
-  en: "en-US",
-  zh: "zh-CN",
-  "zh-TW": "zh-TW",
-  ko: "ko-KR",
-  fr: "fr-FR",
-  es: "es-ES",
-  de: "de-DE",
-  pt: "pt-PT",
-  it: "it-IT",
-  ru: "ru-RU",
-  th: "th-TH",
-  vi: "vi-VN",
-  id: "id-ID",
-  hi: "hi-IN",
-  ar: "ar-AE",
-};
-
-/** UI言語→通貨コード（APIが返す通貨のみ） */
-const UILANG_TO_CCY: Partial<Record<UILang, string>> = {
-  ja: "JPY",
-  en: "USD",
-  zh: "CNY",
-  "zh-TW": "TWD",
-  ko: "KRW",
-  fr: "EUR",
-  es: "EUR",
-  de: "EUR",
-  pt: "EUR",
-  it: "EUR",
-  ru: "EUR", // RUB 未取得のため安全側で EUR
-  th: "USD", // THB 未取得のため安全側で USD
-  vi: "USD", // VND 未取得のため安全側で USD
-  id: "USD", // IDR 未取得のため安全側で USD
-  hi: "USD", // INR 未取得のため安全側で USD
-  ar: "USD", // AED/SAR 未取得のため安全側で USD
-};
-
-const SHOP_TITLE_T: Record<UILang, string> = {
-  ja: "オンラインショップ",
-  en: "Online Shop",
-  zh: "在线商店",
-  "zh-TW": "線上商店",
-  ko: "온라인 쇼핑",
-  fr: "Boutique en ligne",
-  es: "Tienda en línea",
-  de: "Onlineshop",
-  pt: "Loja online",
-  it: "Negozio online",
-  ru: "Интернет-магазин",
-  th: "ร้านค้าออนไลน์",
-  vi: "Cửa hàng trực tuyến",
-  id: "Toko online",
-  hi: "ऑनलाइन दुकान",
-  ar: "المتجر الإلكتروني",
-};
-
-const SHOP_SUBTITLE_T: Record<UILang, string> = {
-  ja: "公式オンラインストア",
-  en: "Official Online Store",
-  zh: "官方在线商店",
-  "zh-TW": "官方線上商店",
-  ko: "공식 온라인 스토어",
-  fr: "Boutique en ligne officielle",
-  es: "Tienda en línea oficial",
-  de: "Offizieller Onlineshop",
-  pt: "Loja online oficial",
-  it: "Negozio online ufficiale",
-  ru: "Официальный интернет-магазин",
-  th: "ร้านค้าออนไลน์อย่างเป็นทางการ",
-  vi: "Cửa hàng trực tuyến chính thức",
-  id: "Toko online resmi",
-  hi: "आधिकारिक ऑनलाइन स्टोर",
-  ar: "المتجر الإلكتروني الرسمي",
-};
-
-const INTERNATIONAL_FEES_NOTICE_T: Record<UILang, string> = {
-  ja: "海外配送では関税・輸入税・通関手数料等が発生する場合があり、原則として受取人様のご負担となります。",
-  en: "For international shipping, customs duties, import taxes, and clearance fees may apply and are, in principle, the recipient’s responsibility.",
-  zh: "海外配送可能会产生关税、进口税及清关手续费，原则上由收件人承担。",
-  "zh-TW": "海外配送可能會產生關稅、進口稅及清關手續費，原則上由收件人負擔。",
-  ko: "해외 배송의 경우 관세·수입세·통관 수수료 등이 발생할 수 있으며, 원칙적으로 수령인 부담입니다.",
-  fr: "Pour les envois internationaux, des droits de douane, taxes d’importation et frais de dédouanement peuvent s’appliquer et sont, en principe, à la charge du destinataire.",
-  es: "En los envíos internacionales pueden aplicarse aranceles, impuestos de importación y gastos de despacho aduanero, que en principio corren a cargo del destinatario.",
-  de: "Bei internationalen Sendungen können Zölle, Einfuhrsteuern und Verzollungsgebühren anfallen; diese gehen grundsätzlich zu Lasten des Empfängers.",
-  pt: "Em envios internacionais, podem ser cobrados impostos de importação, taxas alfandegárias e tarifas de desembaraço, que, em princípio, são de responsabilidade do destinatário.",
-  it: "Per le spedizioni internazionali potrebbero applicarsi dazi, imposte d’importazione e spese di sdoganamento, che in linea di principio sono a carico del destinatario.",
-  ru: "При международной доставке могут взиматься таможенные пошлины, импортные налоги и сборы за оформление; как правило, их оплачивает получатель.",
-  th: "การจัดส่งไปต่างประเทศอาจมีอากรขาเข้า ภาษีนำเข้า และค่าดำเนินการศุลกากร ซึ่งโดยหลักแล้วผู้รับเป็นผู้รับผิดชอบค่าใช้จ่ายดังกล่าว",
-  vi: "Đối với giao hàng quốc tế, có thể phát sinh thuế nhập khẩu, thuế và phí thông quan; về nguyên tắc, người nhận phải chịu các chi phí này.",
-  id: "Untuk pengiriman internasional, bea masuk, pajak impor, dan biaya kepabeanan dapat dikenakan dan pada prinsipnya menjadi tanggung jawab penerima.",
-  hi: "अंतरराष्ट्रीय शिपिंग में कस्टम ड्यूटी, आयात कर और क्लियरेंस शुल्क लग सकते हैं, जो सिद्धांततः प्राप्तकर्ता के जिम्मे होते हैं।",
-  ar: "قد تُفرض عند الشحن الدولي رسوم جمركية وضرائب استيراد ورسوم تخليص جمركي، وتكون هذه التكاليف من حيث المبدأ على عاتق المستلِم.",
-};
-
-/** 小数無し通貨（表示時も 0 桁） */
-const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "TWD"]);
-
-/** JPY 税込→言語に応じた通貨文字列に整形（フェールセーフは JPY） */
-function formatPriceByLang(
-  jpyIncl: number,
-  lang: UILang,
-  rates: Record<string, number> | null
-) {
-  const locale = UILANG_TO_LOCALE[lang] ?? "en-US";
-  const ccy = UILANG_TO_CCY[lang] ?? "JPY";
-
-  // レート未取得 or 未対応通貨 → JPY のまま表示
-  const rate = rates?.[ccy];
-  if (!rate) {
-    return new Intl.NumberFormat(UILANG_TO_LOCALE.ja ?? "ja-JP", {
-      style: "currency",
-      currency: "JPY",
-      maximumFractionDigits: 0,
-    }).format(jpyIncl);
-  }
-
-  const major = jpyIncl * rate;
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: ccy,
-    maximumFractionDigits: ZERO_DECIMAL.has(ccy) ? 0 : 2,
-  }).format(major);
-}
-
-/** ドキュメントから「税込価格」を安全に取得 */
-function ensurePriceInclFromDoc(p: ProdDoc): number {
-  const raw = Number(p.price ?? 0);
-  return p.taxIncluded === false ? Math.round(raw * (1 + TAX_RATE)) : raw;
-}
+// ▼ EC 用ユーティリティ
+import type { MediaType, Base, Tr, Section, ProdDoc } from "./types";
+import { displayOf, sectionTitleLoc, translateAll } from "./types";
+import { PAGE_SIZE, MAX_VIDEO_SEC } from "./config";
+import { TAX_RATE, rint, toExclYen, TAX_T } from "./priceUtils";
+import { formatPriceByLang, ensurePriceInclFromDoc } from "./currency";
+import {
+  ALL_CATEGORY_T,
+  REFUND_T,
+  TERMS_T,
+  TERMS_PATH,
+  REFUND_PATH,
+  SHOP_TITLE_T,
+  SHOP_SUBTITLE_T,
+  INTERNATIONAL_FEES_NOTICE_T,
+} from "./texts";
 
 /* ======================== 本体 ======================== */
 export default function ProductsECClient() {
@@ -398,10 +127,7 @@ export default function ProductsECClient() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>("all");
 
   const [ecStop, setEcStop] = useState(false);
-  // 既存の state 群の近くに追加
   const [freeShipMinJPY, setFreeShipMinJPY] = useState<number>(0);
-
-  const REFUND_PATH = "/refund";
 
   const { items: cartItems, isHydrated: cartHydrated } = useCart();
   const cartCount = useMemo(
@@ -430,7 +156,6 @@ export default function ProductsECClient() {
   const taxT = TAX_T[uiLang] ?? TAX_T.ja;
 
   const SHOP_TITLE = SHOP_TITLE_T[uiLang] ?? SHOP_TITLE_T.ja;
-
   const SHOP_SUBTITLE = SHOP_SUBTITLE_T[uiLang] ?? SHOP_SUBTITLE_T.ja;
 
   const INTERNATIONAL_FEES_NOTICE =
@@ -464,7 +189,7 @@ export default function ProductsECClient() {
 
   useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
 
-  // 追加：送料無料しきい値（言語別）を購読
+  // 送料無料しきい値
   useEffect(() => {
     const ref = doc(db, "siteShippingPolicy", SITE_KEY);
     const unsub = onSnapshot(ref, (snap) => {
@@ -475,7 +200,6 @@ export default function ProductsECClient() {
       }
       const table = (data?.thresholdByLang ?? {}) as Record<string, unknown>;
 
-      // "5,980円" → 5980 などに変換
       const parse = (v: unknown) =>
         typeof v === "number"
           ? v
@@ -503,6 +227,7 @@ export default function ProductsECClient() {
     return () => unsub();
   }, [uiLang]);
 
+  // EC 停止フラグ
   useEffect(() => {
     const ref = doc(db, "siteSellers", SITE_KEY);
     const unsub = onSnapshot(ref, (snap) => {
@@ -512,7 +237,7 @@ export default function ProductsECClient() {
     return () => unsub();
   }, []);
 
-  // 追加：在庫購読（siteKey単位）
+  // 在庫購読
   useEffect(() => {
     const qRef = query(
       collection(db, "stock"),
@@ -642,7 +367,11 @@ export default function ProductsECClient() {
           t: Array.isArray(data.t) ? data.t : [],
           sectionId: data.sectionId ?? null,
           published: data.published,
-        };
+          // mediaItems もあればそのまま持っておく（型に無くても any で扱える）
+          ...(Array.isArray(data.mediaItems)
+            ? { mediaItems: data.mediaItems }
+            : {}),
+        } as ProdDoc;
       });
       setList(rows);
       setLastDoc(
@@ -688,7 +417,10 @@ export default function ProductsECClient() {
         t: Array.isArray(data.t) ? data.t : [],
         sectionId: data.sectionId ?? null,
         published: data.published,
-      };
+        ...(Array.isArray(data.mediaItems)
+          ? { mediaItems: data.mediaItems }
+          : {}),
+      } as ProdDoc;
     });
 
     setList((prev) => [...prev, ...nextRows]);
@@ -746,7 +478,10 @@ export default function ProductsECClient() {
             t: Array.isArray(data.t) ? data.t : [],
             sectionId: data.sectionId ?? null,
             published: data.published,
-          };
+            ...(Array.isArray(data.mediaItems)
+              ? { mediaItems: data.mediaItems }
+              : {}),
+          } as ProdDoc;
         });
         rows.sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
         setList(rows);
@@ -831,10 +566,7 @@ export default function ProductsECClient() {
         title: base.title,
         body: base.body,
 
-        // 互換：税込
         price: priceIncl,
-
-        // 新スキーマ
         priceIncl,
         priceExcl,
         taxRate: TAX_RATE,
@@ -931,9 +663,7 @@ export default function ProductsECClient() {
             gradient
           )}
         >
-          {/* 上段：タイトル（常に1行） + 管理 / カートボタン */}
           <div className="flex items-center justify-between gap-3">
-            {/* 左：アイコン＋タイトル（1行固定・省略記号） */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <ShoppingBag
                 className={clsx(
@@ -955,7 +685,6 @@ export default function ProductsECClient() {
               </h1>
             </div>
 
-            {/* 右：EC管理（ログイン時のみ） + 大きいカート */}
             <div className="flex items-center gap-2 shrink-0">
               {isAdmin && (
                 <button
@@ -964,7 +693,7 @@ export default function ProductsECClient() {
                   className={clsx(
                     "inline-flex items-center justify-center",
                     "h-10 px-4 rounded-full border shadow",
-                    "bg-white/95 hover:bg-white transition",
+                    "bg-white/95 hover:bg白 transition",
                     "focus:outline-none focus:ring-2 focus:ring-blue-400"
                   )}
                   aria-label="EC管理"
@@ -1057,7 +786,7 @@ export default function ProductsECClient() {
         </div>
       </header>
 
-      {/* ▼ 送料無料バナー（しきい値が設定されている時のみ表示） */}
+      {/* ▼ 送料無料バナー */}
       <FreeShippingBanner
         show={freeShipMinJPY > 0}
         lang={uiLang}
@@ -1086,7 +815,6 @@ export default function ProductsECClient() {
       )}
 
       <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        {/* セクションピッカー */}
         <div className="flex items-center gap-2">
           <label className="text-sm text-white text-outline opacity-70">
             表示カテゴリ:
@@ -1137,12 +865,32 @@ export default function ProductsECClient() {
               const priceIncl = ensurePriceInclFromDoc(p);
               const priceText = formatPriceByLang(priceIncl, uiLang, rates);
 
-              // ▼ 追加：この商品の在庫数を取得（stock の productId は p.id と同じ前提）
+              // 在庫
               const pid = (p as any).productId || p.id;
               const qty = stockMap[pid];
               const soldOut =
                 (p as any).soldOut === true ||
                 (typeof qty === "number" && qty <= 0);
+
+              // ★ 複数メディア（mediaItems）があればスライド、なければ従来どおり 1 枚
+              const rawItems = (p as any).mediaItems as
+                | { url: string; type: MediaType }[]
+                | undefined;
+
+              const slides: { src: string; type: MediaType }[] =
+                Array.isArray(rawItems) && rawItems.length > 0
+                  ? rawItems.map((m) => ({
+                      src: m.url,
+                      type: m.type as MediaType,
+                    }))
+                  : [
+                      {
+                        src: p.mediaURL,
+                        type: p.mediaType as MediaType,
+                      },
+                    ];
+
+              const primary = slides[0];
 
               return (
                 <SortableItem key={p.id} product={p}>
@@ -1154,7 +902,7 @@ export default function ProductsECClient() {
                       transition={{ duration: 0.3 }}
                       onClick={() => {
                         if (isDragging) return;
-                        if (soldOut) return; // ← 売切れなら遷移させない
+                        if (soldOut) return;
                         router.push(`/productsEC/${p.id}`);
                       }}
                       className={clsx(
@@ -1166,7 +914,7 @@ export default function ProductsECClient() {
                           : isDark
                           ? "bg-black/40 text-white"
                           : "bg-white",
-                        soldOut ? "cursor-not-allowed" : "cursor-pointer", // ← 視覚的にも不可に
+                        soldOut ? "cursor-not-allowed" : "cursor-pointer",
                         !isDragging && !soldOut && "hover:shadow-lg",
                         "rounded-b-lg rounded-t-xl"
                       )}
@@ -1189,16 +937,17 @@ export default function ProductsECClient() {
                         </div>
                       )}
 
-                      {/* 画像エリアを相対配置にして SOLD OUT を前面に重ねる */}
+                      {/* 画像＋ SOLD OUT */}
                       <div className="relative">
                         <ProductMedia
-                          src={p.mediaURL}
-                          type={p.mediaType}
+                          src={primary.src}
+                          type={primary.type}
+                          items={slides} // ★ ここでスライドを渡す
                           className="rounded-t-xl"
                         />
                         {soldOut && (
                           <Image
-                            src="/images/soldOutImageSK.png" // public/images/soldOutImageSK.png
+                            src="/images/soldOutImageSK.png"
                             fill
                             alt="売切れ"
                             className="absolute inset-0 z-50 h-full w-full object-contain pointer-events-none"
@@ -1207,7 +956,7 @@ export default function ProductsECClient() {
                         )}
                       </div>
 
-                      {/* 管理ラベル（既存） */}
+                      {/* 管理ラベル */}
                       {isAdmin && (
                         <div
                           className={clsx(
@@ -1246,7 +995,7 @@ export default function ProductsECClient() {
         </SortableContext>
       </DndContext>
 
-      {/* 新規/編集モーダル（税込固定入力・既存機能そのまま） */}
+      {/* 新規/編集モーダル */}
       {isAdmin && formMode && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
@@ -1307,7 +1056,7 @@ export default function ProductsECClient() {
               disabled={uploading}
             />
 
-            {/* 既存のAI生成（キーワード無し版を維持） */}
+            {/* AI生成（キーワード無し版） */}
             <button
               onClick={async () => {
                 if (!title) return alert("タイトルを入力してください");

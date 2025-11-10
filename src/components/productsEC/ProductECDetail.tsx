@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import clsx from "clsx";
 import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
@@ -56,52 +55,11 @@ import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 // ★ 為替
 import { useFxRates } from "@/lib/fx/client";
 
-/* ▼ カートボタンの文言：多言語 */
-const ADD_TO_CART_T: Record<UILang, string> = {
-  ja: "カートに入れる",
-  en: "Add to cart",
-  zh: "加入购物车",
-  "zh-TW": "加入購物車",
-  ko: "장바구니에 담기",
-  fr: "Ajouter au panier",
-  es: "Añadir al carrito",
-  de: "In den Warenkorb",
-  pt: "Adicionar ao carrinho",
-  it: "Aggiungi al carrello",
-  ru: "В корзину",
-  th: "หยิบใส่ตะกร้า",
-  vi: "Thêm vào giỏ",
-  id: "Masukkan ke keranjang",
-  hi: "कार्ट में जोड़ें",
-  ar: "أضِف إلى السلة",
-};
-export function addToCartLabel(lang: UILang): string {
-  return ADD_TO_CART_T[lang] ?? ADD_TO_CART_T.en;
-}
-
-/* ▼ 追加トーストの文言：多言語（{name} を商品名に差し込み） */
-const ADDED_TO_CART_T: Record<UILang, string> = {
-  ja: "{name} をカートに追加しました",
-  en: "Added {name} to your cart",
-  zh: "已将 {name} 加入购物车",
-  "zh-TW": "已將 {name} 加入購物車",
-  ko: "{name} 을(를) 장바구니에 담았습니다",
-  fr: "{name} ajouté à votre panier",
-  es: "Has añadido {name} al carrito",
-  de: "{name} wurde dem Warenkorb hinzugefügt",
-  pt: "{name} adicionado ao carrinho",
-  it: "Hai aggiunto {name} al carrello",
-  ru: "{name} добавлен в корзину",
-  th: "เพิ่ม {name} ลงในตะกร้าแล้ว",
-  vi: "Đã thêm {name} vào giỏ hàng",
-  id: "{name} telah ditambahkan ke keranjang",
-  hi: "{name} कार्ट में जोड़ा गया",
-  ar: "تمت إضافة {name} إلى السلة",
-};
-function addedToCartText(lang: UILang, name: string): string {
-  const template = ADDED_TO_CART_T[lang] ?? ADDED_TO_CART_T.en;
-  return template.replace("{name}", name);
-}
+// ★ EC 共通ユーティリティ
+import { TAX_RATE, rint, toExclYen, toInclYen, TAX_T } from "./priceUtils";
+import { formatPriceByLang } from "./currency";
+import { addToCartLabel, addedToCartText, STOCK_T } from "./detailTexts";
+import ProductMedia from "../ProductMedia";
 
 type MediaType = "image" | "video";
 
@@ -124,17 +82,12 @@ type ProductDoc = Product & {
   priceIncl?: number; // 税込保存値
   priceExcl?: number; // 税抜保存値
   taxRate?: number; // 保存税率
+
+  // ★ 複数メディア（画像1〜3枚 + 動画0/1）用
+  mediaItems?: { url: string; type: MediaType }[];
 };
 
 const TOAST_DURATION_MS = 3000;
-
-/* ===== 税計算（日本10%） ===== */
-const TAX_RATE = 0.1 as const;
-const rint = (n: number) => Math.round(Number(n) || 0);
-const toExclYen = (incl: number, rate = TAX_RATE) =>
-  rint((Number(incl) || 0) / (1 + rate));
-const toInclYen = (excl: number, rate = TAX_RATE) =>
-  rint((Number(excl) || 0) * (1 + rate));
 
 /* 表示テキスト（UI言語で解決） */
 function pickLocalized(
@@ -156,109 +109,38 @@ function pickLocalized(
 
 /* 翻訳 */
 type Tr = { lang: LangKey; title: string; body: string };
+
 async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
   const jobs: Promise<Tr>[] = LANGS.map(async (l) => {
     const res = await fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: titleJa, body: bodyJa, target: l.key }),
+      body: JSON.stringify({
+        title: titleJa,
+        body: bodyJa,
+        target: l.key,
+      }),
     });
-    if (!res.ok) throw new Error(`translate error: ${l.key}`);
+
+    if (!res.ok) {
+      throw new Error(`translate error: ${l.key}`);
+    }
+
     const data = (await res.json()) as { title?: string; body?: string };
+
     return {
       lang: l.key,
       title: (data.title ?? "").trim(),
       body: (data.body ?? "").trim(),
     };
   });
+
   const settled = await Promise.allSettled(jobs);
+
+  // ★ここが正しい書き方（GitHub や TS の典型パターン）
   return settled
     .filter((r): r is PromiseFulfilledResult<Tr> => r.status === "fulfilled")
     .map((r) => r.value);
-}
-
-/* 税ラベル */
-const TAX_T: Record<UILang, { incl: string; excl: string }> = {
-  ja: { incl: "税込", excl: "税抜" },
-  en: { incl: "tax included", excl: "tax excluded" },
-  zh: { incl: "含税", excl: "不含税" },
-  "zh-TW": { incl: "含稅", excl: "未稅" },
-  ko: { incl: "부가세 포함", excl: "부가세 별도" },
-  fr: { incl: "TTC", excl: "HT" },
-  es: { incl: "IVA incluido", excl: "sin IVA" },
-  de: { incl: "inkl. MwSt.", excl: "zzgl. MwSt." },
-  pt: { incl: "com impostos", excl: "sem impostos" },
-  it: { incl: "IVA inclusa", excl: "IVA esclusa" },
-  ru: { incl: "с НДС", excl: "без НДС" },
-  th: { incl: "รวมภาษี", excl: "ไม่รวมภาษี" },
-  vi: { incl: "đã gồm thuế", excl: "chưa gồm thuế" },
-  id: { incl: "termasuk pajak", excl: "tidak termasuk pajak" },
-  hi: { incl: "कर सहित", excl: "कर के बिना" },
-  ar: { incl: "شامل الضريبة", excl: "غير شامل الضريبة" } as any,
-};
-
-/* ====== 通貨表示（UI言語→通貨/ロケール） ====== */
-const UILANG_TO_LOCALE: Partial<Record<UILang, string>> = {
-  ja: "ja-JP",
-  en: "en-US",
-  zh: "zh-CN",
-  "zh-TW": "zh-TW",
-  ko: "ko-KR",
-  fr: "fr-FR",
-  es: "es-ES",
-  de: "de-DE",
-  pt: "pt-PT",
-  it: "it-IT",
-  ru: "ru-RU",
-  th: "th-TH",
-  vi: "vi-VN",
-  id: "id-ID",
-  hi: "hi-IN",
-  ar: "ar-AE",
-};
-const UILANG_TO_CCY: Partial<Record<UILang, string>> = {
-  ja: "JPY",
-  en: "USD",
-  zh: "CNY",
-  "zh-TW": "TWD",
-  ko: "KRW",
-  fr: "EUR",
-  es: "EUR",
-  de: "EUR",
-  pt: "EUR",
-  it: "EUR",
-  ru: "EUR",
-  th: "USD",
-  vi: "USD",
-  id: "USD",
-  hi: "USD",
-  ar: "USD",
-};
-const ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "TWD"]);
-
-function formatPriceByLang(
-  jpyIncl: number,
-  lang: UILang,
-  rates: Record<string, number> | null
-) {
-  const locale = UILANG_TO_LOCALE[lang] ?? "en-US";
-  const ccy = UILANG_TO_CCY[lang] ?? "JPY";
-  const rate = rates?.[ccy];
-
-  // レート無い/未取得 → JPY
-  if (!rate) {
-    return new Intl.NumberFormat(UILANG_TO_LOCALE.ja ?? "ja-JP", {
-      style: "currency",
-      currency: "JPY",
-      maximumFractionDigits: 0,
-    }).format(jpyIncl);
-  }
-  const major = jpyIncl * rate;
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: ccy,
-    maximumFractionDigits: ZERO_DECIMAL.has(ccy) ? 0 : 2,
-  }).format(major);
 }
 
 /* ===== 在庫（クライアント Firestore） ===== */
@@ -268,148 +150,6 @@ type StockRow = {
   lowStockThreshold: number; // 在庫少なめのしきい値
 };
 type StockStatus = "in_stock" | "low" | "out";
-
-/** UI文言（在庫） */
-const STOCK_T: Record<
-  UILang,
-  {
-    in: string;
-    low: string;
-    out: string;
-    remain: (n: number) => string;
-    max: (n: number) => string;
-    addDisabled: string;
-  }
-> = {
-  ja: {
-    in: "在庫あり",
-    low: "在庫少なめ",
-    out: "在庫なし",
-    remain: (n: number) => `残り${n}点`,
-    max: (n: number) => `最大${n}個まで`,
-    addDisabled: "在庫なし",
-  },
-  en: {
-    in: "In stock",
-    low: "Low stock",
-    out: "Out of stock",
-    remain: (n: number) => `only ${n} left`,
-    max: (n: number) => `max ${n} pcs`,
-    addDisabled: "Out of stock",
-  },
-  zh: {
-    in: "有货",
-    low: "库存紧张",
-    out: "无货",
-    remain: (n: number) => `仅剩 ${n} 件`,
-    max: (n: number) => `最多 ${n} 件`,
-    addDisabled: "无货",
-  },
-  "zh-TW": {
-    in: "有現貨",
-    low: "庫存緊張",
-    out: "無庫存",
-    remain: (n: number) => `剩餘 ${n} 件`,
-    max: (n: number) => `最多 ${n} 件`,
-    addDisabled: "無庫存",
-  },
-  ko: {
-    in: "재고 있음",
-    low: "재고 적음",
-    out: "재고 없음",
-    remain: (n: number) => `잔여 ${n}개`,
-    max: (n: number) => `최대 ${n}개`,
-    addDisabled: "재고 없음",
-  },
-  fr: {
-    in: "En stock",
-    low: "Stock faible",
-    out: "En rupture",
-    remain: (n: number) => `plus que ${n}`,
-    max: (n: number) => `max ${n}`,
-    addDisabled: "En rupture",
-  },
-  es: {
-    in: "En stock",
-    low: "Stock bajo",
-    out: "Agotado",
-    remain: (n: number) => `solo ${n} restantes`,
-    max: (n: number) => `máx. ${n}`,
-    addDisabled: "Agotado",
-  },
-  de: {
-    in: "Auf Lager",
-    low: "Geringer Bestand",
-    out: "Nicht auf Lager",
-    remain: (n: number) => `nur noch ${n}`,
-    max: (n: number) => `max. ${n}`,
-    addDisabled: "Nicht auf Lager",
-  },
-  pt: {
-    in: "Em estoque",
-    low: "Estoque baixo",
-    out: "Sem estoque",
-    remain: (n: number) => `restam apenas ${n}`,
-    max: (n: number) => `máx. ${n}`,
-    addDisabled: "Sem estoque",
-  },
-  it: {
-    in: "Disponibile",
-    low: "Scorte limitate",
-    out: "Esaurito",
-    remain: (n: number) => `ne restano solo ${n}`,
-    max: (n: number) => `max ${n}`,
-    addDisabled: "Esaurito",
-  },
-  ru: {
-    in: "В наличии",
-    low: "Малый остаток",
-    out: "Нет в наличии",
-    remain: (n: number) => `осталось ${n}`,
-    max: (n: number) => `макс. ${n}`,
-    addDisabled: "Нет в наличии",
-  },
-  th: {
-    in: "มีสินค้า",
-    low: "สินค้าเหลือน้อย",
-    out: "สินค้าหมด",
-    remain: (n: number) => `เหลือ ${n} ชิ้น`,
-    max: (n: number) => `สูงสุด ${n} ชิ้น`,
-    addDisabled: "สินค้าหมด",
-  },
-  vi: {
-    in: "Còn hàng",
-    low: "Sắp hết",
-    out: "Hết hàng",
-    remain: (n: number) => `chỉ còn ${n}`,
-    max: (n: number) => `tối đa ${n}`,
-    addDisabled: "Hết hàng",
-  },
-  id: {
-    in: "Tersedia",
-    low: "Stok menipis",
-    out: "Habis",
-    remain: (n: number) => `tersisa ${n}`,
-    max: (n: number) => `maks ${n}`,
-    addDisabled: "Habis",
-  },
-  hi: {
-    in: "उपलब्ध",
-    low: "कम स्टॉक",
-    out: "स्टॉक समाप्त",
-    remain: (n: number) => `केवल ${n} बचा है`,
-    max: (n: number) => `अधिकतम ${n}`,
-    addDisabled: "स्टॉक समाप्त",
-  },
-  ar: {
-    in: "متوفر",
-    low: "كمية محدودة",
-    out: "غير متوفر",
-    remain: (n: number) => `متبقي ${n}`,
-    max: (n: number) => `حتى ${n}`,
-    addDisabled: "غير متوفر",
-  } as any,
-};
 
 export default function ProductECDetail({ product }: { product: Product }) {
   // 権限・テーマ
@@ -555,7 +295,6 @@ export default function ProductECDetail({ product }: { product: Product }) {
   }, [stock]);
 
   const isOut = stockStatus === "out";
-  // const isLow = stockStatus === "low"; // ← 未使用のため削除
   const maxAllowed = stock ? stock.stockQty : null;
 
   // 初期化
@@ -935,6 +674,30 @@ export default function ProductECDetail({ product }: { product: Product }) {
     navigatingBack ||
     (maxAllowed != null && (maxAllowed <= 0 || qty > maxAllowed));
 
+  // ★★★ ここから：スライド用の items を生成（mediaItems があれば優先） ★★★
+  const rawItems = (displayProduct as any).mediaItems as
+    | { url: string; type: MediaType }[]
+    | undefined;
+
+  const slides: { src: string; type: MediaType }[] =
+    Array.isArray(rawItems) && rawItems.length > 0
+      ? rawItems.map((m) => ({
+          src: m.url,
+          type: m.type as MediaType,
+        }))
+      : [
+          {
+            src: displayProduct.mediaURL || "/images/placeholder.jpg",
+            type:
+              displayProduct.mediaType === "video"
+                ? ("video" as MediaType)
+                : ("image" as MediaType),
+          },
+        ];
+
+  const primary = slides[0];
+  // ★★★ ここまで追加 ★★★
+
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
       <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
@@ -1005,29 +768,13 @@ export default function ProductECDetail({ product }: { product: Product }) {
           </div>
         )}
 
-        {/* メディア */}
-        {displayProduct.mediaType === "video" ? (
-          <video
-            src={displayProduct.mediaURL}
-            muted
-            playsInline
-            autoPlay
-            loop
-            preload="auto"
-            className="w-full aspect-square object-cover"
-          />
-        ) : (
-          <div className="relative w-full aspect-square">
-            <Image
-              src={displayProduct.mediaURL || "/images/placeholder.jpg"}
-              alt={loc.title || displayProduct.title}
-              fill
-              className="object-cover"
-              sizes="100vw"
-              unoptimized
-            />
-          </div>
-        )}
+        {/* メディア（複数スライド対応） */}
+        <ProductMedia
+          src={primary.src}
+          type={primary.type}
+          items={slides}
+          alt={loc.title || displayProduct.title}
+        />
 
         {/* テキスト */}
         <div className="p-4 space-y-3">
@@ -1117,10 +864,10 @@ export default function ProductECDetail({ product }: { product: Product }) {
         </div>
       </motion.div>
 
-      {/* 編集モーダル（編集UIは税区分選べるが保存は税込統一＋両方保存） */}
+      {/* 編集モーダル（公開設定のみ） */}
       {isAdmin && showEdit && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg白 rounded-lg p-6 space-y-4">
+          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-bold text-center">商品を編集</h2>
 
             {/* 公開/非公開 */}
