@@ -3,8 +3,11 @@
 import React, { useMemo } from "react";
 import clsx from "clsx";
 import {
-  SwipeableList, SwipeableListItem,
-  LeadingActions, TrailingActions, SwipeAction,
+  SwipeableList,
+  SwipeableListItem,
+  LeadingActions,
+  TrailingActions,
+  SwipeAction,
 } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
 
@@ -28,7 +31,7 @@ export default function MenuItemCard({
 }: {
   item: MenuItem;
   onDelete: () => void;
-  onEdit: (item: MenuItem) => void; // 親の“統一モーダル”を開く
+  onEdit: (item: MenuItem) => void;
   isLoggedIn: boolean;
 }) {
   const yen = (n: number) => n.toLocaleString("ja-JP");

@@ -15,25 +15,27 @@ import {
 import { db } from "@/lib/firebase";
 import MenuItemCard from "./MenuItemCard";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   getStorage,
   ref as storageRef,
   uploadBytesResumable,
   getDownloadURL,
   deleteObject,
-  UploadTask,
+  type UploadTask,
 } from "firebase/storage";
 
 import clsx from "clsx";
-// import { ThemeKey, THEMES } from "@/lib/themes";
-// import { useThemeGradient } from "@/lib/useThemeGradient";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import ProductMedia from "@/components/ProductMedia";
 
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { BusyOverlay } from "../BusyOverlay";
+import { v4 as uuid } from "uuid";
+import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
+import { getExt, getVideoMetaFromFile } from "@/lib/media";
+
+type MediaType = "image" | "video";
 
 /* ===== 型 ===== */
 type MenuItem = {
@@ -43,23 +45,40 @@ type MenuItem = {
   price?: number | null;
   isTaxIncluded?: boolean;
   order: number;
-  // 多言語互換
   base?: { name: string; description?: string };
   t?: Array<{ lang: LangKey; name?: string; description?: string }>;
 };
 
-type Section = {
+export type Section = {
   id: string;
   title: string;
   order: number;
   siteKey: string;
-  mediaType?: "image" | "video" | null;
+  mediaType?: MediaType | null;
   mediaUrl?: string | null;
-  durationSec?: number | null;
-  orientation?: "portrait" | "landscape" | null;
-  mediaWidth?: number | null;
-  mediaHeight?: number | null;
+  mediaItems?: { url: string; type: MediaType }[];
 };
+
+type TrItem = { lang: LangKey; name?: string; description?: string };
+type TrTitle = { lang: LangKey; title: string };
+
+type EditableMediaItem = {
+  id: string;
+  type: MediaType;
+  file?: File;
+  url?: string;
+};
+
+type SelectedRow = {
+  id: string;
+  type: MediaType;
+  label: string;
+  index: number;
+};
+
+const MAX_IMAGES = 3;
+const MAX_VIDEOS = 1;
+const MAX_VIDEO_SEC = 60;
 
 /* ===== ローカライズ表示 ===== */
 function pickItemLocalized(
@@ -80,10 +99,7 @@ function pickItemLocalized(
   };
 }
 
-/* ===== 翻訳APIラッパ（型安全・エラー耐性） ===== */
-type TrTitle = { lang: LangKey; title: string };
-type TrItem = { lang: LangKey; name?: string; description?: string };
-
+/* ===== 翻訳APIラッパ ===== */
 async function translateAllTitle(titleJa: string): Promise<TrTitle[]> {
   const jobs = LANGS.map(async (l) => {
     const res = await fetch("/api/translate", {
@@ -135,54 +151,6 @@ async function translateAllItem(
   return out;
 }
 
-/* ===== 画像/動画メタ ===== */
-export function getVideoMetaFromFile(
-  file: File
-): Promise<{ duration: number; width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.src = url;
-    v.onloadedmetadata = () => {
-      const meta = {
-        duration: v.duration,
-        width: v.videoWidth,
-        height: v.videoHeight,
-      };
-      URL.revokeObjectURL(url);
-      v.removeAttribute("src");
-      v.load();
-      resolve(meta);
-    };
-    v.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("動画メタデータの取得に失敗しました"));
-    };
-  });
-}
-function getImageSize(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = document.createElement("img");
-    img.onload = () => {
-      const width = img.naturalWidth;
-      const height = img.naturalHeight;
-      URL.revokeObjectURL(url);
-      resolve({ width, height });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Failed to load image"));
-    };
-    img.src = url;
-  });
-}
-function getExt(name: string) {
-  const m = name.match(/\.([a-zA-Z0-9]+)$/);
-  return m ? m[1].toLowerCase() : "";
-}
-
 /* ===== Base抽出 ===== */
 function extractBaseTitle(s: string) {
   return (s || "").split("\n")[0]?.trim() ?? "";
@@ -195,22 +163,28 @@ function extractBaseBody(s: string) {
 /* ===== 本体 ===== */
 export default function MenuSectionCard({
   section,
-  onTitleUpdate,
-  isLoggedIn,
+  onSectionPatch,
   onDeleteSection,
+  isLoggedIn,
 }: {
   section: Section;
-  onTitleUpdate: (newTitle: string) => void;
-  isLoggedIn: boolean;
+  onSectionPatch?: (patch: Partial<Section>) => void;
   onDeleteSection: () => void;
-  onSectionPatch?: (patch: Partial<Section>) => void; // 型はそのまま残してOK
+  isLoggedIn: boolean;
 }) {
   const { uiLang } = useUILang();
 
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
-  const [newTitle, setNewTitle] = useState(section.title);
+  const [newTitle, setNewTitle] = useState(section?.title ?? "");
   const [savingTitle, setSavingTitle] = useState(false);
+
+  // メディア編集用
+  const [editMediaItems, setEditMediaItems] = useState<EditableMediaItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const uploadTaskRef = useRef<UploadTask | null>(null);
 
   // 統一アイテムモーダル
   const [itemModal, setItemModal] = useState<{
@@ -219,12 +193,12 @@ export default function MenuSectionCard({
     target?: MenuItem | null;
   }>({ open: false, mode: "create", target: null });
 
-  /* ===== セクション／アイテム取得 ===== */
   useEffect(
-    () => setNewTitle(section.title || ""),
-    [section.id, section.title]
+    () => setNewTitle(section?.title ?? ""),
+    [section?.id, section?.title]
   );
 
+  /* ===== セクション／アイテム取得 ===== */
   useEffect(() => {
     (async () => {
       const qy = query(
@@ -264,120 +238,307 @@ export default function MenuSectionCard({
   const handleDeleteSection = async () => {
     if (!confirm("このセクションを削除しますか？")) return;
     try {
+      // 旧単体メディアの削除（mediaUrl）
       if (section.mediaUrl) {
-        const sref = storageRef(getStorage(), section.mediaUrl);
-        await deleteObject(sref);
+        try {
+          const sref = storageRef(getStorage(), section.mediaUrl);
+          await deleteObject(sref);
+        } catch {
+          /* noop */
+        }
       }
-    } catch {}
-    await deleteDoc(doc(db, "menuSections", section.id));
-    onDeleteSection();
+
+      // 複数メディアの削除（mediaItems）
+      if (Array.isArray(section.mediaItems)) {
+        for (const m of section.mediaItems) {
+          try {
+            const sref = storageRef(getStorage(), m.url);
+            await deleteObject(sref);
+          } catch {
+            /* noop */
+          }
+        }
+      }
+
+      await deleteDoc(doc(db, "menuSections", section.id));
+      onDeleteSection();
+    } catch {
+      alert("セクションの削除に失敗しました。");
+    }
   };
 
-  /* ===== セクション名更新（タイトル翻訳も保存：任意） ===== */
-  const handleUpdateSectionTitle = async () => {
+  /* ===== セクション名 + メディア保存 ===== */
+  const handleSaveSection = async () => {
     const trimmed = newTitle.trim();
     if (!trimmed) return alert("セクション名を入力してください");
+
+    // メディア数チェック
+    const imageCount = editMediaItems.filter((m) => m.type === "image").length;
+    const videoCount = editMediaItems.filter((m) => m.type === "video").length;
+    if (imageCount > MAX_IMAGES || videoCount > MAX_VIDEOS) {
+      alert("画像は最大3枚・動画は1本までです");
+      return;
+    }
+
     try {
-      setSavingTitle(true); // ← ここを追加
+      setSavingTitle(true);
+      setUploading(true);
+
+      // 1) タイトル翻訳
       let tTitle: TrTitle[] = [];
       try {
         tTitle = await translateAllTitle(trimmed);
-      } catch {}
+      } catch {
+        tTitle = [];
+      }
+      const titleI18n: Record<string, string> = { ja: trimmed };
+      tTitle.forEach((t) => {
+        if (t.title) titleI18n[t.lang] = t.title;
+      });
+
+      // 2) メディアアップロード
+      const uploaded: { url: string; type: MediaType }[] = [];
+      const prevUrls = new Set<string>();
+
+      if (Array.isArray(section.mediaItems)) {
+        section.mediaItems.forEach((m) => prevUrls.add(m.url));
+      } else if (section.mediaUrl) {
+        prevUrls.add(section.mediaUrl);
+      }
+
+      const storage = getStorage();
+      setUploadPercent(0);
+      setUploadOpen(true);
+
+      for (let index = 0; index < editMediaItems.length; index++) {
+        const item = editMediaItems[index];
+
+        // 既存URLのみの場合はそのまま利用
+        if (!item.file && item.url) {
+          uploaded.push({ url: item.url, type: item.type });
+          continue;
+        }
+
+        if (!item.file) continue;
+        const f = item.file;
+        const type = item.type;
+
+        const isImage = IMAGE_MIME_TYPES.includes(f.type);
+        const isVideo = VIDEO_MIME_TYPES.includes(f.type);
+        if (!isImage && !isVideo) {
+          alert("対応していないファイル形式です");
+          throw new Error("invalid file");
+        }
+
+        if (isVideo) {
+          const meta = await getVideoMetaFromFile(f);
+          if (meta.duration > MAX_VIDEO_SEC + 1) {
+            alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+            throw new Error("video too long");
+          }
+        }
+
+        const ext = getExt(f.name) || (type === "image" ? "jpg" : "mp4");
+        const path = `sections/${SITE_KEY}/${section.id}/${index + 1}.${ext}`;
+        const sref = storageRef(storage, path);
+
+        const task = uploadBytesResumable(sref, f, {
+          contentType: f.type,
+        });
+        uploadTaskRef.current = task;
+
+        await new Promise<void>((resolve, reject) => {
+          task.on(
+            "state_changed",
+            (snap) => {
+              const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+              const overall =
+                ((index + pct / 100) / editMediaItems.length) * 100 || 0;
+              setUploadPercent(overall);
+            },
+            (err) => reject(err),
+            () => resolve()
+          );
+        });
+
+        const url = await getDownloadURL(task.snapshot.ref);
+        uploaded.push({ url, type });
+      }
+
+      const primary = uploaded[0];
+
+      // 3) Firestore更新
       await updateDoc(doc(db, "menuSections", section.id), {
         title: trimmed,
         baseTitle: { title: trimmed },
         tTitle,
+        titleI18n,
+        mediaType: primary?.type ?? null,
+        mediaUrl: primary?.url ?? null,
+        mediaItems: uploaded,
         updatedAt: serverTimestamp(),
       });
-      onTitleUpdate(trimmed);
-      setShowEditSectionModal(false);
-    } finally {
-      setSavingTitle(false); // ← ここを追加
-    }
-  };
 
-  /* ===== メディア関連 ===== */
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadPercent, setUploadPercent] = useState(0);
-  const uploadTaskRef = useRef<UploadTask | null>(null);
-
-  const pickMedia = () => fileInputRef.current?.click();
-
-  const onPickFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0] ?? null;
-    e.currentTarget.value = "";
-    if (!file) return;
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-    if (!isImage && !isVideo)
-      return alert("画像または動画を選択してください。");
-
-    let durationSec: number | null = null;
-    let mediaWidth: number | null = null;
-    let mediaHeight: number | null = null;
-    let orientation: "portrait" | "landscape" = "landscape";
-    try {
-      if (isVideo) {
-        const meta = await getVideoMetaFromFile(file);
-        if (meta.duration > 61)
-          return alert(
-            `動画は60秒以内にしてください。（約${Math.round(meta.duration)}秒）`
-          );
-        durationSec = Math.round(meta.duration);
-        mediaWidth = meta.width;
-        mediaHeight = meta.height;
-        orientation = meta.height > meta.width ? "portrait" : "landscape";
-      } else {
-        const size = await getImageSize(file);
-        mediaWidth = size.width;
-        mediaHeight = size.height;
-        orientation = size.height > size.width ? "portrait" : "landscape";
+      // 4) 不要になった旧メディアの削除
+      const nextUrls = new Set<string>(uploaded.map((m) => m.url));
+      for (const url of prevUrls) {
+        if (!nextUrls.has(url)) {
+          try {
+            const sref = storageRef(storage, url);
+            await deleteObject(sref);
+          } catch {
+            /* noop */
+          }
+        }
       }
-    } catch {
-      return alert("メディア情報の取得に失敗しました。");
-    }
 
-    try {
-      setUploading(true);
-      const ext = getExt(file.name) || (isImage ? "jpg" : "mp4");
-      const path = `sections/${SITE_KEY}/${section.id}/header.${ext}`;
-      const sref = storageRef(getStorage(), path);
-      setUploadPercent(0);
-      setUploadOpen(true);
-      const task = uploadBytesResumable(sref, file, { contentType: file.type });
-      uploadTaskRef.current = task;
-      await new Promise<void>((resolve, reject) => {
-        task.on(
-          "state_changed",
-          (snap) =>
-            setUploadPercent((snap.bytesTransferred / snap.totalBytes) * 100),
-          (err) => reject(err),
-          () => resolve()
-        );
+      // ローカル反映
+      onSectionPatch?.({
+        title: titleI18n[uiLang] ?? titleI18n.ja ?? trimmed,
+        mediaType: primary?.type ?? null,
+        mediaUrl: primary?.url ?? null,
+        mediaItems: uploaded,
       });
-      const url = await getDownloadURL(task.snapshot.ref);
-      const payload: Partial<Section> = {
-        mediaType: isImage ? "image" : "video",
-        mediaUrl: url,
-        durationSec,
-        orientation,
-        mediaWidth,
-        mediaHeight,
-      };
-      await updateDoc(doc(db, "menuSections", section.id), payload);
-      Object.assign(section, payload);
+
       setShowEditSectionModal(false);
-    } catch (err: any) {
-      if (err?.code !== "storage/canceled")
-        alert("アップロードに失敗しました。");
+    } catch {
+      alert("セクションの保存に失敗しました。");
     } finally {
+      setSavingTitle(false);
       setUploading(false);
       setUploadOpen(false);
       uploadTaskRef.current = null;
     }
   };
+
+  /* ===== メディア選択（編集用） ===== */
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const pickImage = () => imageInputRef.current?.click();
+  const pickVideo = () => videoInputRef.current?.click();
+
+  useEffect(() => {
+    if (!showEditSectionModal) return;
+
+    const rawItems =
+      ((section as any).mediaItems as { url: string; type: MediaType }[]) ??
+      undefined;
+
+    let items: EditableMediaItem[] = [];
+
+    if (Array.isArray(rawItems) && rawItems.length > 0) {
+      items = rawItems.map((m) => ({
+        id: uuid(),
+        url: m.url,
+        type: (m.type as MediaType) || "image",
+      }));
+    } else if (section.mediaUrl) {
+      items = [
+        {
+          id: uuid(),
+          url: section.mediaUrl,
+          type: (section.mediaType as MediaType) || "image",
+        },
+      ];
+    }
+    setEditMediaItems(items);
+  }, [showEditSectionModal, section.id, section.mediaUrl, section.mediaType]);
+
+  const imageCount = useMemo(
+    () => editMediaItems.filter((m) => m.type === "image").length,
+    [editMediaItems]
+  );
+  const videoCount = useMemo(
+    () => editMediaItems.filter((m) => m.type === "video").length,
+    [editMediaItems]
+  );
+  const canAddImage = imageCount < MAX_IMAGES;
+  const canAddVideo = videoCount < MAX_VIDEOS;
+
+  const handleAddImagesEdit = (files: FileList | null) => {
+    if (!files) return;
+    const arr = Array.from(files).filter((f) =>
+      IMAGE_MIME_TYPES.includes(f.type)
+    );
+    if (!arr.length) return;
+
+    setEditMediaItems((prev) => {
+      const currentImages = prev.filter((m) => m.type === "image").length;
+      const remain = MAX_IMAGES - currentImages;
+      if (remain <= 0) {
+        alert("画像は最大3枚までです");
+        return prev;
+      }
+      const toAdd = arr.slice(0, remain).map<EditableMediaItem>((file) => ({
+        id: uuid(),
+        file,
+        type: "image",
+      }));
+
+      const videoIndex = prev.findIndex((m) => m.type === "video");
+      if (videoIndex === -1) {
+        return [...prev, ...toAdd];
+      }
+      const head = prev.slice(0, videoIndex);
+      const tail = prev.slice(videoIndex);
+      return [...head, ...toAdd, ...tail];
+    });
+  };
+
+  const handleAddVideoEdit = async (file: File | null) => {
+    if (!file) return;
+    if (!VIDEO_MIME_TYPES.includes(file.type)) {
+      alert("対応していない動画形式です");
+      return;
+    }
+
+    try {
+      const meta = await getVideoMetaFromFile(file);
+      if (meta.duration > MAX_VIDEO_SEC + 1) {
+        alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+        return;
+      }
+    } catch {
+      alert("動画情報の取得に失敗しました");
+      return;
+    }
+
+    setEditMediaItems((prev) => {
+      const hasVideo = prev.some((m) => m.type === "video");
+      if (hasVideo) {
+        alert("動画は1つまでです");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          id: uuid(),
+          file,
+          type: "video",
+        },
+      ];
+    });
+  };
+
+  const moveMedia = (from: number, to: number) => {
+    setEditMediaItems((prev) => {
+      if (from === to) return prev;
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length)
+        return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const selectedMediaRows: SelectedRow[] = editMediaItems.map((m, idx) => ({
+    id: m.id,
+    type: m.type,
+    label: m.file ? m.file.name : m.url ?? "(未設定)",
+    index: idx,
+  }));
 
   const cancelUpload = () => {
     try {
@@ -388,86 +549,36 @@ export default function MenuSectionCard({
     }
   };
 
-  function UploadProgressModal({
-    open,
-    percent,
-    onCancel,
-    title = "アップロード中…",
-  }: {
-    open: boolean;
-    percent: number;
-    onCancel: () => void;
-    title?: string;
-  }) {
-    if (!open) return null;
-    return (
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
-        <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl">
-          <h2 className="mb-3 text-lg font-semibold">{title}</h2>
-          <div className="mb-2 text-sm text-gray-600">
-            {Math.floor(percent)}%
-          </div>
-          <div className="h-2 w-full rounded bg-gray-200">
-            <div
-              className="h-2 rounded bg-blue-500 transition-[width]"
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded bg-red-500 px-3 py-1.5 text-white hover:bg-red-600"
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const removeMedia = async () => {
-    if (!section.mediaUrl) return;
-    if (!confirm("添付メディアを削除しますか？")) return;
-    try {
-      try {
-        const sref = storageRef(getStorage(), section.mediaUrl);
-        await deleteObject(sref);
-      } catch {}
-      await updateDoc(doc(db, "menuSections", section.id), {
-        mediaType: null,
-        mediaUrl: null,
-        durationSec: null,
-        orientation: null,
-        mediaWidth: null,
-        mediaHeight: null,
-      });
-      section.mediaType = null;
-      section.mediaUrl = null;
-      section.durationSec = null;
-      section.orientation = null;
-      section.mediaWidth = null;
-      section.mediaHeight = null;
-      setNewTitle((t) => t);
-      setShowEditSectionModal(false);
-    } catch {
-      alert("メディア削除に失敗しました。");
-      setShowEditSectionModal(false);
-    }
-  };
-
   const mediaNode = useMemo(() => {
-    if (!section.mediaUrl || !section.mediaType) return null;
+    const items: { src: string; type: MediaType }[] =
+      Array.isArray(section.mediaItems) && section.mediaItems.length > 0
+        ? section.mediaItems.map((m) => ({
+            src: m.url,
+            type: m.type,
+          }))
+        : section.mediaUrl
+        ? [
+            {
+              src: section.mediaUrl,
+              type: (section.mediaType as MediaType) || "image",
+            },
+          ]
+        : [];
+
+    if (!items.length) return null;
+
+    const primary = items[0];
+
     return (
       <ProductMedia
-        src={section.mediaUrl}
-        type={section.mediaType}
+        src={primary.src}
+        type={primary.type}
+        items={items}
         className="mb-3 rounded-lg shadow-sm"
         alt={`${section.title} のメディア`}
       />
     );
-  }, [section.mediaUrl, section.mediaType, section.title]);
+  }, [section.mediaItems, section.mediaUrl, section.mediaType, section.title]);
 
   /* ===== 画面 ===== */
   return (
@@ -541,78 +652,146 @@ export default function MenuSectionCard({
         )}
       </div>
 
-      {/* セクション名編集＋メディア添付モーダル */}
+      {/* セクション名編集＋メディア編集モーダル（画像3＋動画1・並べ替え可） */}
       {showEditSectionModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto relative">
+            <BusyOverlay saving={savingTitle} />
             <h2 className="text-lg font-bold mb-4">セクションを編集</h2>
             <label className="text-sm font-medium">セクション名</label>
-            <Input
+            <input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="mb-4 mt-1"
+              className="mb-4 mt-1 w-full border px-3 py-2 rounded"
               disabled={uploading || savingTitle}
             />
-            <div className="mb-3">
-              <div className="text-sm font-medium mb-1">メディア（任意）</div>
-              {section.mediaUrl ? (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-600">
-                    現在: {section.mediaType === "image" ? "画像" : "動画"}
-                    {section.durationSec
-                      ? `（約${Math.round(section.durationSec)}秒）`
-                      : ""}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={pickMedia}
-                      disabled={uploading}
-                    >
-                      置き換え
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={removeMedia}
-                      disabled={uploading}
-                    >
-                      削除
-                    </Button>
-                  </div>
-                </div>
-              ) : (
+
+            {/* メディア編集 */}
+            <div className="space-y-2 mb-3">
+              <div className="text-sm font-medium mb-1">
+                メディア（画像 最大3枚・動画 最大1つ）
+              </div>
+
+              {/* 画像追加 */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-600">
+                  画像を追加（残り {Math.max(0, MAX_IMAGES - imageCount)} 枚）
+                </span>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  onClick={pickMedia}
-                  disabled={uploading}
+                  onClick={pickImage}
+                  disabled={uploading || savingTitle || !canAddImage}
                 >
-                  {uploading
-                    ? "アップロード中…"
-                    : "画像/動画を選択（動画は60秒まで）"}
+                  画像を選択
                 </Button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept={IMAGE_MIME_TYPES.join(",")}
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    handleAddImagesEdit(e.target.files);
+                    if (e.target) e.target.value = "";
+                  }}
+                />
+              </div>
+
+              {/* 動画追加 */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-600">
+                  動画を追加（最大1つ・{MAX_VIDEO_SEC}秒まで）
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={pickVideo}
+                  disabled={uploading || savingTitle || !canAddVideo}
+                >
+                  動画を選択
+                </Button>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept={VIDEO_MIME_TYPES.join(",")}
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    handleAddVideoEdit(f);
+                    if (e.target) e.target.value = "";
+                  }}
+                />
+              </div>
+
+              {/* 選択中メディア一覧 */}
+              {selectedMediaRows.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm font-semibold">選択中のメディア</p>
+                  {selectedMediaRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
+                    >
+                      <span className="truncate">
+                        {row.index + 1}.{" "}
+                        {row.type === "image" ? "画像" : "動画"}（{row.label}）
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveMedia(row.index, row.index - 1)}
+                          disabled={uploading || savingTitle || row.index === 0}
+                          className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveMedia(row.index, row.index + 1)}
+                          disabled={
+                            uploading ||
+                            savingTitle ||
+                            row.index === selectedMediaRows.length - 1
+                          }
+                          className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditMediaItems((prev) =>
+                              prev.filter((_, i) => i !== row.index)
+                            )
+                          }
+                          disabled={uploading || savingTitle}
+                          className="text-red-600 text-xs underline disabled:opacity-40"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                hidden
-                onChange={onPickFile}
-              />
             </div>
+
             <div className="flex justify-between sticky bottom-0 bg-white pt-4">
               <Button
                 variant="outline"
-                onClick={() => setShowEditSectionModal(false)}
+                onClick={() =>
+                  !uploading && !savingTitle && setShowEditSectionModal(false)
+                }
                 disabled={uploading || savingTitle}
               >
                 閉じる
               </Button>
 
               <Button
-                onClick={handleUpdateSectionTitle}
+                onClick={handleSaveSection}
                 disabled={uploading || savingTitle}
               >
                 {savingTitle ? "保存中..." : "保存"}
@@ -622,7 +801,14 @@ export default function MenuSectionCard({
         </div>
       )}
 
-      {/* 追加/編集 兼用：統一モーダル（AI説明のみ） */}
+      <UploadProgressModal
+        open={uploadOpen}
+        percent={uploadPercent}
+        onCancel={cancelUpload}
+        title="メディアをアップロード中…"
+      />
+
+      {/* 追加/編集 兼用：統一モーダル（アイテム） */}
       <ItemModal
         open={itemModal.open}
         mode={itemModal.mode}
@@ -630,7 +816,6 @@ export default function MenuSectionCard({
           itemModal.mode === "edit" && itemModal.target
             ? {
                 id: itemModal.target.id,
-
                 name:
                   itemModal.target.base?.name ?? itemModal.target.name ?? "",
                 description:
@@ -666,14 +851,47 @@ export default function MenuSectionCard({
         }}
         sectionId={section.id}
       />
-
-      <UploadProgressModal
-        open={uploadOpen}
-        percent={uploadPercent}
-        onCancel={cancelUpload}
-        title="メディアをアップロード中…"
-      />
     </>
+  );
+}
+
+/* =========================
+   アップロード進捗モーダル
+========================= */
+function UploadProgressModal({
+  open,
+  percent,
+  onCancel,
+  title = "アップロード中…",
+}: {
+  open: boolean;
+  percent: number;
+  onCancel: () => void;
+  title?: string;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50">
+      <div className="w-[90%] max-w-sm rounded-lg bg-white p-5 shadow-xl">
+        <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+        <div className="mb-2 text-sm text-gray-600">{Math.floor(percent)}%</div>
+        <div className="h-2 w-full rounded bg-gray-200">
+          <div
+            className="h-2 rounded bg-blue-500 transition-[width]"
+            style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+          />
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded bg-red-500 px-3 py-1.5 text-white hover:bg-red-600"
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -692,7 +910,7 @@ function ItemModal({
     id?: string;
     name: string;
     description: string;
-    price: string; // 空文字 or 数字文字列
+    price: string;
     isTaxIncluded: boolean;
     order: number;
   };
@@ -705,12 +923,9 @@ function ItemModal({
   const [price, setPrice] = useState(initial.price);
   const [isTaxIncluded, setIsTaxIncluded] = useState(initial.isTaxIncluded);
 
-  // AI説明生成
   const [genOpen, setGenOpen] = useState(false);
   const [genKeywords, setGenKeywords] = useState<string[]>(["", "", ""]);
   const [genLoading, setGenLoading] = useState(false);
-
-  // ★ 追加：保存中インジケーター
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -749,10 +964,7 @@ function ItemModal({
       if (!res.ok || !data?.body)
         throw new Error(data?.error || "生成に失敗しました");
       const out = String(data.body).trim();
-
-      // ★ 要望対応：既存の本文は削除して「上書き」
       setDesc(out);
-
       setGenKeywords(["", "", ""]);
       setGenOpen(false);
     } catch {
@@ -775,9 +987,8 @@ function ItemModal({
         ? null
         : Number(price);
 
-    setSaving(true); // ★ 表示切替・操作ロック開始
+    setSaving(true);
     try {
-      // 保存前に全言語翻訳を生成（失敗しても top-level/base は保存継続）
       let t: TrItem[] = [];
       try {
         t = await translateAllItem(nameJa, descJa);
@@ -793,7 +1004,6 @@ function ItemModal({
           {
             base,
             t,
-            // 互換: top-level も保存
             name: base.name,
             ...(base.description && { description: base.description }),
             price: priceNum,
@@ -842,7 +1052,7 @@ function ItemModal({
     } catch {
       alert("保存に失敗しました。時間をおいて再度お試しください。");
     } finally {
-      setSaving(false); // ★ 解除。親側で onSaved → モーダルが閉じます
+      setSaving(false);
     }
   };
 
@@ -851,7 +1061,6 @@ function ItemModal({
   return (
     <div
       className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50"
-      // ★ 保存中は誤タッチで閉じない
       onClick={() => (!saving ? onClose() : undefined)}
     >
       <div
@@ -865,15 +1074,15 @@ function ItemModal({
           {mode === "create" ? "メニューを追加" : "メニューを編集"}
         </h3>
 
-        <Input
-          placeholder="名前（原文は日本語。翻訳は保存時に自動生成）"
+        <input
+          placeholder="サービス名"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mb-2"
+          className="mb-2 w-full border px-3 py-2 rounded"
           disabled={saving}
         />
         <textarea
-          placeholder="説明（原文は日本語。翻訳は保存時に自動生成）"
+          placeholder="サービス内容"
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={4}
@@ -881,7 +1090,7 @@ function ItemModal({
           disabled={saving}
         />
 
-        {/* AI説明のみ（翻訳UIはなし） */}
+        {/* AI説明のみ */}
         <div className="flex flex-col gap-2 mb-3">
           <button
             type="button"
@@ -963,13 +1172,12 @@ function ItemModal({
           </div>
         )}
 
-        {/* 価格・税込/税別 */}
-        <Input
+        <input
           placeholder="価格（例：5500）(任意)"
           type="number"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          className="mb-2"
+          className="mb-2 w-full border px-3 py-2 rounded"
           disabled={saving}
         />
         <div className="flex gap-4 mb-4 text-sm">

@@ -1,7 +1,6 @@
-// app/menu/page.tsx (例) もしくは該当ファイル名
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   collection,
@@ -26,9 +25,7 @@ import {
   getDownloadURL,
   type UploadTask,
 } from "firebase/storage";
-import Image from "next/image";
 
-// DnD
 import {
   DndContext,
   PointerSensor,
@@ -37,7 +34,6 @@ import {
   useSensors,
   closestCenter,
   type DragEndEvent,
-  type DraggableAttributes,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -46,12 +42,14 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 
-import { getExt, getVideoMetaFromFile, getImageSize } from "@/lib/media";
-import { Pin, Plus } from "lucide-react";
+import { v4 as uuid } from "uuid";
 
-// ▼ UI言語（jotai）とサポート言語一覧
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 import { LANGS } from "@/lib/langs";
+import { getExt, getVideoMetaFromFile } from "@/lib/media";
+import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
+
+type MediaType = "image" | "video";
 
 /* ===== 見出し・ボタンの多言語 ===== */
 const PAGE_TITLE_T: Record<UILang, string> = {
@@ -74,33 +72,30 @@ const PAGE_TITLE_T: Record<UILang, string> = {
 };
 
 /* =========================
-   Firestore保存用の型（title は任意）
+   Firestore保存用の型
 ========================= */
 type SectionDoc = {
-  title?: string; // 既存データの都合で任意
+  title?: string;
   titleI18n?: Partial<Record<UILang, string>>;
+  baseTitle?: { title: string };
+  tTitle?: Array<{ lang: UILang; title?: string }>;
   order: number;
   siteKey: string;
-  mediaType?: "image" | "video" | null;
+  mediaType?: MediaType | null;
   mediaUrl?: string | null;
-  durationSec?: number | null;
-  orientation?: "portrait" | "landscape" | null;
-  mediaWidth?: number | null;
-  mediaHeight?: number | null;
+  mediaItems?: { url: string; type: MediaType }[];
 };
 
-/* =========================
-   UI用の型（title は必須）→ エラー対策
-========================= */
-type UIMenuSection = SectionDoc & {
+/* UI用 */
+export type UIMenuSection = SectionDoc & {
   id: string;
-  title: string; // 必須
-  titleI18n: Partial<Record<UILang, string>>;
+  title: string;
+  mediaItems?: { url: string; type: MediaType }[];
 };
 
 type SortableChildArgs = {
-  attributes: DraggableAttributes;
-  listeners: ReturnType<typeof useSortable>["listeners"] | undefined;
+  attributes: React.HTMLAttributes<HTMLDivElement>;
+  listeners: any;
   isDragging: boolean;
 };
 
@@ -109,7 +104,6 @@ type SortableItemProps = {
   children: (args: SortableChildArgs) => React.ReactNode;
 };
 
-/* 並び替えアイテム */
 function SortableSectionItem({ id, children }: SortableItemProps) {
   const {
     attributes,
@@ -136,11 +130,14 @@ function SortableSectionItem({ id, children }: SortableItemProps) {
 }
 
 /* =========================
-   翻訳ユーティリティ
+   タイトル翻訳ユーティリティ
 ========================= */
 const ALL_UI_LANGS: UILang[] = ["ja", ...LANGS.map((l) => l.key as UILang)];
 
-async function translateOne(text: string, target: UILang): Promise<string> {
+async function translateTitleOnce(
+  text: string,
+  target: UILang
+): Promise<string> {
   if (target === "ja") return text;
   try {
     const res = await fetch("/api/translate", {
@@ -156,17 +153,28 @@ async function translateOne(text: string, target: UILang): Promise<string> {
   }
 }
 
-/** 日本語を基準に全言語へ翻訳して上書き用の i18n マップを作る */
+/** 日本語タイトルを全UI言語へ翻訳してマップにする */
 async function buildTitleI18n(
   baseJa: string
 ): Promise<Partial<Record<UILang, string>>> {
   const entries = await Promise.all(
     ALL_UI_LANGS.map(
-      async (lng) => [lng, await translateOne(baseJa, lng)] as const
+      async (lng) => [lng, await translateTitleOnce(baseJa, lng)] as const
     )
   );
   return Object.fromEntries(entries);
 }
+
+/* ===== セクション用フォームメディア ===== */
+type FormMediaItem = {
+  id: string;
+  file: File;
+  type: MediaType;
+};
+
+const MAX_IMAGES = 3;
+const MAX_VIDEOS = 1;
+const MAX_VIDEO_SEC = 60;
 
 /* =========================
    本体
@@ -177,13 +185,9 @@ export default function MenuPageClient() {
   const [newTitle, setNewTitle] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // 追加モーダル用: メディア選択
-  const [newMediaFile, setNewMediaFile] = useState<File | null>(null);
-  const [newMediaObjectUrl, setNewMediaObjectUrl] = useState<string | null>(
-    null
-  );
+  // 新規追加モーダル用：複数メディア
+  const [formMedia, setFormMedia] = useState<FormMediaItem[]>([]);
   const [creating, setCreating] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 進捗モーダル
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -192,12 +196,10 @@ export default function MenuPageClient() {
 
   const [showHelp, setShowHelp] = useState(false);
 
-  // UI 言語（表示用）
   const { uiLang } = useUILang();
-
   const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
 
-  // DnD センサー（クリック5px移動 / 長押し開始）
+  // DnD センサー
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -219,7 +221,7 @@ export default function MenuPageClient() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showHelp]);
 
-  /* セクション購読（order 昇順）→ UI用に正規化して set */
+  /* セクション購読 */
   useEffect(() => {
     const qy = query(
       collection(db, "menuSections"),
@@ -231,15 +233,42 @@ export default function MenuPageClient() {
         const raw = d.data() as SectionDoc;
         const titleI18n: Partial<Record<UILang, string>> = {
           ...(raw.titleI18n ?? {}),
-          // 念のため、日本語ベースの title があれば ja にセット
-          ...(raw.title ? { ja: raw.title } : {}),
         };
-        const titleForUI = titleI18n[uiLang] || titleI18n.ja || raw.title || ""; // ← 必ず string
+
+        // tTitle array -> titleI18n へ変換（互換用）
+        if (Array.isArray(raw.tTitle)) {
+          raw.tTitle.forEach((t) => {
+            if (t.lang && t.title) {
+              titleI18n[t.lang] = t.title;
+            }
+          });
+        }
+
+        const baseJa = raw.baseTitle?.title ?? raw.title ?? titleI18n.ja ?? "";
+        if (baseJa) {
+          titleI18n.ja = baseJa;
+        }
+
+        const uiTitle =
+          titleI18n[uiLang] ??
+          titleI18n.ja ??
+          raw.title ??
+          raw.baseTitle?.title ??
+          "";
+
+        const mediaItems: { url: string; type: MediaType }[] =
+          Array.isArray(raw.mediaItems) && raw.mediaItems.length > 0
+            ? raw.mediaItems
+            : raw.mediaUrl && raw.mediaType
+            ? [{ url: raw.mediaUrl, type: raw.mediaType }]
+            : [];
+
         return {
           id: d.id,
           ...raw,
+          title: uiTitle,
           titleI18n,
-          title: titleForUI,
+          mediaItems,
         };
       });
       setSections(rows);
@@ -247,44 +276,23 @@ export default function MenuPageClient() {
     return () => unsub();
   }, [uiLang]);
 
-  /* 追加モーダル：ファイル選択 */
-  const pickMedia = () => fileInputRef.current?.click();
+  /* DnD 並び替え確定 */
+  const handleDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
 
-  const onPickFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0] ?? null;
-    e.currentTarget.value = "";
-    if (!file) return;
+    const oldIndex = sections.findIndex((s) => s.id === String(active.id));
+    const newIndex = sections.findIndex((s) => s.id === String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
 
-    const isVideo = file.type.startsWith("video/");
-    const isImage = file.type.startsWith("image/");
-    if (!isVideo && !isImage) {
-      alert("画像または動画ファイルを選択してください。");
-      return;
-    }
+    const newList = arrayMove(sections, oldIndex, newIndex);
+    setSections(newList);
 
-    // ▼ 30秒制限（±1秒許容）
-    if (isVideo) {
-      try {
-        const { duration } = await getVideoMetaFromFile(file);
-        if (duration > 31) {
-          alert(
-            `動画は30秒以内にしてください。（選択：約${Math.round(
-              duration
-            )}秒）`
-          );
-          return;
-        }
-      } catch {
-        alert(
-          "動画の長さを取得できませんでした。別のファイルをお試しください。"
-        );
-        return;
-      }
-    }
-
-    if (newMediaObjectUrl) URL.revokeObjectURL(newMediaObjectUrl);
-    setNewMediaFile(file);
-    setNewMediaObjectUrl(URL.createObjectURL(file));
+    const batch = writeBatch(db);
+    newList.forEach((s, idx) => {
+      batch.update(doc(db, "menuSections", s.id), { order: idx });
+    });
+    await batch.commit();
   };
 
   const cancelUpload = () => {
@@ -295,11 +303,117 @@ export default function MenuPageClient() {
     }
   };
 
-  /* ============ 追加：全言語翻訳して保存 ============ */
-  const handleAddSection = async () => {
+  /* ===== 新規追加：メディア操作 ===== */
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const pickImages = () => imageInputRef.current?.click();
+  const pickVideo = () => videoInputRef.current?.click();
+
+  const handleAddImages = (files: FileList | null) => {
+    if (!files) return;
+    const arr = Array.from(files).filter((f) =>
+      IMAGE_MIME_TYPES.includes(f.type)
+    );
+    if (!arr.length) return;
+
+    setFormMedia((prev) => {
+      const currentImages = prev.filter((m) => m.type === "image").length;
+      const remain = MAX_IMAGES - currentImages;
+      if (remain <= 0) {
+        alert("画像は最大3枚までです");
+        return prev;
+      }
+      const toAdd = arr.slice(0, remain).map<FormMediaItem>((file) => ({
+        id: uuid(),
+        file,
+        type: "image",
+      }));
+
+      // 既存動画があればその直前に画像を挿入して動画を最後に保つ
+      const videoIndex = prev.findIndex((m) => m.type === "video");
+      if (videoIndex === -1) {
+        return [...prev, ...toAdd];
+      }
+      const head = prev.slice(0, videoIndex);
+      const tail = prev.slice(videoIndex);
+      return [...head, ...toAdd, ...tail];
+    });
+  };
+
+  const handleAddVideo = async (file: File | null) => {
+    if (!file) return;
+    if (!VIDEO_MIME_TYPES.includes(file.type)) {
+      alert("対応していない動画形式です");
+      return;
+    }
+
+    // 長さチェック
+    try {
+      const { duration } = await getVideoMetaFromFile(file);
+      if (duration > MAX_VIDEO_SEC + 1) {
+        alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+        return;
+      }
+    } catch {
+      alert("動画情報の取得に失敗しました");
+      return;
+    }
+
+    setFormMedia((prev) => {
+      const hasVideo = prev.some((m) => m.type === "video");
+      if (hasVideo) {
+        alert("動画は1つまでです");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          id: uuid(),
+          file,
+          type: "video",
+        },
+      ];
+    });
+  };
+
+  const moveMedia = (from: number, to: number) => {
+    setFormMedia((prev) => {
+      if (from === to) return prev;
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length)
+        return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const selectedMediaRows = formMedia.map((m, idx) => ({
+    id: m.id,
+    type: m.type,
+    name: m.file.name,
+    index: idx,
+  }));
+
+  /* ===== 新規セクション追加 ===== */
+  const handleAddSection = useCallback(async () => {
     const baseJa = newTitle.trim();
     if (!baseJa) {
       alert("セクション名を入力してください");
+      return;
+    }
+
+    if (formMedia.length === 0) {
+      alert("画像または動画を1つ以上選択してください");
+      return;
+    }
+
+    // 画像3・動画1チェック（念のため）
+    const imageCount = formMedia.filter((m) => m.type === "image").length;
+    const videoCount = formMedia.filter((m) => m.type === "video").length;
+    if (imageCount > MAX_IMAGES || videoCount > MAX_VIDEOS) {
+      alert("画像は最大3枚・動画は1本までです");
       return;
     }
 
@@ -307,73 +421,49 @@ export default function MenuPageClient() {
       setCreating(true);
       const newOrder = sections.length;
 
-      // 1) まず空のセクションを作成
+      // 1) ベースドキュメント作成
       const refDoc = await addDoc(collection(db, "menuSections"), {
-        title: baseJa, // 互換のため title も保持
+        title: baseJa,
         order: newOrder,
         siteKey: SITE_KEY,
         mediaType: null,
         mediaUrl: null,
-        durationSec: null,
-        orientation: null,
-        mediaWidth: null,
-        mediaHeight: null,
+        mediaItems: [],
       });
 
-      // 2) タイトルを全言語に翻訳して上書き
+      // 2) タイトルを全言語へ翻訳して保存
       const i18n = await buildTitleI18n(baseJa);
+      const tTitleArr =
+        LANGS.map((l) => {
+          const title = i18n[l.key as UILang];
+          return title
+            ? { lang: l.key as UILang, title }
+            : { lang: l.key as UILang, title: "" };
+        }) ?? [];
+
       await updateDoc(doc(db, "menuSections", refDoc.id), {
-        title: baseJa, // display fallback
+        title: baseJa,
         titleI18n: i18n,
+        baseTitle: { title: baseJa },
+        tTitle: tTitleArr,
       });
 
-      // 3) メディアがあればアップロード → URL保存
-      if (newMediaFile) {
-        const isImage = newMediaFile.type.startsWith("image/");
-        const isVideo = newMediaFile.type.startsWith("video/");
-        if (!isImage && !isVideo) {
-          alert("画像または動画ファイルを選択してください。");
-          return;
-        }
+      // 3) メディアを順番通りアップロード
+      const uploaded: { url: string; type: MediaType }[] = [];
+      setUploadPercent(0);
+      setUploadOpen(true);
 
-        let durationSec: number | null = null;
-        let mediaWidth: number | null = null;
-        let mediaHeight: number | null = null;
-        let orientation: "portrait" | "landscape" = "landscape";
+      for (let index = 0; index < formMedia.length; index++) {
+        const item = formMedia[index];
+        const f = item.file;
+        const type = item.type;
 
-        if (isVideo) {
-          const { duration, width, height } = await getVideoMetaFromFile(
-            newMediaFile
-          );
-          if (duration > 31) {
-            alert(
-              `動画は30秒以内にしてください。（選択: 約${Math.round(
-                duration
-              )}秒）`
-            );
-            return;
-          }
-          durationSec = Math.round(duration);
-          mediaWidth = width;
-          mediaHeight = height;
-          orientation = height > width ? "portrait" : "landscape";
-        } else {
-          const { width, height } = await getImageSize(newMediaFile);
-          mediaWidth = width;
-          mediaHeight = height;
-          orientation = height > width ? "portrait" : "landscape";
-        }
-
-        const ext = getExt(newMediaFile.name) || (isImage ? "jpg" : "mp4");
-        const path = `sections/${SITE_KEY}/${refDoc.id}/header.${ext}`;
+        const ext = getExt(f.name) || (type === "image" ? "jpg" : "mp4");
+        const path = `sections/${SITE_KEY}/${refDoc.id}/${index + 1}.${ext}`;
         const sref = storageRef(getStorage(), path);
 
-        // 進捗モーダルON
-        setUploadPercent(0);
-        setUploadOpen(true);
-
-        const task = uploadBytesResumable(sref, newMediaFile, {
-          contentType: newMediaFile.type,
+        const task = uploadBytesResumable(sref, f, {
+          contentType: f.type,
         });
         uploadTaskRef.current = task;
 
@@ -382,7 +472,9 @@ export default function MenuPageClient() {
             "state_changed",
             (snap) => {
               const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
-              setUploadPercent(pct);
+              const overall =
+                ((index + pct / 100) / formMedia.length) * 100 || 0;
+              setUploadPercent(overall);
             },
             (err) => reject(err),
             () => resolve()
@@ -390,24 +482,20 @@ export default function MenuPageClient() {
         });
 
         const url = await getDownloadURL(task.snapshot.ref);
-
-        await updateDoc(doc(db, "menuSections", refDoc.id), {
-          mediaType: isImage ? "image" : "video",
-          mediaUrl: url,
-          durationSec,
-          orientation,
-          mediaWidth,
-          mediaHeight,
-        });
+        uploaded.push({ url, type });
       }
 
-      // 4) 後始末（購読でUIは更新される）
+      const primary = uploaded[0];
+
+      await updateDoc(doc(db, "menuSections", refDoc.id), {
+        mediaType: primary?.type ?? null,
+        mediaUrl: primary?.url ?? null,
+        mediaItems: uploaded,
+      });
+
+      // 4) 後始末
       setNewTitle("");
-      setNewMediaFile(null);
-      if (newMediaObjectUrl) {
-        URL.revokeObjectURL(newMediaObjectUrl);
-        setNewMediaObjectUrl(null);
-      }
+      setFormMedia([]);
       setShowModal(false);
     } catch (e: any) {
       if (e?.code === "storage/canceled") {
@@ -421,93 +509,7 @@ export default function MenuPageClient() {
       setUploadOpen(false);
       uploadTaskRef.current = null;
     }
-  };
-
-  /* ============ タイトル更新：常に全言語翻訳で上書き ============ */
-  const handleTitleUpdateAllLangs = async (
-    section: UIMenuSection,
-    baseTitle: string
-  ) => {
-    const baseJa = baseTitle.trim();
-    if (!baseJa) return;
-
-    try {
-      // 1) 全言語翻訳
-      const i18n = await buildTitleI18n(baseJa);
-
-      // 2) Firestore更新
-      await updateDoc(doc(db, "menuSections", section.id), {
-        title: baseJa,
-        titleI18n: i18n,
-      });
-
-      // 3) 楽観反映
-      setSections((prev) =>
-        prev.map((s) =>
-          s.id === section.id
-            ? {
-                ...s,
-                titleI18n: i18n,
-                title: i18n[uiLang] || i18n.ja || baseJa,
-              }
-            : s
-        )
-      );
-    } catch (e) {
-      console.error(e);
-      alert("タイトル更新に失敗しました。");
-    }
-  };
-
-  /* 並び替え確定（ドラッグ終了） */
-  const handleDragEnd = async (e: DragEndEvent) => {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = sections.findIndex((s) => s.id === String(active.id));
-    const newIndex = sections.findIndex((s) => s.id === String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-
-    const newList = arrayMove(sections, oldIndex, newIndex);
-
-    // 楽観的更新
-    setSections(newList);
-
-    // Firestore の order を一括更新
-    const batch = writeBatch(db);
-    newList.forEach((s, idx) => {
-      batch.update(doc(db, "menuSections", s.id), { order: idx });
-    });
-    await batch.commit();
-  };
-
-  /* 追加モーダル内のプレビュー */
-  const previewNode = useMemo(() => {
-    if (!newMediaFile || !newMediaObjectUrl) return null;
-    if (newMediaFile.type.startsWith("image/")) {
-      return (
-        <div className="relative w-full h-40 md:h-48 mb-2">
-          <Image
-            src={newMediaObjectUrl}
-            alt="新規セクション画像プレビュー"
-            fill
-            className="object-cover rounded"
-            sizes="100vw"
-            unoptimized
-          />
-        </div>
-      );
-    }
-    return (
-      <video
-        key={newMediaObjectUrl}
-        src={newMediaObjectUrl}
-        controls
-        className="w-full rounded mb-2"
-        preload="metadata"
-      />
-    );
-  }, [newMediaFile, newMediaObjectUrl]);
+  }, [newTitle, formMedia, sections.length]);
 
   const wrapperClass = `p-4 max-w-2xl mx-auto pt-10 ${
     isLoggedIn ? "pb-20" : ""
@@ -516,7 +518,7 @@ export default function MenuPageClient() {
   return (
     <div className="relative">
       <div className={wrapperClass}>
-        {/* 右下：＋セクションを追加（日本語固定ツールチップ） */}
+        {/* 右下：＋セクションを追加 */}
         {isLoggedIn && (
           <button
             type="button"
@@ -528,7 +530,7 @@ export default function MenuPageClient() {
                shadow-lg hover:bg-blue-700 active:scale-95
                flex items-center justify-center leading-none p-0"
           >
-            <Plus size={28} strokeWidth={2.5} className="block" />
+            +
           </button>
         )}
 
@@ -563,7 +565,7 @@ export default function MenuPageClient() {
                           onTouchStart={(e) => e.preventDefault()}
                         >
                           <div className="w-10 h-10 bg-gray-200 text-gray-700 rounded-full text-sm flex items-center justify-center shadow">
-                            <Pin />
+                            ☰
                           </div>
                         </div>
                       )}
@@ -572,10 +574,6 @@ export default function MenuPageClient() {
                         <MenuSectionCard
                           section={section}
                           isLoggedIn={isLoggedIn}
-                          // ★ タイトル更新は常に全言語翻訳で上書き
-                          onTitleUpdate={(t) =>
-                            handleTitleUpdateAllLangs(section, t)
-                          }
                           onDeleteSection={() => {
                             setSections((prev) =>
                               prev.filter((s) => s.id !== section.id)
@@ -598,10 +596,10 @@ export default function MenuPageClient() {
           </SortableContext>
         </DndContext>
 
-        {/* 追加モーダル（画像/動画選択対応・スクロール可） */}
+        {/* 追加モーダル（画像3＋動画1・並べ替え可） */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
+            <div className="bg白 p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold mb-4">新しいセクションを追加</h2>
 
               <label className="text-sm font-medium">セクション名</label>
@@ -610,49 +608,126 @@ export default function MenuPageClient() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="例：ネイル、ヘアカット"
                 className="mb-3 mt-1"
+                disabled={creating}
               />
 
-              <div className="mb-3">
-                <div className="text-sm font-medium mb-1">メディア（任意）</div>
-                {previewNode}
-                <div className="flex gap-2">
+              {/* メディア選択 */}
+              <div className="space-y-3 mb-4">
+                <div className="text-sm font-medium">メディア（任意）</div>
+
+                {/* 画像追加 */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-600">画像（最大3枚）</span>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
-                    onClick={pickMedia}
+                    onClick={pickImages}
                     disabled={creating}
                   >
-                    画像/動画を選択（動画は30秒まで）
+                    画像を選択
                   </Button>
-                  {newMediaFile && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        if (newMediaObjectUrl)
-                          URL.revokeObjectURL(newMediaObjectUrl);
-                        setNewMediaFile(null);
-                        setNewMediaObjectUrl(null);
-                      }}
-                      disabled={creating}
-                    >
-                      クリア
-                    </Button>
-                  )}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept={IMAGE_MIME_TYPES.join(",")}
+                    multiple
+                    hidden
+                    onChange={(e) => {
+                      handleAddImages(e.target.files);
+                      if (e.target) e.target.value = "";
+                    }}
+                  />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  hidden
-                  onChange={onPickFile}
-                />
+
+                {/* 動画追加 */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-600">
+                    動画（任意・1つまで）
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={pickVideo}
+                    disabled={creating}
+                  >
+                    動画を選択（{MAX_VIDEO_SEC}秒まで）
+                  </Button>
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept={VIDEO_MIME_TYPES.join(",")}
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      handleAddVideo(f);
+                      if (e.target) e.target.value = "";
+                    }}
+                  />
+                </div>
+
+                {/* 選択済み一覧 ＋ 並べ替え */}
+                {selectedMediaRows.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-sm font-semibold">選択中のメディア</p>
+                    {selectedMediaRows.map((row) => (
+                      <div
+                        key={row.id}
+                        className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
+                      >
+                        <span className="truncate">
+                          {row.index + 1}.{" "}
+                          {row.type === "image" ? "画像" : "動画"}（{row.name}）
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveMedia(row.index, row.index - 1)}
+                            disabled={creating || row.index === 0}
+                            className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveMedia(row.index, row.index + 1)}
+                            disabled={
+                              creating ||
+                              row.index === selectedMediaRows.length - 1
+                            }
+                            className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormMedia((prev) =>
+                                prev.filter((_, i) => i !== row.index)
+                              )
+                            }
+                            disabled={creating}
+                            className="text-red-600 text-xs underline disabled:opacity-40"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between sticky bottom-0 bg-white pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    if (creating) return;
+                    setShowModal(false);
+                    setNewTitle("");
+                    setFormMedia([]);
+                  }}
                   disabled={creating}
                 >
                   キャンセル
@@ -666,7 +741,7 @@ export default function MenuPageClient() {
         )}
       </div>
 
-      {/* 進捗モーダル（アップロード中のみ） */}
+      {/* 進捗モーダル */}
       <UploadProgressModal
         open={uploadOpen}
         percent={uploadPercent}
@@ -749,7 +824,7 @@ function UploadProgressModal({
   title = "アップロード中…",
 }: {
   open: boolean;
-  percent: number; // 0-100
+  percent: number;
   onCancel: () => void;
   title?: string;
 }) {
