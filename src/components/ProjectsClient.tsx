@@ -695,134 +695,148 @@ export default function ProjectsClient() {
 
       {/* フォーム */}
       {isAdmin && formMode && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 overflow-y-auto">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "編集" : "新規追加"}
-            </h2>
+        <div className="fixed inset-0 z-30 bg-black/50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
+              <h2 className="text-xl font-bold text-center">
+                {formMode === "edit" ? "編集" : "新規追加"}
+              </h2>
 
-            <input
-              placeholder="タイトル"
-              value={titleJa}
-              onChange={(e) => setTitleJa(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            />
+              <input
+                placeholder="タイトル"
+                value={titleJa}
+                onChange={(e) => setTitleJa(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+              />
 
-            <textarea
-              placeholder="本文"
-              value={bodyJa}
-              onChange={(e) => setBodyJa(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              rows={6}
-            />
+              <textarea
+                placeholder="本文"
+                value={bodyJa}
+                onChange={(e) => setBodyJa(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                rows={6}
+              />
 
-            {/* AI 本文生成 */}
-            <button
-              type="button"
-              onClick={() => setShowBodyGen(true)}
-              className={clsx(
-                "w-full px-4 py-2 rounded text-white",
-                canOpenBodyGen ? "bg-indigo-600" : "bg-gray-400"
-              )}
-              disabled={!canOpenBodyGen || saving}
-            >
-              AIで本文生成
-            </button>
+              {/* AI 本文生成 */}
+              <button
+                type="button"
+                onClick={() => setShowBodyGen(true)}
+                className={clsx(
+                  "w-full px-4 py-2 rounded text-white",
+                  canOpenBodyGen ? "bg-indigo-600" : "bg-gray-400"
+                )}
+                disabled={!canOpenBodyGen || saving}
+              >
+                AIで本文生成
+              </button>
 
-            {/* 生成モーダル */}
-            {showBodyGen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 overflow-y-auto">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-                >
-                  <h3 className="text-lg font-bold">AIで本文生成</h3>
-                  {aiKeywords.map((k, i) => (
-                    <input
-                      key={i}
-                      value={k}
-                      onChange={(e) => {
-                        const next = [...aiKeywords];
-                        next[i] = e.target.value;
-                        setAiKeywords(next);
-                      }}
-                      placeholder={`キーワード${i + 1}`}
-                      className="w-full border rounded px-3 py-2 text-sm"
-                    />
-                  ))}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowBodyGen(false)}
-                      className="flex-1 bg-gray-200 py-2 rounded"
+              {/* 生成モーダル */}
+              {showBodyGen && (
+                <div className="fixed inset-0 z-50 bg-black/40 overflow-y-auto">
+                  <div className="min-h-full flex items-center justify-center p-4">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full max-w-md bg-white rounded-lg p-6 space-y-4"
                     >
-                      キャンセル
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!titleJa.trim()) return;
-                        try {
-                          setAiGenLoading(true);
-                          const keywords = aiKeywords.filter((k) => k.trim());
-                          const res = await fetch("/api/generate-description", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ title: titleJa, keywords }),
-                          });
-                          const data = await res.json();
-                          if (!res.ok)
-                            throw new Error(data?.error || "生成に失敗");
-                          const newBody = (data?.body ?? "").trim();
-                          if (!newBody)
-                            return alert("有効な本文が返りませんでした。");
-                          setBodyJa(newBody);
-                          setShowBodyGen(false);
-                          setAiKeywords(["", "", ""]);
-                        } catch {
-                          alert("本文生成に失敗しました");
-                        } finally {
-                          setAiGenLoading(false);
-                        }
-                      }}
-                      className={clsx(
-                        "flex-1 py-2 rounded text-white",
-                        canGenerateBody ? "bg-indigo-600" : "bg-gray-400"
-                      )}
-                      disabled={!canGenerateBody || aiGenLoading}
-                    >
-                      {aiGenLoading ? "生成中…" : "生成する"}
-                    </button>
+                      <h3 className="text-lg font-bold">AIで本文生成</h3>
+                      {aiKeywords.map((k, i) => (
+                        <input
+                          key={i}
+                          value={k}
+                          onChange={(e) => {
+                            const next = [...aiKeywords];
+                            next[i] = e.target.value;
+                            setAiKeywords(next);
+                          }}
+                          placeholder={`キーワード${i + 1}`}
+                          className="w-full border rounded px-3 py-2 text-sm"
+                        />
+                      ))}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowBodyGen(false)}
+                          className="flex-1 bg-gray-200 py-2 rounded"
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!titleJa.trim()) return;
+                            try {
+                              setAiGenLoading(true);
+                              const keywords = aiKeywords.filter((k) =>
+                                k.trim()
+                              );
+                              const res = await fetch(
+                                "/api/generate-description",
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    title: titleJa,
+                                    keywords,
+                                  }),
+                                }
+                              );
+                              const data = await res.json();
+                              if (!res.ok)
+                                throw new Error(data?.error || "生成に失敗");
+                              const newBody = (data?.body ?? "").trim();
+                              if (!newBody)
+                                return alert("有効な本文が返りませんでした。");
+                              setBodyJa(newBody);
+                              setShowBodyGen(false);
+                              setAiKeywords(["", "", ""]);
+                            } catch {
+                              alert("本文生成に失敗しました");
+                            } finally {
+                              setAiGenLoading(false);
+                            }
+                          }}
+                          className={clsx(
+                            "flex-1 py-2 rounded text-white",
+                            canGenerateBody ? "bg-indigo-600" : "bg-gray-400"
+                          )}
+                          disabled={!canGenerateBody || aiGenLoading}
+                        >
+                          {aiGenLoading ? "生成中…" : "生成する"}
+                        </button>
+                      </div>
+                    </motion.div>
                   </div>
-                </motion.div>
+                </div>
+              )}
+
+              {/* メディア */}
+              <input
+                type="file"
+                accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onSelectFile(f);
+                }}
+                className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
+              />
+
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={saveProduct}
+                  disabled={saving}
+                  className="px-4 py-2 bg-green-600 text-white rounded"
+                >
+                  {saving ? "保存中…" : formMode === "edit" ? "更新" : "追加"}
+                </button>
+                <button
+                  onClick={() => setFormMode(null)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded"
+                >
+                  閉じる
+                </button>
               </div>
-            )}
-
-            {/* メディア */}
-            <input
-              type="file"
-              accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onSelectFile(f);
-              }}
-              className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-            />
-
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={saveProduct}
-                disabled={saving}
-                className="px-4 py-2 bg-green-600 text-white rounded"
-              >
-                {saving ? "保存中…" : formMode === "edit" ? "更新" : "追加"}
-              </button>
-              <button
-                onClick={() => setFormMode(null)}
-                className="px-4 py-2 bg-gray-500 text-white rounded"
-              >
-                閉じる
-              </button>
             </div>
           </div>
         </div>
