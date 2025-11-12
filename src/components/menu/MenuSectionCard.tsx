@@ -443,7 +443,7 @@ export default function MenuSectionCard({
       ];
     }
     setEditMediaItems(items);
-  }, [showEditSectionModal, section.id, section.mediaUrl, section.mediaType]);
+  }, [showEditSectionModal, section]);
 
   const imageCount = useMemo(
     () => editMediaItems.filter((m) => m.type === "image").length,
