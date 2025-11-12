@@ -1,4 +1,4 @@
-import MenuPageClient from "@/components/MenuPageClient";
+import MenuPageClient from "@/components/menu/MenuPageClient";
 
 export default async function MenuPage() {
   // SSR: Firestoreから初期データを取得

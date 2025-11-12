@@ -11,7 +11,7 @@ import StaffClient from "./StaffClient";
 import AreasClient from "./AreasClient";
 import StoresClient from "./StoresClient";
 import AboutClient from "./AboutClient";
-import MenuPageClient from "./MenuPageClient";
+import MenuPageClient from "./menu/MenuPageClient";
 import NewsClient from "./NewsClient";
 import ProjectsClient from "./ProjectsClient";
 import HoursClient from "./HoursClient";
@@ -79,8 +79,12 @@ export default function TopVisibleSections() {
         activeMenuKeys?: string[];
         visibleMenuKeys?: string[];
       };
-      setActiveKeys(Array.isArray(data?.activeMenuKeys) ? data!.activeMenuKeys! : []);
-      setVisibleKeys(Array.isArray(data?.visibleMenuKeys) ? data!.visibleMenuKeys! : []);
+      setActiveKeys(
+        Array.isArray(data?.activeMenuKeys) ? data!.activeMenuKeys! : []
+      );
+      setVisibleKeys(
+        Array.isArray(data?.visibleMenuKeys) ? data!.visibleMenuKeys! : []
+      );
     });
     return () => unsub();
   }, []);
@@ -112,9 +116,11 @@ export default function TopVisibleSections() {
 
   return (
     <div className="space-y-12">
-      {MENU_ITEMS.filter((item) => keysToShow.includes(item.key)).map((item) => (
-        <section key={item.key}>{renderSection(item.key)}</section>
-      ))}
+      {MENU_ITEMS.filter((item) => keysToShow.includes(item.key)).map(
+        (item) => (
+          <section key={item.key}>{renderSection(item.key)}</section>
+        )
+      )}
     </div>
   );
 }

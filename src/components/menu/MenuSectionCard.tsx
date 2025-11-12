@@ -33,7 +33,7 @@ import ProductMedia from "@/components/ProductMedia";
 
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 import { LANGS, type LangKey } from "@/lib/langs";
-import { BusyOverlay } from "./BusyOverlay";
+import { BusyOverlay } from "../BusyOverlay";
 
 /* ===== 型 ===== */
 type MenuItem = {
@@ -218,8 +218,6 @@ export default function MenuSectionCard({
     mode: "create" | "edit";
     target?: MenuItem | null;
   }>({ open: false, mode: "create", target: null });
-
- 
 
   /* ===== セクション／アイテム取得 ===== */
   useEffect(

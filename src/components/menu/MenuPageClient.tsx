@@ -14,7 +14,7 @@ import {
   onSnapshot,
   writeBatch,
 } from "firebase/firestore";
-import MenuSectionCard from "@/components/MenuSectionCard";
+import MenuSectionCard from "@/components/menu/MenuSectionCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { onAuthStateChanged } from "firebase/auth";
