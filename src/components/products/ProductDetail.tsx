@@ -637,8 +637,8 @@ export default function ProductDetail({ product }: { product: Product }) {
 
       {/* ---------- 編集モーダル ---------- */}
       {isAdmin && showEdit && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 overflow-y-auto">
+          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center">商品を編集</h2>
 
             {/* セクションピッカー */}

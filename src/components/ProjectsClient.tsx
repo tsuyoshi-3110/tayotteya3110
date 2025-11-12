@@ -695,8 +695,8 @@ export default function ProjectsClient() {
 
       {/* フォーム */}
       {isAdmin && formMode && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 overflow-y-auto">
+          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center">
               {formMode === "edit" ? "編集" : "新規追加"}
             </h2>
@@ -731,12 +731,12 @@ export default function ProjectsClient() {
 
             {/* 生成モーダル */}
             {showBodyGen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 overflow-y-auto">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.2 }}
-                  className="w-full max-w-md bg-white rounded-lg p-6 space-y-4"
+                  className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
                 >
                   <h3 className="text-lg font-bold">AIで本文生成</h3>
                   {aiKeywords.map((k, i) => (

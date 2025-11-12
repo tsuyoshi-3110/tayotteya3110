@@ -71,6 +71,9 @@ export default function ProductMedia({
       ? active.src
       : (active?.src as StaticImageData | undefined)?.src ?? "";
 
+  // 動画が1枚だけのケースではループ再生させる
+  const isSingleVideo = total === 1 && active.type === "video";
+
   /* =======================
      VIDEO 用 ref & 再生制御
   ======================= */
@@ -169,8 +172,8 @@ export default function ProductMedia({
           playsInline
           muted={muted}
           autoPlay={autoPlay}
-          // loop={loop}  // ループは使用せず、ended で次スライド
-          loop={false}
+          // 動画1枚だけのときはループ、それ以外はループしない
+          loop={isSingleVideo}
           preload={visible ? "auto" : "metadata"}
           onEnded={handleVideoEnded}
         />
