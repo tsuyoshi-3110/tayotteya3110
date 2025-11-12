@@ -650,7 +650,7 @@ export default function ProductsClient() {
       {/* 新規/編集モーダル（中央表示） */}
       {isAdmin && formMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4">
+          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-center">
               {formMode === "edit" ? "商品を編集" : "新規商品追加"}
             </h2>
@@ -831,9 +831,8 @@ export default function ProductsClient() {
                     className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
                   >
                     <span className="truncate">
-                      {row.index + 1}.{" "}
-                      {row.type === "image" ? "画像" : "動画"}（
-                      {row.file.name}）
+                      {row.index + 1}. {row.type === "image" ? "画像" : "動画"}
+                      （{row.file.name}）
                     </span>
                     <div className="flex items-center gap-1">
                       <button
@@ -848,7 +847,8 @@ export default function ProductsClient() {
                         type="button"
                         onClick={() => moveRow(row.index, row.index + 1)}
                         disabled={
-                          uploading || row.index === selectedMediaRows.length - 1
+                          uploading ||
+                          row.index === selectedMediaRows.length - 1
                         }
                         className="text-xs px-1 py-0.5 border rounded bg白 disabled:opacity-40"
                       >
