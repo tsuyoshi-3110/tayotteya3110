@@ -599,7 +599,7 @@ export default function MenuPageClient() {
         {/* 追加モーダル（画像3＋動画1・並べ替え可） */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg白 p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold mb-4">新しいセクションを追加</h2>
 
               <label className="text-sm font-medium">セクション名</label>
