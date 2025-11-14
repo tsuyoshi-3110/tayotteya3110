@@ -1,912 +1,938 @@
+// src/components/BackgroundMedia.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { Pin, Plus } from "lucide-react";
-import { v4 as uuid } from "uuid";
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-  CollectionReference,
-  DocumentData,
-  getDoc,
-} from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import React, { useEffect, useState, useRef } from "react";
+
 import { onAuthStateChanged } from "firebase/auth";
-import { useThemeGradient } from "@/lib/useThemeGradient";
-import clsx from "clsx";
 import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
-import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import SortableItem from "../SortableItem";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import ProductMedia from "../ProductMedia";
-import { uploadProductMedia } from "@/lib/media/uploadProductMedia";
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import { doc, getDoc, setDoc, deleteField } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { ThemeKey } from "@/lib/themes";
+
+import { Button } from "@/components/ui/button";
+import imageCompression from "browser-image-compression";
+import BroomDustLoader from "../FeatherDusterLoader";
+
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import Image from "next/image";
+import { v4 as uuid } from "uuid";
+import AdminControls from "../backgroundVideo/AdminControls";
 
-// 多言語
-import { useUILang } from "@/lib/atoms/uiLangAtom";
-import { BusyOverlay } from "../BusyOverlay";
-import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
-import { displayOf, sectionTitleLoc } from "@/lib/i18n/display";
-import { translateAll, translateSectionTitleAll } from "@/lib/i18n/translate";
-import {
-  type ProdDoc,
-  type Base,
-  type Tr,
-  type MediaType,
-} from "@/types/productLocales";
-import { useProducts } from "@/hooks/useProducts";
-import { useSections } from "@/hooks/useSections";
-import SectionManagerModal from "./SectionManagerModal";
-import { useFxRates } from "@/lib/fx/client";
+const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
+const POSTER_EXT = ".jpg";
 
-// 分割したモジュール
-import { PAGE_SIZE, MAX_VIDEO_SEC } from "./config";
-import { PAGE_TITLE_T, ALL_CATEGORY_T } from "./productsTexts";
-import {
-  TAX_T,
-  toExclYen,
-  toInclYen,
-  rint,
-  formatPriceFromJPY,
-} from "./priceUtils";
-import KeywordModal from "./KeywordModal";
+// 動画長さ制限（秒）
+const MAX_VIDEO_SEC = 60;
 
-/* ===== フォーム用メディア型 ===== */
+// アップロード許可 MIME
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime"] as const;
+
+type MediaType = "video" | "image";
+
+type HeroItem = {
+  src: string;
+  type: MediaType;
+};
+
+type MetaDoc = {
+  url?: string;
+  type?: MediaType;
+  themeGradient?: ThemeKey;
+  imageUrls?: string[];
+
+  heroItems?: HeroItem[];
+
+  heroVideo?: {
+    name?: string;
+    description?: string;
+    contentUrl?: string;
+    uploadDate?: string;
+    thumbnailUrl?: string;
+    durationSec?: number;
+    duration?: string;
+  };
+};
+
 type FormMediaItem = {
   id: string;
-  type: MediaType; // "image" | "video"
-  file: File;
-};
-
-type SelectedRow = {
-  id: string;
   type: MediaType;
-  file: File;
-  index: number;
+  mode: "existing" | "new";
+  file?: File; // mode === "new" のときだけ
+  existingSrc?: string; // mode === "existing" のときだけ
 };
 
-/* ======================= 本体 ======================= */
+type SelectedMediaRow = {
+  id: string;
+  index: number;
+  type: MediaType;
+  label: string;
+};
 
-export default function ProductsClient() {
-  /* ===== 状態 ===== */
+export default function BackgroundMedia() {
+  const [heroItems, setHeroItems] = useState<HeroItem[]>([]);
+  const [poster, setPoster] = useState<string | null>(null);
+  const [heroVideoMeta, setHeroVideoMeta] = useState<MetaDoc["heroVideo"]>();
+
+  const [ready, setReady] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
-  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
-  const [editing, setEditing] = useState<ProdDoc | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [theme, setTheme] = useState<ThemeKey>("brandA");
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // メディア（画像1〜3枚＋動画1つ）: 並び順もこの配列の順を採用
+  const [status, setStatus] = useState<
+    "loading" | "paid" | "unpaid" | "pending" | "canceled" | "setup"
+  >("loading");
+
+  // 編集モーダル用：現在の並び順を表現する配列
   const [formMedia, setFormMedia] = useState<FormMediaItem[]>([]);
 
-  // Firestore から補完用: id -> mediaItems
-  const [mediaItemsMap, setMediaItemsMap] = useState<
-    Record<string, { url: string; type: MediaType }[]>
-  >({});
-
-  // 原文（日本語）
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [price, setPrice] = useState<number | "">("");
-  const [taxIncluded, setTaxIncluded] = useState(true); // デフォルト税込
-
-  // セクション（フォーム用）
-  const [formSectionId, setFormSectionId] = useState<string>("");
-  const [selectedSectionId, setSelectedSectionId] = useState<string>("all");
-  const [showSecModal, setShowSecModal] = useState(false);
-  const [newSecName, setNewSecName] = useState("");
-
-  // 進捗
-  const [progress, setProgress] = useState<number | null>(null);
-  const [uploadingPercent, setUploadingPercent] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
   const uploading = progress !== null;
 
-  // AI 生成
-  const [aiLoading, setAiLoading] = useState(false);
-  const [showKeywordModal, setShowKeywordModal] = useState(false);
-
-  const gradient = useThemeGradient();
-  const router = useRouter();
-  const { uiLang } = useUILang();
-  const taxT = TAX_T[uiLang] ?? TAX_T.ja;
-
-  /* 為替 */
-  const { rates } = useFxRates();
-  const pageTitle = PAGE_TITLE_T[uiLang] ?? PAGE_TITLE_T.ja;
-
-  /* ===== Firestore refs ===== */
-  const productColRef: CollectionReference<DocumentData> = useMemo(
-    () => collection(db, "siteProducts", SITE_KEY, "items"),
-    []
-  );
-
-  /* ===== Hooks: Products / Sections ===== */
-  const { list, handleDragEnd } = useProducts({
-    productColRef,
-    selectedSectionId,
-    pageSize: PAGE_SIZE,
-  });
-
-  const {
-    sections,
-    add: addSection,
-    remove: removeSection,
-    reorder: reorderSections,
-  } = useSections(SITE_KEY);
-
-  /* ===== 権限 ===== */
-  useEffect(() => onAuthStateChanged(auth, (u) => setIsAdmin(!!u)), []);
-
-  /* ===== mediaItems を補完 ===== */
+  /* =======================
+     Stripe サブスク状態チェック
+  ======================= */
   useEffect(() => {
-    const missingIds = list
-      .filter((p) => !(p as any).mediaItems && !mediaItemsMap[p.id])
-      .map((p) => p.id);
+    const checkPayment = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get("session_id");
 
-    if (missingIds.length === 0) return;
+      const apiUrl = sessionId
+        ? `/api/stripe/verify-subscription?session_id=${sessionId}`
+        : `/api/stripe/check-subscription?siteKey=${SITE_KEY}`;
 
-    missingIds.forEach(async (id) => {
-      try {
-        const snap = await getDoc(doc(productColRef, id));
-        if (!snap.exists()) return;
-        const data = snap.data() as any;
-        if (Array.isArray(data.mediaItems) && data.mediaItems.length > 0) {
-          setMediaItemsMap((prev) => ({
-            ...prev,
-            [id]: data.mediaItems,
-          }));
-        }
-      } catch (e) {
-        console.error("failed to fetch mediaItems for", id, e);
+      const res = await fetch(apiUrl);
+      const json = await res.json();
+
+      if (json.status === "active") setStatus("paid");
+      else if (json.status === "pending_cancel") setStatus("pending");
+      else if (json.status === "canceled") setStatus("canceled");
+      else if (json.status === "setup_mode") setStatus("setup");
+      else setStatus("unpaid");
+
+      if (sessionId) {
+        const cur = new URL(window.location.href);
+        cur.searchParams.delete("session_id");
+        window.history.replaceState({}, "", cur.toString());
       }
-    });
-  }, [list, productColRef, mediaItemsMap]);
+    };
 
-  /* ===== ラベル ===== */
-  const currentSectionLabel =
-    selectedSectionId === "all"
-      ? ALL_CATEGORY_T[uiLang] ?? ALL_CATEGORY_T.ja
-      : sections.find((s) => s.id === selectedSectionId)
-      ? sectionTitleLoc(
-          sections.find((s) => s.id === selectedSectionId)!,
-          uiLang
-        )
-      : "";
-
-  /* ===== DnD センサー（固定） ===== */
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 120, tolerance: 8 },
-    })
-  );
-
-  /* ===== UIヘルパ ===== */
-  const resetFields = useCallback(() => {
-    setEditing(null);
-    setTitle("");
-    setBody("");
-    setPrice("");
-    setFormMedia([]);
-    setFormSectionId("");
-    setTaxIncluded(true); // 新規の既定は税込
+    checkPayment();
   }, []);
 
-  const openAdd = useCallback(() => {
-    if (uploading) return;
-    resetFields();
-    setFormMode("add");
-  }, [resetFields, uploading]);
+  const loading = !ready && heroItems.length > 0;
 
-  const closeForm = useCallback(() => {
-    if (uploading) return;
-    setTimeout(() => {
-      resetFields();
-      setFormMode(null);
-    }, 100);
-  }, [resetFields, uploading]);
+  /* =======================
+     管理者チェック（ログイン）
+  ======================= */
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setIsAdmin(!!user);
+      setAuthChecked(true);
+    });
+    return unsub;
+  }, []);
 
-  /* ===== AI 紹介文生成（キーワード対応） ===== */
-  const handleGenerateBody = useCallback(
-    async (keywords: string[]) => {
-      if (!title) {
-        alert("タイトルを入力してください");
-        return;
+  /* =======================
+     Firestore から初期データ取得
+  ======================= */
+  useEffect(() => {
+    (async () => {
+      const snap = await getDoc(META_REF);
+      if (!snap.exists()) return;
+      const data = snap.data() as MetaDoc;
+
+      if (data.themeGradient) setTheme(data.themeGradient);
+
+      const items: HeroItem[] = [];
+
+      // 新方式：heroItems 優先
+      if (Array.isArray(data.heroItems) && data.heroItems.length > 0) {
+        for (const item of data.heroItems) {
+          if (!item?.src || !item?.type) continue;
+          items.push({ src: item.src, type: item.type });
+        }
+      } else {
+        // 互換：imageUrls / url + type から組み立て
+        if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
+          data.imageUrls.forEach((u) => {
+            if (u) items.push({ src: u, type: "image" });
+          });
+        }
+        if (data.type === "video" && data.url) {
+          items.push({ src: data.url, type: "video" });
+        }
       }
-      const kws = (keywords || []).map((s) => s.trim()).filter(Boolean);
-      if (kws.length === 0) {
-        alert("キーワードを1つ以上入力してください");
-        return;
+
+      setHeroItems(items);
+
+      if (data.heroVideo) {
+        setHeroVideoMeta(data.heroVideo);
       }
-      try {
-        setAiLoading(true);
-        const res = await fetch("/api/generate-description", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, price, keywords: kws }),
-        });
-        const data = await res.json();
-        if (data?.body) {
-          setBody(data.body);
+
+      const videoItem =
+        items.find((m) => m.type === "video") ||
+        (data.type === "video" && data.url
+          ? { src: data.url, type: "video" as const }
+          : null);
+
+      if (videoItem) {
+        if (data.heroVideo?.thumbnailUrl) {
+          setPoster(data.heroVideo.thumbnailUrl);
         } else {
-          alert("生成に失敗しました");
+          setPoster(videoItem.src.replace(/\.mp4(\?.*)?$/, POSTER_EXT));
         }
-      } catch {
-        alert("エラーが発生しました");
-      } finally {
-        setAiLoading(false);
       }
-    },
-    [title, price]
-  );
+    })().catch((err) => console.error("背景データ取得失敗:", err));
+  }, []);
 
-  /* ===== 保存 ===== */
-  const saveProduct = useCallback(async () => {
-    if (uploading) return;
-    if (!title.trim()) return alert("タイトル必須");
-    if (price === "") return alert("価格を入力してください");
+  // 念のため5秒で ready true にするフォールバック
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setReady(true);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
 
-    const hasNewMedia = formMedia.length > 0;
+  /* =======================
+     編集モーダルを開いたときに
+     既存 heroItems を formMedia に展開
+  ======================= */
+  useEffect(() => {
+    if (!editing) return;
 
-    const existingItems = (editing as any)?.mediaItems as
-      | { url: string; type: MediaType }[]
-      | undefined;
-    const hasExistingMedia =
-      !!editing?.mediaURL ||
-      (Array.isArray(existingItems) && existingItems.length > 0);
+    setFormMedia((prev) => {
+      // すでに何か入っていれば（新しく追加中など）上書きしない
+      if (prev.length > 0) return prev;
 
-    if (formMode === "add" && !hasNewMedia && !hasExistingMedia) {
-      alert("メディアを選択してください");
-      return;
-    }
+      if (!heroItems || heroItems.length === 0) return prev;
 
-    // 画像3枚・動画1本だけのはずだが、念のためチェック
-    const imageCount = formMedia.filter((m) => m.type === "image").length;
-    const videoCount = formMedia.filter((m) => m.type === "video").length;
-    if (imageCount > 3 || videoCount > 1) {
-      alert("画像は最大3枚・動画は1本までです");
-      return;
-    }
+      const mapped = heroItems.map<FormMediaItem>((item) => ({
+        id: uuid(),
+        type: item.type,
+        mode: "existing",
+        existingSrc: item.src,
+      }));
+      return mapped;
+    });
+  }, [editing, heroItems]);
 
-    setSaving(true);
+  /* =======================
+     単枚画像アップロード（既存機能）
+  ======================= */
+  const uploadImage = async (imageFile: File) => {
+    const imagePath = `images/public/${SITE_KEY}/wallpaper.jpg`;
+    const imageRef = ref(getStorage(), imagePath);
+
     try {
-      const id = editing?.id ?? uuid();
+      await deleteObject(imageRef);
+    } catch {}
 
-      // 既存メディアをベースに
-      let mediaURL = editing?.mediaURL ?? "";
-      let mediaType: MediaType = (editing?.mediaType ?? "image") as MediaType;
-      let mediaItems: { url: string; type: MediaType }[] = [];
+    const task = uploadBytesResumable(imageRef, imageFile);
 
-      if (Array.isArray(existingItems) && existingItems.length > 0) {
-        mediaItems = existingItems.slice();
-      } else if (editing?.mediaURL) {
-        mediaItems = [{ url: editing.mediaURL, type: mediaType }];
-      }
+    setProgress(0);
 
-      // 新しいファイルを選択している場合は、フォームの並び順でアップロード
-      if (hasNewMedia) {
-        mediaItems = [];
-
-        const candidates = formMedia.map((m) => ({
-          file: m.file,
-          type: m.type,
-        }));
-
-        setProgress(0);
-        setUploadingPercent(0);
-
-        for (let index = 0; index < candidates.length; index++) {
-          const { file: f } = candidates[index];
-
-          const isValidImage = IMAGE_MIME_TYPES.includes(f.type);
-          const isValidVideo = VIDEO_MIME_TYPES.includes(f.type);
-          if (!isValidImage && !isValidVideo) {
-            alert(
-              "対応形式：画像（JPEG, PNG, WEBP, GIF）／動画（MP4, MOV など）"
-            );
-            throw new Error("invalid file type");
-          }
-
-          const up = await uploadProductMedia({
-            file: f,
-            siteKey: SITE_KEY,
-            docId: index === 0 ? id : `${id}_${index + 1}`,
-            previousType: index === 0 ? editing?.mediaType : undefined,
-            onProgress: (pct) => {
-              setProgress(pct);
-              setUploadingPercent(pct);
-            },
-          });
-
-          mediaItems.push({
-            url: up.mediaURL,
-            type: up.mediaType as MediaType,
-          });
-
-          // 1枚目は従来の mediaURL / mediaType にも反映（互換）
-          if (index === 0) {
-            mediaURL = up.mediaURL;
-            mediaType = up.mediaType as MediaType;
-          }
-        }
+    task.on(
+      "state_changed",
+      (snapshot) => {
+        const percent = Math.round(
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+        );
+        setProgress(percent);
+      },
+      (error) => {
+        console.error("画像アップロード失敗:", error);
+        setProgress(null);
+        alert("アップロードに失敗しました");
+      },
+      async () => {
+        const imageUrl = await getDownloadURL(imageRef);
+        await setDoc(META_REF, { imageUrl }, { merge: true });
 
         setProgress(null);
-        setUploadingPercent(null);
+        alert("画像を更新しました！");
       }
+    );
+  };
 
-      // 本文（日本語=base、jaは翻訳しない）
-      const base: Base = { title: title.trim(), body: body.trim() };
-      const tAll = await translateAll(base.title, base.body);
-      const t: Tr[] = tAll.filter((x) => x.lang !== "ja");
+  /* =======================
+     ヘッダー画像アップロード（既存機能）
+  ======================= */
+  const uploadHeaderImage = async (file: File) => {
+    const imagePath = `images/public/${SITE_KEY}/headerLogo.jpg`;
+    const imageRef = ref(getStorage(), imagePath);
 
-      // 価格：入力モードに応じて計算（保存はスクショ準拠フィールドのみ）
-      const raw = rint(Number(price) || 0);
+    const compressedFile = await imageCompression(file, {
+      maxWidthOrHeight: 160,
+      maxSizeMB: 0.5,
+      initialQuality: 0.9,
+      useWebWorker: true,
+    });
 
-      let priceIncl: number;
-      let priceExcl: number;
-      let priceInputMode: "incl" | "excl";
+    try {
+      await deleteObject(imageRef);
+    } catch {}
 
-      if (taxIncluded) {
-        priceIncl = raw; // 入力が税込
-        priceExcl = toExclYen(raw); // 税抜へ換算
-        priceInputMode = "incl";
-      } else {
-        priceExcl = raw; // 入力が税抜
-        priceIncl = toInclYen(raw); // 税込へ換算（例：700 → 770）
-        priceInputMode = "excl";
+    const task = uploadBytesResumable(imageRef, compressedFile);
+    setProgress(0);
+
+    task.on(
+      "state_changed",
+      (snapshot) => {
+        const percent = Math.round(
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+        );
+        setProgress(percent);
+      },
+      (error) => {
+        console.error("ロゴアップロード失敗:", error);
+        setProgress(null);
+        alert("アップロードに失敗しました");
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(imageRef);
+        await setDoc(
+          doc(db, "siteSettingsEditable", SITE_KEY),
+          { headerLogoUrl: downloadURL },
+          { merge: true }
+        );
+        setProgress(null);
+        alert("ヘッダー画像を更新しました！");
       }
+    );
+  };
 
-      // Firestore payload（添付スクショの構造 + mediaItems）
-      const payload: any = {
-        title: base.title,
-        body: base.body,
-        price: priceIncl, // 表示基準は常に税込
-        priceIncl,
-        priceExcl,
-        priceInputMode, // "incl" | "excl"
-        mediaURL,
-        mediaType,
-        mediaItems,
-        base,
-        t,
-      };
-
-      // 代表ファイル名（1枚目のメディア、なければ既存）
-      const primaryFile = formMedia[0]?.file ?? null;
-      const originalFileName = primaryFile?.name || editing?.originalFileName;
-      if (originalFileName) payload.originalFileName = originalFileName;
-      if (formMode === "add") payload.sectionId = formSectionId || null;
-
-      if (formMode === "edit" && editing) {
-        await updateDoc(doc(productColRef, id), payload);
-      } else {
-        await addDoc(productColRef, {
-          ...payload,
-          createdAt: serverTimestamp(),
-        });
-      }
-
-      setProgress(null);
-      setUploadingPercent(null);
-      closeForm();
-    } catch (e) {
-      console.error(e);
-      alert("保存に失敗しました。対応形式や容量をご確認ください。");
-      setProgress(null);
-      setUploadingPercent(null);
-    } finally {
-      setSaving(false);
+  /* =======================
+     背景メディア保存処理
+     （formMedia の並び順どおりに heroItems を作成）
+  ======================= */
+  const saveHeroMedia = async () => {
+    if (!formMedia.length) {
+      alert("画像または動画を選択してください。");
+      return;
     }
-  }, [
-    uploading,
-    title,
-    body,
-    price,
-    taxIncluded,
-    formMode,
-    formMedia,
-    editing,
-    formSectionId,
-    productColRef,
-    closeForm,
-  ]);
 
-  /* ===== 選択中メディア一覧（画像＋動画、どちらも並べ替え可能） ===== */
-  const selectedMediaRows: SelectedRow[] = formMedia.map((m, idx) => ({
-    id: m.id,
-    type: m.type,
-    file: m.file,
-    index: idx,
-  }));
+    // 制約：画像最大3枚、動画最大1つ
+    const imageCount = formMedia.filter((m) => m.type === "image").length;
+    const videoCount = formMedia.filter((m) => m.type === "video").length;
+    if (imageCount > 3) {
+      alert("画像は最大3枚までです。");
+      return;
+    }
+    if (videoCount > 1) {
+      alert("動画は1つまでです。");
+      return;
+    }
+
+    setProgress(0);
+    const storage = getStorage();
+    const bust = `?ts=${Date.now()}`;
+
+    const newHeroItems: HeroItem[] = [];
+    let posterUrlNext: string | undefined;
+    let heroVideoMetaNext: MetaDoc["heroVideo"] | undefined = undefined;
+
+    let uploadedCount = 0;
+    const totalToUpload = formMedia.filter((m) => m.mode === "new").length || 1;
+    const updateProgress = () => {
+      uploadedCount += 1;
+      setProgress(Math.round((uploadedCount / totalToUpload) * 100));
+    };
+
+    const uploadImageFile = async (file: File, index: number) => {
+      const path = `images/public/${SITE_KEY}/hero_${index}.jpg`;
+      const imageRef = ref(storage, path);
+      try {
+        await deleteObject(imageRef);
+      } catch {}
+      const task = uploadBytesResumable(imageRef, file);
+      await new Promise<void>((resolve, reject) => {
+        task.on("state_changed", null, reject, () => resolve());
+      });
+      updateProgress();
+      const url = (await getDownloadURL(imageRef)) + bust;
+      return url;
+    };
+
+    const uploadVideoFile = async (file: File) => {
+      const path = `videos/public/${SITE_KEY}/homeBackground.mp4`;
+      const storageRef = ref(storage, path);
+
+      try {
+        await deleteObject(storageRef);
+      } catch {}
+
+      const task = uploadBytesResumable(storageRef, file, {
+        contentType: file.type,
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        task.on("state_changed", null, reject, () => resolve());
+      });
+
+      updateProgress();
+
+      const downloadURL = (await getDownloadURL(storageRef)) + bust;
+
+      // ポスター生成 & メタデータ
+      let localPosterUrl: string | undefined;
+      let durationSec: number | undefined;
+
+      try {
+        const objectUrl = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.src = objectUrl;
+        video.muted = true;
+        video.playsInline = true;
+
+        durationSec = await new Promise<number | undefined>(
+          (resolve, reject) => {
+            video.onloadedmetadata = () => {
+              resolve(
+                isFinite(video.duration)
+                  ? Math.round(video.duration)
+                  : undefined
+              );
+            };
+            video.onerror = () =>
+              reject(new Error("動画メタデータの読み込みに失敗"));
+          }
+        );
+
+        const seekTo = Math.min(1, Math.max(0.1, (video.duration || 1) * 0.1));
+        await new Promise<void>((resolve, reject) => {
+          video.currentTime = seekTo;
+          video.onseeked = () => resolve();
+          video.onerror = () => reject(new Error("動画シークに失敗"));
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const blob: Blob = await new Promise((resolve, reject) =>
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("ポスター生成に失敗"))),
+            "image/jpeg",
+            0.82
+          )
+        );
+
+        const posterPath = `videos/public/${SITE_KEY}/homeBackground.jpg`;
+        const posterRef = ref(storage, posterPath);
+        try {
+          await deleteObject(posterRef);
+        } catch {}
+
+        const posterTask = uploadBytesResumable(posterRef, blob, {
+          contentType: "image/jpeg",
+        });
+        await new Promise<void>((resolve, reject) => {
+          posterTask.on("state_changed", null, reject, () => resolve());
+        });
+        localPosterUrl = (await getDownloadURL(posterRef)) + bust;
+      } catch (e) {
+        console.warn("ポスター生成に失敗。フォールバックを使用します:", e);
+      }
+
+      return {
+        videoUrl: downloadURL,
+        posterUrl: localPosterUrl,
+        durationSec,
+      };
+    };
+
+    try {
+      let imageUploadIndex = 0;
+
+      for (const m of formMedia) {
+        if (m.type === "image") {
+          // 既存画像
+          if (m.mode === "existing" && m.existingSrc) {
+            newHeroItems.push({
+              type: "image",
+              src: m.existingSrc,
+            });
+          }
+          // 新規画像
+          else if (m.mode === "new" && m.file) {
+            const url = await uploadImageFile(m.file, imageUploadIndex);
+            imageUploadIndex += 1;
+            newHeroItems.push({ type: "image", src: url });
+          }
+        } else if (m.type === "video") {
+          // 既存動画
+          if (m.mode === "existing" && m.existingSrc) {
+            newHeroItems.push({
+              type: "video",
+              src: m.existingSrc,
+            });
+            // heroVideoMeta は既存のものを再利用
+            heroVideoMetaNext = heroVideoMeta;
+            posterUrlNext = poster ?? undefined;
+          }
+          // 新規動画
+          else if (m.mode === "new" && m.file) {
+            const { videoUrl, posterUrl, durationSec } = await uploadVideoFile(
+              m.file
+            );
+            newHeroItems.push({ type: "video", src: videoUrl });
+            posterUrlNext = posterUrl;
+
+            heroVideoMetaNext = {
+              name: `${SITE_KEY} 紹介動画`,
+              description: "サービス紹介動画です。",
+              contentUrl: videoUrl,
+              uploadDate: new Date().toISOString(),
+              ...(posterUrl ? { thumbnailUrl: posterUrl } : {}),
+              ...(durationSec
+                ? {
+                    durationSec,
+                    duration: `PT${Math.max(1, durationSec)}S`,
+                  }
+                : {}),
+            };
+          }
+        }
+      }
+
+      const hasVideo = newHeroItems.some((m) => m.type === "video");
+
+      const heroVideoToSave =
+        hasVideo && (heroVideoMetaNext || heroVideoMeta)
+          ? heroVideoMetaNext || heroVideoMeta
+          : undefined;
+
+      await setDoc(
+        META_REF,
+        {
+          // 旧フィールドとの互換用
+          type: newHeroItems.length === 1 ? newHeroItems[0].type : undefined,
+          url: newHeroItems.find((m) => m.type === "video")?.src,
+          imageUrls: newHeroItems
+            .filter((m) => m.type === "image")
+            .map((m) => m.src),
+
+          // 新フィールド
+          themeGradient: theme,
+          heroItems: newHeroItems,
+          heroVideo: hasVideo
+            ? heroVideoToSave ?? deleteField()
+            : deleteField(),
+        },
+        { merge: true }
+      );
+
+      setHeroItems(newHeroItems);
+
+      if (posterUrlNext) {
+        setPoster(posterUrlNext);
+      } else if (hasVideo) {
+        const v = newHeroItems.find((m) => m.type === "video");
+        if (v) {
+          setPoster(v.src.replace(/\.mp4(\?.*)?$/, POSTER_EXT));
+        }
+      } else {
+        setPoster(null);
+      }
+
+      setHeroVideoMeta(heroVideoToSave);
+      setReady(false);
+      setProgress(null);
+      setEditing(false);
+      setFormMedia([]);
+      alert("背景メディアを更新しました！");
+    } catch (e) {
+      console.error("背景メディアの更新に失敗:", e);
+      alert("更新に失敗しました");
+      setProgress(null);
+    }
+  };
+
+  /* =======================
+     選択中メディア一覧（モーダル用）
+     並べ替え表示用の行データ
+  ======================= */
+  const selectedMediaRows: SelectedMediaRow[] = formMedia.map((m, index) => {
+    let name = "";
+    if (m.mode === "new" && m.file) {
+      name = m.file.name;
+    } else if (m.mode === "existing" && m.existingSrc) {
+      const last = m.existingSrc.split("/").pop() ?? "";
+      name = last.split("?")[0] || "(既存メディア)";
+    } else {
+      name = "(不明なメディア)";
+    }
+    return {
+      id: m.id,
+      index,
+      type: m.type,
+      label: name,
+    };
+  });
 
   const moveRow = (from: number, to: number) => {
     setFormMedia((prev) => {
-      if (from === to) return prev;
-      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length)
-        return prev;
-      const next = [...prev];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return next;
+      const total = prev.length;
+      if (to < 0 || to >= total) return prev;
+      const clone = [...prev];
+      const [removed] = clone.splice(from, 1);
+      clone.splice(to, 0, removed);
+      return clone;
     });
   };
 
-  if (!gradient) return null;
+  const removeRow = (index: number) => {
+    setFormMedia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /* =======================
+     解約予約中の「解約取り消し」ボタン
+  ======================= */
+  const pendingButton = status === "pending" && isAdmin && (
+    <Button
+      className="fixed bottom-4 right-4 z-50 bg-yellow-500 text-white shadow-lg"
+      onClick={async () => {
+        try {
+          const res = await fetch("/api/stripe/resume-subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ siteKey: SITE_KEY }),
+          });
+          if (res.ok) {
+            alert("解約予約を取り消しました！");
+            location.reload();
+          } else {
+            alert("再開に失敗しました");
+          }
+        } catch {
+          alert("再開に失敗しました");
+        }
+      }}
+    >
+      解約を取り消す
+    </Button>
+  );
 
   return (
-    <main className="max-w-5xl mx-auto p-4 pt-10">
-      <BusyOverlay uploadingPercent={uploadingPercent} saving={saving} />
-      <h1
-        className="text-3xl font-semibold text-white text-outline"
-        aria-label={pageTitle}
-      >
-        {pageTitle}
-      </h1>
+    <div className="fixed inset-0 top-12">
+      {pendingButton}
 
-      {/* ヘッダー */}
-      <div className="mb-10 mt-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        {/* セクションピッカー */}
-        <div className="flex items-center gap-2 ">
-          <label className="text-sm text-white text-outline opacity-70">
-            表示カテゴリ:
-          </label>
-          <div className="relative inline-block">
-            <select
-              className={clsx(
-                "border rounded px-3 py-2 pr-8",
-                "text-transparent caret-transparent selection:bg-transparent",
-                "appearance-none"
-              )}
-              value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
-            >
-              <option value="all">
-                {ALL_CATEGORY_T[uiLang] ?? ALL_CATEGORY_T.ja}
-              </option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {sectionTitleLoc(s, uiLang)}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white text-outline"
-            >
-              {currentSectionLabel}
-            </span>
-          </div>
+      {/* 背景メディア表示（画像1〜3枚＋動画1つまで） */}
+      <HeroMedia
+        items={heroItems}
+        poster={poster ?? undefined}
+        onFirstReady={() => setReady(true)}
+      />
+
+      {/* 背景読み込み中ローダー */}
+      {loading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <BroomDustLoader label="読み込み中…" size={100} speed={1} />
         </div>
-
-        {isAdmin && (
-          <button
-            onClick={() => setShowSecModal(true)}
-            className="px-3 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700"
-          >
-            セクション管理
-          </button>
-        )}
-      </div>
-
-      {/* セクション管理モーダル */}
-      {showSecModal && (
-        <SectionManagerModal
-          open={showSecModal}
-          onClose={() => setShowSecModal(false)}
-          sections={sections}
-          saving={saving}
-          newSecName={newSecName}
-          setNewSecName={setNewSecName}
-          onAddSection={async (titleJa) => {
-            const t = await translateSectionTitleAll(titleJa);
-            await addSection(titleJa, t);
-          }}
-          onRemoveSection={removeSection}
-          onReorderSection={reorderSections}
-        />
       )}
 
-      {/* 商品一覧（DnD） */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-        modifiers={[restrictToWindowEdges]}
-      >
-        <SortableContext
-          items={list.map((p) => p.id)}
-          strategy={rectSortingStrategy}
-        >
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {list.length === 0 && (
-              <div className="mt-16 flex items-center justify-center">
-                <div className="rounded-2xl border bg-white/30 backdrop-blur px-6 py-8 text-center shadow">
-                  <p className="text-black">準備中...</p>
-                  {isAdmin && (
-                    <p className="text-gray-400 text-sm mt-1">
-                      右下の「＋」から新規追加できます
-                    </p>
-                  )}
+      {authChecked && isAdmin && (
+        <>
+          {/* アップロード処理中のプログレスオーバーレイ */}
+          {progress !== null && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+              <div className="bg-white rounded-lg p-6 shadow-md w-full max-w-sm">
+                <p className="text-center text-gray-800 mb-2">
+                  アップロード中… {progress}%
+                </p>
+                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
               </div>
-            )}
-            {list.map((p) => {
-              const loc = displayOf(p, uiLang);
-              const amountJPY = p.priceIncl ?? p.price ?? 0;
-              const { text, approx } = formatPriceFromJPY(
-                amountJPY,
-                uiLang,
-                rates
-              );
-
-              // Firestore から複数メディア（mediaItems）を取り出し
-              const rawItems =
-                ((p as any).mediaItems as
-                  | { url: string; type: MediaType }[]
-                  | undefined) ?? mediaItemsMap[p.id];
-
-              const slides: { src: string; type: MediaType }[] =
-                Array.isArray(rawItems) && rawItems.length > 0
-                  ? rawItems.map((m) => ({
-                      src: m.url,
-                      type: m.type as MediaType,
-                    }))
-                  : [
-                      {
-                        src: p.mediaURL,
-                        type: p.mediaType as MediaType,
-                      },
-                    ];
-
-              const primary = slides[0];
-
-              return (
-                <SortableItem key={p.id} product={p}>
-                  {({ listeners, attributes, isDragging }) => (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                      transition={{ duration: 0.3 }}
-                      onClick={() => {
-                        if (isDragging) return;
-                        router.push(`/products/${p.id}`);
-                      }}
-                      className={clsx(
-                        "flex flex-col h-full border shadow relative transition-colors duration-200 rounded-2xl",
-                        "bg-gradient-to-b",
-                        gradient,
-                        isDragging ? "bg-yellow-100" : "bg-transparent",
-                        "backdrop-blur-sm",
-                        "ring-1 ring-white/10"
-                      )}
-                    >
-                      {auth.currentUser !== null && (
-                        <div
-                          {...attributes}
-                          {...listeners}
-                          onClick={(e) => e.stopPropagation()}
-                          onContextMenu={(e) => e.preventDefault()}
-                          draggable={false}
-                          className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing select-none p-3"
-                          role="button"
-                          aria-label="並び替え"
-                          style={{ touchAction: "none" }}
-                        >
-                          <div className="w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow pointer-events-none">
-                            <Pin className="text-black" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* スライド表示用：先頭を src/type に渡しつつ、items に全スライド */}
-                      <ProductMedia
-                        src={primary.src}
-                        type={primary.type}
-                        items={slides}
-                        className="rounded-t-xl"
-                      />
-
-                      <div className="p-1 space-y-1">
-                        <h2 className="text-white text-outline">
-                          {loc.title || p.title || "（無題）"}
-                        </h2>
-                        <p className="text-white text-outline">
-                          {approx ? "≈ " : ""}
-                          {text}（{taxT.incl}）
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </SortableItem>
-              );
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      {/* 新規商品追加ボタン */}
-      {isAdmin && formMode === null && (
-        <button
-          onClick={openAdd}
-          aria-label="新規追加"
-          disabled={uploading}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-pink-700 active:scale-95 transition disabled:opacity-50 cursor-pointer"
-        >
-          <Plus size={28} />
-        </button>
-      )}
-
-      {/* 新規/編集モーダル（中央表示） */}
-      {isAdmin && formMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-center">
-              {formMode === "edit" ? "商品を編集" : "新規商品追加"}
-            </h2>
-
-            {formMode === "add" && (
-              <div className="flex flex-col gap-1">
-                <label className="text-sm">セクション（カテゴリー）</label>
-                <select
-                  value={formSectionId}
-                  onChange={(e) => setFormSectionId(e.target.value)}
-                  className="w-full border px-3 h-10 rounded bg-white"
-                >
-                  <option value="">未設定</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.base?.title ?? ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <input
-              type="text"
-              placeholder="商品名"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
-            />
-
-            <input
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="価格 (円)"
-              value={price}
-              onChange={(e) =>
-                setPrice(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              className="w-full border px-3 py-2 rounded"
-              disabled={uploading}
-            />
-
-            <div className="flex gap-4">
-              <label>
-                <input
-                  type="radio"
-                  checked={taxIncluded}
-                  onChange={() => setTaxIncluded(true)}
-                />
-                税込
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  checked={!taxIncluded}
-                  onChange={() => setTaxIncluded(false)}
-                />
-                税抜
-              </label>
             </div>
+          )}
 
-            <textarea
-              placeholder="紹介文"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              rows={4}
-              disabled={uploading}
-            />
+          {/* 既存の AdminControls（編集ボタン等） */}
+          <AdminControls
+            editing={editing}
+            setEditing={setEditing}
+            uploading={uploading}
+            uploadImage={uploadImage}
+            uploadHeaderImage={uploadHeaderImage}
+          />
 
-            {/* AI 紹介文生成（キーワード入力モーダル起動） */}
-            <button
-              onClick={() => setShowKeywordModal(true)}
-              disabled={uploading || aiLoading}
-              className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {aiLoading ? "生成中…" : "AIで紹介文を生成（キーワード指定）"}
-            </button>
+          {/* 背景メディア編集モーダル */}
+          {editing && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="w-full max-w-md bg-white rounded-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                <h2 className="text-xl font-bold text-center">
+                  背景メディアの編集
+                </h2>
 
-            {/* 画像（最大3枚） */}
-            <div className="space-y-1 mt-2">
-              <label className="text-sm">画像（最大3枚）</label>
-              <input
-                type="file"
-                accept={IMAGE_MIME_TYPES.join(",")}
-                multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []).filter((f) =>
-                    IMAGE_MIME_TYPES.includes(f.type)
-                  );
-                  if (!files.length) {
-                    e.target.value = "";
-                    return;
-                  }
-                  setFormMedia((prev) => {
-                    const currentImages = prev.filter(
-                      (m) => m.type === "image"
-                    );
-                    const remain = 3 - currentImages.length;
-                    if (remain <= 0) {
-                      alert("画像は最大3枚までです");
-                      return prev;
-                    }
-                    const toAdd = files.slice(0, remain).map((file) => ({
-                      id: uuid(),
-                      type: "image" as MediaType,
-                      file,
-                    }));
-                    return [...prev, ...toAdd];
-                  });
-                  e.target.value = "";
-                }}
-                className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-                disabled={uploading}
-              />
-            </div>
+                <p className="text-xs text-gray-500">
+                  画像は最大3枚、動画は1つまで選択できます。
+                  並び順がそのままスライドショーの順番になります。
+                  （保存すると既存の背景メディアはこの内容で上書きされます）
+                </p>
 
-            {/* 動画（任意・1つまで） */}
-            <div className="space-y-1">
-              <label className="text-sm">動画（任意・1つまで）</label>
-              <input
-                type="file"
-                accept={VIDEO_MIME_TYPES.join(",")}
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null;
-                  if (!f) {
-                    e.target.value = "";
-                    return;
-                  }
-                  if (!VIDEO_MIME_TYPES.includes(f.type)) {
-                    alert("対応形式ではありません");
-                    e.target.value = "";
-                    return;
-                  }
-                  const blobURL = URL.createObjectURL(f);
-                  const vid = document.createElement("video");
-                  vid.preload = "metadata";
-                  vid.src = blobURL;
-                  vid.onloadedmetadata = () => {
-                    URL.revokeObjectURL(blobURL);
-                    if (vid.duration > MAX_VIDEO_SEC) {
-                      alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
-                      (e.target as HTMLInputElement).value = "";
-                      return;
-                    }
-                    setFormMedia((prev) => {
-                      const hasVideo = prev.some((m) => m.type === "video");
-                      if (hasVideo) {
-                        alert("動画は1つまでです");
-                        return prev;
+                {/* 画像（最大3枚） */}
+                <div className="space-y-1 mt-2">
+                  <label className="text-sm">画像（最大3枚）</label>
+                  <input
+                    type="file"
+                    accept={IMAGE_MIME_TYPES.join(",")}
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []).filter(
+                        (f) => IMAGE_MIME_TYPES.includes(f.type)
+                      );
+                      if (!files.length) {
+                        e.target.value = "";
+                        return;
                       }
-                      return [
-                        ...prev,
-                        {
-                          id: uuid(),
-                          type: "video" as MediaType,
-                          file: f,
-                        },
-                      ];
-                    });
-                    (e.target as HTMLInputElement).value = "";
-                  };
-                }}
-                className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
-                disabled={uploading}
-              />
-            </div>
-
-            {/* ▼ 選択中メディア一覧（画像・動画とも ↑↓ で並べ替え） */}
-            {selectedMediaRows.length > 0 && (
-              <div className="mt-3 space-y-1">
-                <p className="text-sm font-semibold">選択中のメディア</p>
-                {selectedMediaRows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
-                  >
-                    <span className="truncate">
-                      {row.index + 1}. {row.type === "image" ? "画像" : "動画"}
-                      （{row.file.name}）
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => moveRow(row.index, row.index - 1)}
-                        disabled={uploading || row.index === 0}
-                        className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveRow(row.index, row.index + 1)}
-                        disabled={
-                          uploading ||
-                          row.index === selectedMediaRows.length - 1
+                      setFormMedia((prev) => {
+                        const currentImages = prev.filter(
+                          (m) => m.type === "image"
+                        );
+                        const remain = 3 - currentImages.length;
+                        if (remain <= 0) {
+                          alert("画像は最大3枚までです");
+                          return prev;
                         }
-                        className="text-xs px-1 py-0.5 border rounded bg白 disabled:opacity-40"
+                        const toAdd = files
+                          .slice(0, remain)
+                          .map<FormMediaItem>((file) => ({
+                            id: uuid(),
+                            type: "image",
+                            mode: "new",
+                            file,
+                          }));
+                        return [...prev, ...toAdd];
+                      });
+                      e.target.value = "";
+                    }}
+                    className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
+                    disabled={uploading}
+                  />
+                </div>
+
+                {/* 動画（任意・1つまで） */}
+                <div className="space-y-1">
+                  <label className="text-sm">動画（任意・1つまで）</label>
+                  <input
+                    type="file"
+                    accept={VIDEO_MIME_TYPES.join(",")}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (!f) {
+                        e.target.value = "";
+                        return;
+                      }
+                      if (!VIDEO_MIME_TYPES.includes(f.type as any)) {
+                        alert("対応していない動画形式です。mp4 を推奨します。");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      // 動画長さチェック
+                      const blobURL = URL.createObjectURL(f);
+                      const vid = document.createElement("video");
+                      vid.preload = "metadata";
+                      vid.src = blobURL;
+                      vid.onloadedmetadata = () => {
+                        const duration = vid.duration;
+                        URL.revokeObjectURL(blobURL);
+                        if (isFinite(duration) && duration > MAX_VIDEO_SEC) {
+                          alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+                          (e.target as HTMLInputElement).value = "";
+                          return;
+                        }
+                        setFormMedia((prev) => {
+                          const hasVideo = prev.some((m) => m.type === "video");
+                          if (hasVideo) {
+                            alert("動画は1つまでです");
+                            return prev;
+                          }
+                          return [
+                            ...prev,
+                            {
+                              id: uuid(),
+                              type: "video",
+                              mode: "new",
+                              file: f,
+                            },
+                          ];
+                        });
+                        (e.target as HTMLInputElement).value = "";
+                      };
+                    }}
+                    className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
+                    disabled={uploading}
+                  />
+                </div>
+
+                {/* 選択中メディア一覧（並べ替え可能） */}
+                {selectedMediaRows.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-sm font-semibold">選択中のメディア</p>
+                    {selectedMediaRows.map((row) => (
+                      <div
+                        key={row.id}
+                        className="flex items-center justify-between rounded border px-3 py-2 text-sm bg-gray-50"
                       >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormMedia((prev) =>
-                            prev.filter((_, i) => i !== row.index)
-                          );
-                        }}
-                        disabled={uploading}
-                        className="text-red-600 text-xs underline disabled:opacity-40"
-                      >
-                        削除
-                      </button>
-                    </div>
+                        <span className="truncate">
+                          {row.index + 1}.{" "}
+                          {row.type === "image" ? "画像" : "動画"}（{row.label}
+                          ）
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveRow(row.index, row.index - 1)}
+                            disabled={uploading || row.index === 0}
+                            className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveRow(row.index, row.index + 1)}
+                            disabled={
+                              uploading ||
+                              row.index === selectedMediaRows.length - 1
+                            }
+                            className="text-xs px-1 py-0.5 border rounded bg-white disabled:opacity-40"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRow(row.index)}
+                            disabled={uploading}
+                            className="text-red-600 text-xs underline disabled:opacity-40"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={saveHeroMedia}
+                    disabled={uploading || formMedia.length === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (uploading) return;
+                      setEditing(false);
+                      setFormMedia([]);
+                    }}
+                    disabled={uploading}
+                    className="px-4 py-2 bg-gray-500 text-white rounded disabled:opacity-50"
+                  >
+                    閉じる
+                  </button>
+                </div>
               </div>
-            )}
-
-            {formMode === "edit" && editing?.originalFileName && (
-              <p className="text-sm text-gray-600">
-                現在のファイル: {editing.originalFileName}
-              </p>
-            )}
-
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={saveProduct}
-                disabled={uploading}
-                className="px-4 py-2 bg-green-600 text白 rounded disabled:opacity-50"
-              >
-                {formMode === "edit" ? "更新" : "追加"}
-              </button>
-              <button
-                onClick={closeForm}
-                disabled={uploading}
-                className="px-4 py-2 bg-gray-500 text白 rounded disabled:opacity-50"
-              >
-                閉じる
-              </button>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
+    </div>
+  );
+}
 
-      {/* キーワード入力モーダル */}
-      <KeywordModal
-        open={showKeywordModal}
-        onClose={() => setShowKeywordModal(false)}
-        onSubmit={(kws) => {
-          setShowKeywordModal(false);
-          handleGenerateBody(kws);
-        }}
-      />
-    </main>
+/* =======================
+   背景メディア表示コンポーネント
+   画像1〜3枚＋動画1本を順番に自動スライド
+   （動画が出ている間はスライド停止）
+======================= */
+function HeroMedia({
+  items,
+  poster,
+  onFirstReady,
+}: {
+  items: HeroItem[];
+  poster?: string;
+  onFirstReady?: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const readyFiredRef = useRef(false);
+
+  const hasItems = items && items.length > 0;
+  const total = hasItems ? items.length : 0;
+  const safeIndex = total === 0 ? 0 : ((currentIndex % total) + total) % total;
+  const active = hasItems ? items[safeIndex] : null;
+  const isVideo = !!active && active.type === "video";
+
+  const fireReadyOnce = () => {
+    if (readyFiredRef.current) return;
+    readyFiredRef.current = true;
+    onFirstReady?.();
+  };
+
+  // 自動スライド（動画表示中は止める）
+  useEffect(() => {
+    if (!hasItems) return;
+    if (total <= 1) return;
+    if (isVideo) return;
+
+    const id = window.setInterval(() => {
+      setCurrentIndex((prev) => {
+        const next = prev + 1;
+        return next >= total ? 0 : next;
+      });
+    }, 5000);
+
+    return () => window.clearInterval(id);
+  }, [hasItems, total, isVideo]);
+
+  if (!hasItems || !active) return null;
+
+  return (
+    <div className="absolute inset-0 w-full h-full overflow-hidden">
+      {isVideo ? (
+        <video
+          key={active.src}
+          className="absolute inset-0 w-full h-full object-cover"
+          playsInline
+          muted
+          autoPlay
+          loop={total === 1}
+          preload="auto"
+          poster={poster ?? ""}
+          onLoadedMetadata={fireReadyOnce}
+        >
+          <source src={active.src} type="video/mp4" />
+        </video>
+      ) : (
+        <Image
+          key={active.src}
+          src={active.src}
+          alt="背景メディア"
+          fill
+          className="object-cover"
+          sizes="100vw"
+          priority
+          onLoadingComplete={fireReadyOnce}
+        />
+      )}
+    </div>
   );
 }
