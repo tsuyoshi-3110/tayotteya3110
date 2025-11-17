@@ -697,10 +697,10 @@ export default function CartPage() {
             </div>
 
             {/* notes */}
-            <p className="text-xs text-gray-500 mt-1">{t.priceNote}</p>
+            <p className="text-xs text-black mt-1">{t.priceNote}</p>
             <div className="mt-2 space-y-1">
-              <p className="text-xs text-gray-500">{fxLine}</p>
-              <p className="text-[11px] text-gray-400">{refundLine}</p>
+              <p className="text-xs text-black">{fxLine}</p>
+              <p className="text-[11px] text-black">{refundLine}</p>
             </div>
 
             {/* CTA */}
