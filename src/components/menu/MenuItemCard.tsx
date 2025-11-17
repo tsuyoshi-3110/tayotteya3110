@@ -183,15 +183,12 @@ function formatPriceByLangSimple(
   const major = yen * rate;
   const zeroDecimal = ZERO_DECIMAL_CCY.has(ccy);
 
-  const formatter = new Intl.NumberFormat(
-    lang === "ja" ? "ja-JP" : undefined,
-    {
-      style: "currency",
-      currency: ccy,
-      maximumFractionDigits: zeroDecimal ? 0 : 2,
-      minimumFractionDigits: zeroDecimal ? 0 : 2,
-    }
-  );
+  const formatter = new Intl.NumberFormat(lang === "ja" ? "ja-JP" : undefined, {
+    style: "currency",
+    currency: ccy,
+    maximumFractionDigits: zeroDecimal ? 0 : 2,
+    minimumFractionDigits: zeroDecimal ? 0 : 2,
+  });
 
   return { text: formatter.format(major), ccy };
 }
@@ -264,12 +261,7 @@ export default function MenuItemCard({
 
           {/* 価格（為替通貨で表示） */}
           {item.price != null && priceDisplay && (
-            <div
-              className={clsx(
-                "text-sm",
-                isDark ? "text-white" : "text-black"
-              )}
-            >
+            <div className={clsx("text-sm", "text-black")}>
               <span>
                 {priceDisplay.text}
                 {typeof item.isTaxIncluded === "boolean"
