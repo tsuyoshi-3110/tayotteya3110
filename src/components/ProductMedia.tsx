@@ -223,14 +223,14 @@ export default function ProductMedia({
           <button
             type="button"
             onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-100 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
           >
             ‹
           </button>
           <button
             type="button"
             onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-100 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
           >
             ›
           </button>

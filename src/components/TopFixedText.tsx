@@ -56,7 +56,7 @@ export default function TopFixedText() {
 
   /* ========== ここから JSX ========== */
   return (
-    <div className="fixed inset-x-0 top-10 z-30">
+    <div className="fixed inset-x-0 top-10 z-30 pointer-events-none">
       {/* === 表示エリア === */}
       <div
         className="max-w-4xl mx-auto text-center space-y-4 px-4 mt-20"
@@ -72,7 +72,7 @@ export default function TopFixedText() {
 
       {/* === 管理者操作ボタン === */}
       {isAdmin && !editing && (
-        <div className="absolute right-10 top-5 flex gap-2 z-30">
+        <div className="absolute right-10 top-5 flex gap-2 z-30 pointer-events-auto">
           <Button
             className="bg-blue-500"
             size="sm"
