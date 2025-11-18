@@ -1,55 +1,128 @@
 // components/common/Footer.tsx
+"use client";
 
-import clsx from "clsx";
 import Image from "next/image";
-import Link from "next/link";
+import ScrollUpCTA from "@/components/ScrollUpCTA";
+import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import { FOOTER_STRINGS, site } from "@/config/site";
+import clsx from "clsx";
+import { useThemeGradient } from "@/lib/useThemeGradient";
+// 追加
+import VCardDownloadButton from "@/components/common/VCardDownloadButton";
+
+type T = {
+  cta: string;
+  snsAria: string;
+  instagramAlt: string;
+  lineAlt: string;
+  siteAria: string;
+  siteAlt: string;
+  areaLinkText: string;
+  rights: string;
+};
+
+// /config/site.ts からインポートした定義を使う
+const STRINGS = FOOTER_STRINGS as Record<UILang, T>;
 
 export default function Footer() {
+  const { uiLang } = useUILang();
+  const lang = (uiLang in STRINGS ? uiLang : "ja") as UILang;
+  const t = STRINGS[lang];
+  const dir: "rtl" | "ltr" = lang === "ar" ? "rtl" : "ltr";
+  const iconSize = 48;
+  const gradient = useThemeGradient();
+
   return (
-    <footer className="relative z-20 mt-10 border-t bg-white/30 text-sm text-white text-outline backdrop-blur supports-[backdrop-filter]:bg-white/40">
+    <footer
+      dir={dir}
+      className="relative z-20 mt-10 border-t bg-white/30 text-sm text-white text-outline backdrop-blur supports-[backdrop-filter]:bg-white/40"
+    >
       <div className="mx-auto max-w-6xl px-4 py-10">
-        {/* すべて中央寄せ */}
         <div className="flex flex-col items-center gap-6 text-center">
-          {/* リンク（ロゴ） */}
+          {/* CTA */}
+          <ScrollUpCTA
+            href="/contact"
+            label={t.cta}
+            className="w-full max-w-xs sm:max-w-sm"
+          />
+
+          {/* 連絡先ダウンロード（本店/単店/複数ピッカー/オーナーの自動分岐） */}
+          <VCardDownloadButton
+            className={clsx(
+              "h-12 px-5 rounded-2xl shadow-2xl font-bold text-white text-outline",
+              gradient
+                ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
+                : "bg-emerald-600 hover:bg-emerald-700"
+            )}
+            label="連絡先を保存"
+          />
+
+          {/* SNSアイコン */}
           <nav
             className="flex items-center justify-center gap-5"
-            aria-label="サイトリンク"
+            aria-label={t.snsAria}
           >
-            <Link
-              href="https://daiko-siko.com/"
-              className={clsx("text-xl font-bold flex items-center gap-2 py-2 hover:opacity-50")}
+            <a
+              href="https://www.instagram.com/yuki.tayotte2017"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.instagramAlt}
+              className="transition-opacity hover:opacity-80"
             >
               <Image
-                src="/images/backImage.png"
-                alt="D.s.Lab Home"
-                width={48}
-                height={48}
-                className="w-10 h-10 object-contain transition-opacity duration-200 mr-2 rounded"
-                unoptimized
+                src="/instagram-logo.png"
+                alt={t.instagramAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
               />
-            </Link>
+            </a>
+            <a
+              href="https://lin.ee/YcKAJja"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.lineAlt}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/line-logo.png"
+                alt={t.lineAlt}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
+            <a
+              href="https://tayotteya.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.siteAria}
+              className="transition-opacity hover:opacity-80"
+            >
+              <Image
+                src="/tayotteya_circle_image.png"
+                alt={t.siteAlt || site.name}
+                width={iconSize}
+                height={iconSize}
+                className="object-contain"
+              />
+            </a>
           </nav>
 
-          {/* エリアリンク（SEO強化） */}
-          {/* <div className="space-y-1 text-xs leading-tight">
-            <p>
-              <Link href="/areas/local" className="hover:underline">
-                門真市の段ボール・パッケージ提案
-              </Link>
-            </p>
-          </div> */}
-
-          {/* 連絡先 */}
+          {/* エリアリンク（SEO） */}
           <div className="space-y-1 text-xs leading-tight">
-            <p>〒571-000 大阪府門真市北岸和田2-1-12</p>
-            <p>TEL：072-882-0154 ／ Mail：d.s.lab.571@gmail.com</p>
+            <p>
+              <a href="/areas/local" className="hover:underline">
+                {t.areaLinkText}
+              </a>
+            </p>
           </div>
 
           {/* コピーライト */}
           <div className="space-y-1">
-            <p className="font-semibold leading-tight">D.s.Lab</p>
+            <p className="font-semibold leading-tight">{site.name}</p>
             <p className="text-xs leading-tight">
-              © {new Date().getFullYear()} D.s.Lab. All rights reserved.
+              © {new Date().getFullYear()} Tayotteya. {t.rights}
             </p>
           </div>
         </div>

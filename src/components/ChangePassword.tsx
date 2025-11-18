@@ -118,9 +118,9 @@ export default function ChangePassword({ onClose }: Props) {
         <br />
         例:{" "}
         <code className="bg-gray-100 px-1 py-0.5 rounded">
-          dslab571123!
-        </code> や{" "}
-        <code className="bg-gray-100 px-1 py-0.5 rounded">Sakura2024$</code>
+          tayotteya3110123!
+        </code>{" "}
+        や <code className="bg-gray-100 px-1 py-0.5 rounded">Sakura2024$</code>
       </p>
 
       <input

@@ -95,34 +95,32 @@ function createSite(overrides: SiteOverrides) {
 /* =========================
    ★ 店舗ごとの最小上書き（ここだけ編集）
 ========================= */
-const SITE_BRAND = "D.s.Lab"; // 表示用ブランド名（フル表記）
+const SITE_BRAND = "お掃除処　たよって屋"; // 表示用のフル表記（全角スペース等もOK）
 
 const SITE_OVERRIDES: SiteOverrides = {
-  name: "D.s.Lab",
-  tagline: "オリジナル段ボール・梱包資材の企画・製造",
+  name: "おそうじ処 たよって屋",
+  tagline: "ハウスクリーニング・家事代行（大阪・兵庫）",
   description:
-    "《売り手よし》《買い手よし》《世間よし》三方よしの精神で経営する段ボール・梱包資材ブランド D.s.Lab。作り手の柔軟な発想で【箱】という概念を越え、時代のニーズに合わせたオリジナル段ボールを提案します。創業50年を誇る大光紙工の国内生産原紙・再生率90％以上の段ボールで、「Made in Japan」の品質をお届けします。",
+    "大阪・兵庫エリア対応のハウスクリーニング・家事代行・整理収納サービス。大阪市東淀川区、豊中市、吹田市など近隣も丁寧に対応。水回り・リビング・定期清掃まで安心価格。",
   keywords: [
-    "D.s.Lab",
-    "ディーズラボ",
-    "大光紙工",
-    "段ボール",
-    "ダンボール",
-    "梱包資材",
-    "オリジナル箱",
-    "オーダーメイド段ボール",
-    "エコ包装",
+    "おそうじ処たよって屋",
+    "たよって屋",
+    "ハウスクリーニング",
+    "家事代行",
+    "整理収納",
     "大阪",
-    "門真市",
+    "兵庫",
+    "大阪市東淀川区",
+    "水回り掃除",
+    "エアコンクリーニング",
   ],
-  tel: "+81 72-882-0154",
+  tel: "+81 90-6559-9110",
   logoPath: "/ogpLogo.png",
-  googleSiteVerification: "",
+  googleSiteVerification: "uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs",
   socials: {
-    instagram: "",
-    line: "",
+    instagram: "https://www.instagram.com/yuki.tayotte2017",
+    line: "https://lin.ee/YcKAJja",
   },
-  baseUrl: "https://d-s-lab-571.shop",
 };
 
 /* =========================
@@ -132,7 +130,7 @@ export const siteName = SITE_BRAND; // 互換：従来の siteName を残す
 export const site = createSite(SITE_OVERRIDES);
 
 /* =========================
-   住所（公開用）
+   住所（公開用）←★追加
    ※ ownerAddress は公開しない。SEO/リッチリザルト用にこちらを使う。
 ========================= */
 export type PublicAddress = {
@@ -155,16 +153,15 @@ function mapUrlFromText(text: string) {
 
 /** 店舗の公開住所（必要に応じてこの値だけ編集） */
 export const PUBLIC_ADDRESS: PublicAddress = {
-  text: "大阪府門真市北岸和田2-1-12",
+  text: "大阪府豊中市小曽根3-6-13",
   postal: {
     "@type": "PostalAddress",
     addressCountry: "JP",
     addressRegion: "大阪府",
-    addressLocality: "門真市",
-    streetAddress: "北岸和田2-1-12",
-    postalCode: "571-000",
+    addressLocality: "豊中市",
+    streetAddress: "小曽根3-6-13",
   },
-  hasMap: mapUrlFromText("大阪府門真市北岸和田2-1-12"),
+  hasMap: mapUrlFromText("大阪府豊中市小曽根3-6-13"),
 };
 
 /* =========================
@@ -178,7 +175,12 @@ export const pageUrl = (path = "/") =>
 const ogImage = (p?: string) => pageUrl(p ?? site.logoPath);
 
 /* =========================
+   コピー（集中管理）
+========================= */
+/* =========================
    コピー（集中管理）★多言語対応
+   - copy[lang].home.headline のように参照
+   - lang は "ja" | "en" | "zh" | "zh-TW" | ...
 ========================= */
 
 export type CopyBundle = {
@@ -224,64 +226,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "《売り手よし》《買い手よし》《世間よし》三方よしの精神で経営する段ボール・梱包資材ブランド D.s.Lab。作り手の柔軟な発想で【箱】という概念を越え、時代のニーズに合わせたオリジナル段ボールをご提案します。大光紙工の国内生産原紙・再生率90％以上の段ボールで、「Made in Japan」の細やかさと品質をお届けします。",
+        "大阪府・兵庫県を中心に、ハウスクリーニング／家事代行／整理収納を提供しています。キッチン・浴室などの水回りから、リビングの徹底清掃、定期プランまで。ご家庭の状態やご要望に合わせて、無理なく続けられるプランをご提案します。",
     },
     stores: {
-      heroTitle: `${site.name} ─ 会社案内`,
-      heroAreas: "大阪府門真市",
+      heroTitle: `${site.name} ─ 店舗一覧`,
+      heroAreas: "大阪府・兵庫県",
       heroLead:
-        "オリジナル段ボール・梱包資材の企画・製造を行う D.s.Lab（大光紙工）。",
+        "ハウスクリーニング・家事代行・整理収納サービスを提供しています。",
       heroTail:
-        "小ロットのご相談から大ロットの量産まで、お客様の用途に合わせて柔軟に対応いたします。",
-      heroIntroLine:
-        "D.s.Lab は大阪府門真市の工場から、全国のお客様へオリジナル段ボール・梱包資材をお届けしています。",
+        "各店舗のサービス対応エリアや詳細情報をこちらからご確認いただけます。",
+      heroIntroLine: `${site.name}は大阪府・兵庫県を中心にハウスクリーニング・家事代行・整理収納サービスを提供しています。`,
     },
     areasLocal: {
-      h1: "大阪府門真市のオリジナル段ボール・梱包資材",
-      lead: "自社工場（大阪府門真市北岸和田）から、全国のメーカー・EC事業者・小売業の皆さまへお届けします。",
+      h1: "東淀川区の家事代行・ハウスクリーニング",
+      lead: "淡路・上新庄・だいどう豊里・井高野・柴島など東淀川区全域に対応。",
       services: [
         {
-          title: "オリジナル段ボール設計",
+          title: "家事代行（単発／定期）",
           bullets: [
-            "商品のサイズや重量に合わせた最適な設計",
-            "ギフト用・宅配用など用途別の箱デザイン",
-            "小ロットから量産まで柔軟に対応",
+            "掃除・片付け・洗濯・買い物代行",
+            "お子様／高齢者の見守り（家事の範囲内）",
+            "女性スタッフ指名可",
           ],
         },
         {
-          title: "環境配慮・エコ包装",
+          title: "ハウスクリーニング",
           bullets: [
-            "再生率90％以上の段ボールを使用",
-            "国内生産原紙による安定した品質",
-            "過剰包装を抑えた設計提案",
+            "水回り（キッチン・浴室・洗面・トイレ）",
+            "エアコンクリーニング",
+            "引越し前後・空室クリーニング",
           ],
         },
       ],
-      coverageTitle: "対応エリア",
+      coverageTitle: "対応エリア（東淀川区）",
       coverageBody:
-        "大阪府門真市を拠点に、関西エリアはもちろん日本全国への出荷に対応しています。",
+        "淡路・東淡路・菅原・豊新・上新庄・瑞光・小松・南江口・北江口・井高野・大桐・大隅・豊里・大道南・柴島・下新庄 ほか",
       faq: [
         {
-          q: "最小ロットはどれくらいから対応できますか？",
-          a: "サイズや仕様によって異なりますが、小ロットのご相談も承っています。まずはお問い合わせください。",
+          q: "東淀川区で当日予約は可能ですか？",
+          a: "当日の空き状況によっては対応可能です。まずはお問い合わせください。",
         },
         {
-          q: "納期の目安はどれくらいですか？",
-          a: "仕様・数量によりますが、通常はご発注から数週間が目安です。お急ぎの場合もまずはご相談ください。",
+          q: "鍵預かりでの不在クリーニングは対応していますか？",
+          a: "条件を確認のうえ、鍵管理のルールに基づいて対応します。詳細は事前にご相談ください。",
         },
         {
-          q: "サンプル製作は可能ですか？",
-          a: "はい、量産前に形状や強度を確認いただけるサンプル製作が可能です。",
+          q: "当日の追加のお願いは可能ですか？",
+          a: "スケジュールに空きがあれば対応いたします。まずはお問い合わせください。",
         },
         {
-          q: "環境配慮型の素材は選べますか？",
-          a: "国内生産の再生原紙を使用し、再生率90％以上の段ボールを採用しています。詳しい仕様はお問い合わせください。",
+          q: "鍵預かりや在宅不要の対応は？",
+          a: "条件を確認のうえ、適切に管理して対応可能です。",
         },
       ],
       contactTitle: "お問い合わせ",
       contactText:
-        "お見積り・仕様のご相談は、メールフォームよりお気軽にお問い合わせください。",
-      toProductsText: "商品一覧へ",
+        "予約状況の確認・見積りは、LINE／メールフォームからお気軽にどうぞ。",
+      toProductsText: "トップページへ",
     },
   },
 
@@ -290,64 +291,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab is a corrugated box and packaging brand operated under the classic Japanese “three-way satisfaction” philosophy: good for the seller, good for the buyer, and good for society. We go beyond the conventional idea of “a box” and design original corrugated packaging that matches the needs of the times. Backed by Daiko Paper Industries’ 50 years of experience, we use domestically produced paper and corrugated board with a recycled content of over 90%.",
+        "We provide house cleaning, housekeeping and home-organizing services mainly in Osaka and Hyogo. From kitchens and bathrooms to living rooms and regular plans, we propose services that fit your household and needs without overburdening you.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Company profile`,
-      heroAreas: "Kadoma, Osaka (Japan)",
+      heroTitle: `${site.name} ─ Locations`,
+      heroAreas: "Osaka & Hyogo",
       heroLead:
-        "D.s.Lab (Daiko Paper Industries) plans and manufactures original corrugated boxes and packaging materials.",
+        "We offer house cleaning, housekeeping and home-organizing services.",
       heroTail:
-        "From small lots to mass production, we flexibly respond to your packaging needs.",
-      heroIntroLine:
-        "Based in Kadoma City, Osaka, D.s.Lab ships original corrugated boxes and packaging materials across Japan.",
+        "Check service areas and details for each location from this page.",
+      heroIntroLine: `${site.name} offers house cleaning, housekeeping and organizing services mainly across Osaka and Hyogo.`,
     },
     areasLocal: {
-      h1: "Original corrugated boxes & packaging from Kadoma, Osaka",
-      lead: "From our factory in Kadoma City, Osaka, we serve manufacturers, EC operators and retailers throughout Japan.",
+      h1: "Housekeeping & house cleaning in Higashiyodogawa, Osaka",
+      lead: "We cover all of Higashiyodogawa Ward, including Awaji, Kamishinjo, Daido-Toyosato, Itakano, Kunijima and more.",
       services: [
         {
-          title: "Custom corrugated box design",
+          title: "Housekeeping (one-off / regular)",
           bullets: [
-            "Optimized structure for your product size and weight",
-            "Gift boxes, shipping boxes and more tailored to each use case",
-            "Flexible support from small lots to large-scale production",
+            "Cleaning, tidying, laundry and shopping assistance",
+            "Light watching over children or seniors (within housework)",
+            "Female staff can be requested",
           ],
         },
         {
-          title: "Eco-friendly packaging proposals",
+          title: "House cleaning",
           bullets: [
-            "Corrugated board with over 90% recycled content",
-            "Domestically produced paper for stable quality",
-            "Packaging design that avoids over-wrapping",
+            "Wet areas (kitchen, bathroom, washstand, toilet)",
+            "Air conditioner cleaning",
+            "Move-in / move-out & vacant-room cleaning",
           ],
         },
       ],
-      coverageTitle: "Service coverage",
+      coverageTitle: "Service area (Higashiyodogawa Ward)",
       coverageBody:
-        "We are based in Kadoma, Osaka, and can ship nationwide within Japan.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Otori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo and surrounding areas.",
       faq: [
         {
-          q: "What is the minimum order quantity?",
-          a: "It depends on size and specifications, but we can also consider small-lot orders. Please contact us for details.",
+          q: "Can I make a same-day booking in Higashiyodogawa?",
+          a: "Depending on availability that day, same-day bookings may be possible. Please contact us first.",
         },
         {
-          q: "What is the typical lead time?",
-          a: "Lead time varies depending on the spec and quantity, but a few weeks after order is a general guideline.",
+          q: "Do you accept key-keeping so you can clean while I am away?",
+          a: "Yes. After confirming the conditions, we safely keep your key and clean while you are away according to our key-management rules.",
         },
         {
-          q: "Can you provide samples?",
-          a: "Yes. We can create samples so you can check the shape and strength before mass production.",
+          q: "Can I add extra tasks on the day?",
+          a: "If there is room in the schedule, we will respond as flexibly as possible. Please feel free to ask the staff.",
         },
         {
-          q: "Do you offer eco-friendly materials?",
-          a: "We use domestically produced paper and corrugated board with a recycled content ratio of over 90%. Please contact us for detailed specs.",
+          q: "Is it possible to use the service without being at home?",
+          a: "As long as we agree in advance on how to keep and manage your key, cleaning without you at home is possible.",
         },
       ],
       contactTitle: "Contact",
       contactText:
-        "For quotations or specification consultations, please feel free to contact us via the inquiry form.",
-      toProductsText: "Back to products",
+        "To check availability or request a quote, feel free to contact us via LINE or the inquiry form.",
+      toProductsText: "Back to the top page",
     },
   },
 
@@ -356,60 +356,61 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab 以日本传统的“三方共赢”（卖方好、买方好、社会好）精神为理念，提供纸箱与包装解决方案。通过灵活的设计思维突破【箱子】的既定概念，根据时代需求提出原创纸箱方案。依托拥有 50 年历史的大光纸工，全部采用日本国内生产的原纸，制造再生率 90％ 以上的瓦楞纸箱，向您提供“Made in Japan”的精细品质。",
+        "本店主要在大阪府和兵库县提供家政清洁、家务代办和收纳整理服务。从厨房、浴室等水区到客厅的深度清洁，以及定期服务，根据您家庭的情况和需求提供适合、易于长期持续的方案。",
     },
     stores: {
-      heroTitle: `${site.name} ─ 公司简介`,
-      heroAreas: "日本・大阪府门真市",
-      heroLead: "提供原创瓦楞纸箱与包装材料的企划与生产。",
-      heroTail: "从小批量试制到大批量量产，均可灵活对应您的包装需求。",
-      heroIntroLine:
-        "D.s.Lab 以大阪府门真市工厂为基地，向日本全国提供原创纸箱及包装材料。",
+      heroTitle: `${site.name} ─ 门店一览`,
+      heroAreas: "大阪府・兵库县",
+      heroLead: "提供家政清洁、家务代办、收纳整理等服务。",
+      heroTail: "各门店的服务范围与详细信息请在本页面查看。",
+      heroIntroLine: `${site.name} 以大阪府和兵库县为中心，提供家政清洁、家务代办与收纳整理服务。`,
     },
     areasLocal: {
-      h1: "来自大阪门真市的原创纸箱与包装方案",
-      lead: "从大阪府门真市北岸和田的工厂出货，为制造业、电商与零售业客户提供服务。",
+      h1: "大阪市东淀川区的家政服务与家居清洁",
+      lead: "覆盖淡路、上新庄、大道丰里、井高野、柴岛等东淀川区全域。",
       services: [
         {
-          title: "原创纸箱设计",
+          title: "家务代办（单次／定期）",
           bullets: [
-            "根据商品尺寸与重量进行结构设计",
-            "礼盒、网购配送箱等多用途设计",
-            "支持小批量到大批量生产",
+            "打扫、整理、洗衣、代购等日常家务",
+            "在家务范围内照看儿童／老人",
+            "可指定女性工作人员",
           ],
         },
         {
-          title: "环保型包装提案",
+          title: "家居清洁",
           bullets: [
-            "使用再生率 90％ 以上的瓦楞纸板",
-            "采用日本国内生产的原纸，品质稳定",
-            "减少过度包装的环保设计建议",
+            "厨房、浴室、洗手台、卫生间等水区清洁",
+            "空调清洗",
+            "搬家前后／空房的整体清洁",
           ],
         },
       ],
-      coverageTitle: "服务范围",
-      coverageBody: "以大阪府门真市为基地，可向日本全国发货。",
+      coverageTitle: "服务范围（东淀川区）",
+      coverageBody:
+        "淡路、东淡路、菅原、丰新、上新庄、瑞光、小松、南江口、北江口、井高野、大桐、大隅、丰里、大道南、柴岛、下新庄等地区。",
       faq: [
         {
-          q: "最低订购量是多少？",
-          a: "视尺寸与规格而定，小批量亦可商议，请先与我们联系。",
+          q: "在东淀川区可以当天预约吗？",
+          a: "视当日空档情况而定，有时可以当天安排。请先与我们联系确认。",
         },
         {
-          q: "交货周期大约需要多久？",
-          a: "根据规格与数量不同，一般从下单到出货约需数周时间，紧急情况也欢迎咨询。",
+          q: "可以把钥匙交给你们，在我不在家的时候打扫吗？",
+          a: "在事先确认条件并约定钥匙管理规则的前提下，可以代为保管钥匙并在您不在家时进行清洁。",
         },
         {
-          q: "是否可以先制作样品？",
-          a: "可以，我们可在量产前制作样品，以便确认形状与强度。",
+          q: "当天临时增加项目可以吗？",
+          a: "若当日行程允许，我们会尽量灵活应对。请直接与工作人员沟通。",
         },
         {
-          q: "可以选择环保材料吗？",
-          a: "我们使用国内生产的再生原纸，瓦楞纸板再生率 90％ 以上。详细规格欢迎垂询。",
+          q: "不在家的情况下也能提供服务吗？",
+          a: "只要事前就钥匙保管与管理方式达成一致，我们可以在您不在家时完成清洁。",
         },
       ],
       contactTitle: "联系我们",
-      contactText: "报价与规格咨询，欢迎通过网站表单与我们联系。",
-      toProductsText: "返回商品一览",
+      contactText:
+        "如需确认预约情况或索取报价，欢迎通过 LINE 或网站表单与我们联系。",
+      toProductsText: "返回首页",
     },
   },
 
@@ -418,60 +419,61 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab 以日本傳統的「三方皆利」（賣方好、買方好、社會好）為理念，提供紙箱與包裝解決方案。以靈活的設計思維打破【紙箱】的既有框架，依照時代需求提出原創紙箱方案。依托擁有 50 年歷史的大光紙工，全部採用日本國產原紙，製造再生率 90％ 以上的瓦楞紙箱，將「Made in Japan」的細緻品質帶給您。",
+        "本店主要在大阪府與兵庫縣提供居家清潔、家事代辦與收納整理服務。從廚房、浴室等濕區到客廳深度清潔，以及定期方案，我們會依照您的家庭狀況與需求，提供容易長期持續的服務計畫。",
     },
     stores: {
-      heroTitle: `${site.name} ─ 公司簡介`,
-      heroAreas: "日本・大阪府門真市",
-      heroLead: "提供原創瓦楞紙箱與包裝材料的企劃與製造。",
-      heroTail: "從小量試作到大量量產，皆可彈性因應您的包裝需求。",
-      heroIntroLine:
-        "D.s.Lab 以大阪府門真市的工廠為據點，向日本全國提供原創紙箱與包裝材料。",
+      heroTitle: `${site.name} ─ 店鋪一覽`,
+      heroAreas: "大阪府・兵庫縣",
+      heroLead: "提供居家清潔、家事代辦與收納整理服務。",
+      heroTail: "各店鋪的服務範圍與詳細資訊，請在本頁面查看。",
+      heroIntroLine: `${site.name} 以大阪府與兵庫縣為中心，提供居家清潔、家事代辦與收納整理服務。`,
     },
     areasLocal: {
-      h1: "來自大阪門真市的原創紙箱與包裝方案",
-      lead: "從大阪府門真市北岸和田的工廠出貨，服務製造業、電商與零售業等客戶。",
+      h1: "大阪東淀川區的家事代辦與居家清潔",
+      lead: "涵蓋淡路、上新莊、大道豐里、井高野、柴島等東淀川區全區。",
       services: [
         {
-          title: "原創紙箱設計",
+          title: "家事代辦（單次／定期）",
           bullets: [
-            "依商品尺寸與重量進行最佳化結構設計",
-            "禮盒、宅配箱等多種用途設計",
-            "支援小量到大量生產",
+            "打掃、整理、洗衣、代購等日常家務",
+            "在家事範圍內照顧小孩／長者",
+            "可指名女性工作人員",
           ],
         },
         {
-          title: "環保包裝提案",
+          title: "居家清潔",
           bullets: [
-            "使用再生率 90％ 以上的瓦楞紙板",
-            "採用日本國產原紙，品質穩定",
-            "抑制過度包裝的環保設計建議",
+            "水區（廚房、浴室、洗手台、廁所）清潔",
+            "冷氣清洗",
+            "搬家前後／空屋的整體清潔",
           ],
         },
       ],
-      coverageTitle: "服務範圍",
-      coverageBody: "以大阪府門真市為據點，可出貨至日本全國。",
+      coverageTitle: "服務範圍（東淀川區）",
+      coverageBody:
+        "淡路、東淡路、菅原、豐新、上新莊、瑞光、小松、南江口、北江口、井高野、大桐、大隅、豐里、大道南、柴島、下新莊等地區。",
       faq: [
         {
-          q: "最低訂購量是多少？",
-          a: "會依尺寸與規格有所不同，小量訂單亦可商議，歡迎先與我們聯絡。",
+          q: "在東淀川區可以當天預約嗎？",
+          a: "視當天空檔情況而定，有時可提供當日服務。請先與我們聯繫確認。",
         },
         {
-          q: "交期大約多久？",
-          a: "依規格與數量而定，一般自下單起約需數週，如有急件也請與我們討論。",
+          q: "可以把鑰匙交給你們，在我不在家時打掃嗎？",
+          a: "在事前確認條件並約定鑰匙管理方式後，可以代為保管鑰匙並於您不在家時完成清潔。",
         },
         {
-          q: "可以先做樣品嗎？",
-          a: "可以，我們可於量產前製作樣品，供您確認外型與強度。",
+          q: "當天臨時追加服務可以嗎？",
+          a: "若當天行程許可，我們會盡量彈性配合。請與工作人員直接溝通。",
         },
         {
-          q: "有環保材質可以選擇嗎？",
-          a: "本公司使用國產再生原紙，瓦楞紙板再生率 90％ 以上。詳細規格歡迎洽詢。",
+          q: "人不在家也可以使用服務嗎？",
+          a: "只要事前就鑰匙保管與管理方式達成共識，我們可以於您不在家時提供清潔服務。",
         },
       ],
       contactTitle: "聯絡我們",
-      contactText: "如需報價或規格諮詢，歡迎透過網站表單與我們聯絡。",
-      toProductsText: "回到商品一覽",
+      contactText:
+        "如需確認預約情況或索取報價，歡迎透過 LINE 或網站表單與我們聯繫。",
+      toProductsText: "回到首頁",
     },
   },
 
@@ -480,64 +482,62 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab 는 ‘판매자에게 좋고, 구매자에게 좋고, 사회에도 좋은’ 삼방선(三方善) 정신을 바탕으로 운영되는 골판지·포장 재료 브랜드입니다. 단순한 ‘박스’의 개념을 넘어 시대의 니즈에 맞춘 오리지널 골판지 포장을 제안합니다. 50년 역사를 지닌 다이코(大光) 제지의 노하우와 일본 국내 생산 원지를 사용하여, 재생 비율 90% 이상인 골판지를 통해 ‘Made in Japan’의 세심한 품질을 제공합니다.",
+        "저희는 오사카와 효고 지역을 중심으로 하우스 클리닝, 가사 대행, 정리 수납 서비스를 제공합니다. 주방과 욕실 등 물 사용이 많은 공간부터 거실 청소, 정기 플랜까지 가정의 상황과 요구에 맞춘 부담 없는 플랜을 제안합니다.",
     },
     stores: {
-      heroTitle: `${site.name} ─ 회사 소개`,
-      heroAreas: "일본 오사카부 가도마시",
-      heroLead:
-        "오리지널 골판지 박스와 포장 자재를 기획·제조하는 D.s.Lab(다이코 제지).",
+      heroTitle: `${site.name} ─ 지점 목록`,
+      heroAreas: "오사카・효고",
+      heroLead: "하우스 클리닝, 가사 대행, 정리 수납 서비스를 제공합니다.",
       heroTail:
-        "소량 샘플부터 대량 생산까지, 고객의 용도에 맞춰 유연하게 대응합니다.",
-      heroIntroLine:
-        "D.s.Lab은 오사카부 가도마시에 위치한 공장에서 일본 전역의 고객에게 오리지널 골판지·포장 자재를 공급하고 있습니다.",
+        "각 지점의 서비스 가능 지역과 자세한 정보는 이 페이지에서 확인하실 수 있습니다.",
+      heroIntroLine: `${site.name}는 오사카와 효고를 중심으로 하우스 클리닝과 가사 대행, 정리 수납 서비스를 제공하고 있습니다.`,
     },
     areasLocal: {
-      h1: "오사카 가도마시에서 출고되는 오리지널 골판지·포장 자재",
-      lead: "오사카부 가도마시 기타키시와다 공장을 거점으로 제조업, EC 사업자, 소매업 고객에게 제품을 제공합니다.",
+      h1: "오사카 히가시요도가와구의 가사 대행・하우스 클리닝",
+      lead: "아와지, 가미신조, 다이도토요사토, 이타카노, 쿠니지마 등 히가시요도가와구 전역을 커버합니다.",
       services: [
         {
-          title: "맞춤형 골판지 설계",
+          title: "가사 대행 (단발 / 정기)",
           bullets: [
-            "상품 크기와 중량에 최적화된 구조 설계",
-            "선물용, 택배용 등 용도별 박스 디자인",
-            "소량 주문부터 대량 생산까지 대응",
+            "청소, 정리정돈, 세탁, 장보기 대행",
+            "아이/노인 돌봄 (가사 범위 내)",
+            "여성 스태프 지정 가능",
           ],
         },
         {
-          title: "친환경 포장 제안",
+          title: "하우스 클리닝",
           bullets: [
-            "재생 비율 90% 이상의 골판지 사용",
-            "국내 생산 원지를 사용한 안정적인 품질",
-            "과대 포장을 줄이는 설계 제안",
+            "주방, 욕실, 세면대, 화장실 등 물 사용 공간",
+            "에어컨 청소",
+            "이사 전후 / 공실 청소",
           ],
         },
       ],
-      coverageTitle: "대응 지역",
+      coverageTitle: "서비스 지역 (히가시요도가와구)",
       coverageBody:
-        "오사카부 가도마시를 거점으로, 간사이 지역은 물론 일본 전국 발송에 대응합니다.",
+        "아와지, 히가시아와지, 스가하라, 토요신, 가미신조, 즈이코, 코마츠, 미나미에구치, 키타에구치, 이타카노, 오오도리, 오오스미, 토요사토, 다이도미나미, 쿠니지마, 시모신조 등",
       faq: [
         {
-          q: "최소 주문 수량(MOQ)은 어느 정도인가요?",
-          a: "사이즈와 사양에 따라 다르지만, 소량 상담도 가능하니 먼저 문의해 주세요.",
+          q: "히가시요도가와구에서 당일 예약이 가능한가요?",
+          a: "당일 스케줄 상황에 따라 가능한 경우가 있습니다. 먼저 문의해 주세요.",
         },
         {
-          q: "납기 일정은 어떻게 되나요?",
-          a: "사양·수량에 따라 다르지만, 일반적으로 주문 후 수주(數週)를 기준으로 생각해 주시면 됩니다.",
+          q: "집 열쇠를 맡기고 부재 중에 청소를 맡길 수 있나요?",
+          a: "조건을 확인한 뒤, 열쇠 관리 규정에 따라 안전하게 보관하고 부재 중 청소를 진행할 수 있습니다.",
         },
         {
-          q: "샘플 제작이 가능한가요?",
-          a: "가능합니다. 양산 전에 형태와 강도를 확인하실 수 있도록 샘플을 제작해 드립니다.",
+          q: "당일에 추가로 부탁해도 되나요?",
+          a: "당일 일정에 여유가 있다면 최대한 유연하게 대응해 드립니다. 스태프에게 편하게 말씀해 주세요.",
         },
         {
-          q: "환경을 고려한 소재 선택이 가능한가요?",
-          a: "국내 생산 재생 원지를 사용하여 재생 비율 90% 이상의 골판지를 사용하고 있습니다. 자세한 사양은 문의해 주세요.",
+          q: "집에 없을 때도 서비스를 이용할 수 있나요?",
+          a: "사전에 열쇠 보관 및 관리 방법에 대해 합의한 경우, 고객님이 부재 중일 때도 청소가 가능합니다.",
         },
       ],
       contactTitle: "문의하기",
       contactText:
-        "견적 및 사양 상담은 문의 양식을 통해 언제든지 연락해 주세요.",
-      toProductsText: "상품 목록으로",
+        "예약 가능 여부 확인 및 견적 문의는 LINE 또는 문의 폼을 통해 편하게 연락해 주세요.",
+      toProductsText: "맨 위 페이지로",
     },
   },
 
@@ -546,64 +546,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab est une marque de boîtes en carton ondulé et de solutions d’emballage guidée par la philosophie japonaise « gagnant pour le vendeur, gagnant pour l’acheteur, gagnant pour la société ». Nous allons au-delà de la notion classique de « boîte » en proposant des emballages originaux adaptés aux besoins de chaque époque. Forte de 50 ans d’expérience, Daiko Paper Industries utilise des papiers produits au Japon et un carton ondulé contenant plus de 90 % de fibres recyclées, afin d’offrir la qualité « Made in Japan ». ",
+        "Nous proposons des services de ménage, d’aide à domicile et d’organisation principalement dans les préfectures d’Osaka et de Hyogo. De la cuisine et de la salle de bain au salon, ainsi que des formules régulières, nous vous proposons un service adapté à votre foyer et à vos besoins.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Présentation de l’entreprise`,
-      heroAreas: "Kadoma, préfecture d’Osaka (Japon)",
+      heroTitle: `${site.name} ─ Liste des agences`,
+      heroAreas: "Préfectures d’Osaka et de Hyogo",
       heroLead:
-        "Conception et fabrication de boîtes en carton ondulé et de matériaux d’emballage sur mesure.",
+        "Nous proposons des services de ménage, d’aide à domicile et d’organisation.",
       heroTail:
-        "Du petit lot d’essai à la grande série, nous nous adaptons avec souplesse à vos besoins en emballage.",
-      heroIntroLine:
-        "Depuis notre usine située à Kadoma (Osaka), D.s.Lab fournit des boîtes en carton ondulé et des solutions d’emballage à l’ensemble du Japon.",
+        "Vous pouvez consulter ici les zones desservies et les informations détaillées de chaque agence.",
+      heroIntroLine: `${site.name} propose des services de ménage, d’aide à domicile et d’organisation principalement dans les préfectures d’Osaka et de Hyogo.`,
     },
     areasLocal: {
-      h1: "Boîtes en carton ondulé et emballages sur mesure depuis Kadoma (Osaka)",
-      lead: "Notre usine de Kadoma fournit fabricants, boutiques en ligne et commerces de détail dans tout le Japon.",
+      h1: "Aide ménagère et ménage à Higashiyodogawa (Osaka)",
+      lead: "Nous intervenons dans tout l’arrondissement de Higashiyodogawa : Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima, etc.",
       services: [
         {
-          title: "Conception de boîtes personnalisées",
+          title: "Aide à domicile (ponctuelle / régulière)",
           bullets: [
-            "Structure optimisée selon la taille et le poids de vos produits",
-            "Boîtes cadeau, boîtes d’expédition et autres solutions adaptées à chaque usage",
-            "Souplesse du petit lot à la grande série",
+            "Ménage, rangement, lessive, courses",
+            "Surveillance légère des enfants ou des personnes âgées (dans le cadre des tâches ménagères)",
+            "Possibilité de demander une intervenante",
           ],
         },
         {
-          title: "Propositions d’emballages écoresponsables",
+          title: "Ménage de la maison",
           bullets: [
-            "Carton ondulé avec plus de 90 % de fibres recyclées",
-            "Papiers produits au Japon pour une qualité stable",
-            "Conception visant à réduire le suremballage",
+            "Pièces d’eau (cuisine, salle de bain, lavabo, toilettes)",
+            "Nettoyage de climatiseurs",
+            "Nettoyage avant/après déménagement et logements vides",
           ],
         },
       ],
-      coverageTitle: "Zone de couverture",
+      coverageTitle: "Zone d’intervention (Higashiyodogawa)",
       coverageBody:
-        "Basés à Kadoma (Osaka), nous expédions nos produits dans tout le Japon.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo et environs.",
       faq: [
         {
-          q: "Quel est le minimum de commande ?",
-          a: "Il dépend de la taille et des spécifications, mais nous pouvons étudier les petites séries. N’hésitez pas à nous consulter.",
+          q: "Est-il possible de réserver pour le jour même à Higashiyodogawa ?",
+          a: "En fonction des disponibilités, une réservation le jour même peut être possible. Merci de nous contacter au préalable.",
         },
         {
-          q: "Quel est le délai moyen de livraison ?",
-          a: "Selon la spécification et la quantité, comptez généralement quelques semaines après la commande.",
+          q: "Puis-je vous confier mes clés pour un ménage en mon absence ?",
+          a: "Oui, après validation des conditions, nous gérons les clés de manière sécurisée et intervenons en votre absence.",
         },
         {
-          q: "Pouvez-vous fournir des échantillons ?",
-          a: "Oui, nous pouvons produire des échantillons pour vérifier la forme et la résistance avant la production en série.",
+          q: "Puis-je demander des tâches supplémentaires le jour même ?",
+          a: "Si le planning le permet, nous ferons notre possible pour répondre à votre demande. Merci de vous adresser à l’intervenant.",
         },
         {
-          q: "Proposez-vous des matériaux respectueux de l’environnement ?",
-          a: "Nous utilisons des papiers produits au Japon et un carton ondulé avec un taux de fibres recyclées supérieur à 90 %. Pour plus de détails, contactez-nous.",
+          q: "Puis-je bénéficier du service sans être présent(e) au domicile ?",
+          a: "Oui, si nous avons convenu à l’avance des modalités de garde et de gestion des clés.",
         },
       ],
       contactTitle: "Contact",
       contactText:
-        "Pour toute demande de devis ou d’étude de projet, contactez-nous via le formulaire en ligne.",
-      toProductsText: "Retour à la liste des produits",
+        "Pour vérifier nos disponibilités ou demander un devis, contactez-nous via LINE ou le formulaire de contact.",
+      toProductsText: "Retour à la page d’accueil",
     },
   },
 
@@ -612,64 +611,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab es una marca de cajas de cartón ondulado y soluciones de embalaje basada en la filosofía japonesa de «beneficio para el vendedor, beneficio para el comprador y beneficio para la sociedad». Vamos más allá del concepto tradicional de «caja» y diseñamos embalajes originales que responden a las necesidades de cada época. Con el respaldo de los 50 años de experiencia de Daiko Paper Industries, utilizamos papel producido en Japón y cartón ondulado con más de un 90 % de contenido reciclado.",
+        "Ofrecemos servicios de limpieza del hogar, ayuda doméstica y organización principalmente en las prefecturas de Osaka y Hyogo. Desde cocina y baño hasta el salón y planes periódicos, proponemos servicios que se adaptan a su hogar y necesidades.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Información de la empresa`,
-      heroAreas: "Kadoma, Osaka (Japón)",
+      heroTitle: `${site.name} ─ Lista de sedes`,
+      heroAreas: "Osaka y Hyogo",
       heroLead:
-        "Diseño y fabricación de cajas de cartón ondulado y materiales de embalaje a medida.",
+        "Prestamos servicios de limpieza del hogar, ayuda doméstica y organización.",
       heroTail:
-        "Desde pequeños lotes de prueba hasta grandes tiradas, nos adaptamos de forma flexible a sus necesidades de embalaje.",
-      heroIntroLine:
-        "Desde nuestra fábrica en Kadoma, Osaka, D.s.Lab suministra cajas de cartón y soluciones de embalaje originales a todo Japón.",
+        "Puede consultar aquí las zonas de servicio y la información detallada de cada sede.",
+      heroIntroLine: `${site.name} ofrece servicios de limpieza, ayuda doméstica y organización principalmente en Osaka y Hyogo.`,
     },
     areasLocal: {
-      h1: "Cajas de cartón ondulado y embalajes a medida desde Kadoma (Osaka)",
-      lead: "Desde la ciudad de Kadoma, atendemos a fabricantes, tiendas online y comercios minoristas de todo Japón.",
+      h1: "Ayuda doméstica y limpieza en Higashiyodogawa (Osaka)",
+      lead: "Damos servicio en todo el distrito de Higashiyodogawa: Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima y más.",
       services: [
         {
-          title: "Diseño de cajas personalizadas",
+          title: "Ayuda doméstica (puntual / periódica)",
           bullets: [
-            "Estructura optimizada según el tamaño y peso del producto",
-            "Cajas para regalo, envío y otros usos específicos",
-            "Flexibilidad desde pequeños lotes hasta grandes producciones",
+            "Limpieza, orden, lavado y compras",
+            "Supervisión ligera de niños o personas mayores (dentro de las tareas del hogar)",
+            "Posibilidad de solicitar personal femenino",
           ],
         },
         {
-          title: "Propuestas de embalaje ecológico",
+          title: "Limpieza del hogar",
           bullets: [
-            "Cartón ondulado con más de un 90 % de contenido reciclado",
-            "Papel producido en Japón para una calidad estable",
-            "Diseños que evitan el sobreembalaje",
+            "Zonas de agua (cocina, baño, lavabo, aseo)",
+            "Limpieza de aire acondicionado",
+            "Limpieza antes/después de mudanzas y viviendas vacías",
           ],
         },
       ],
-      coverageTitle: "Cobertura",
+      coverageTitle: "Zona de servicio (Higashiyodogawa)",
       coverageBody:
-        "Con base en Kadoma (Osaka), podemos enviar nuestros productos a cualquier punto de Japón.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo y alrededores.",
       faq: [
         {
-          q: "¿Cuál es la cantidad mínima de pedido?",
-          a: "Depende del tamaño y las especificaciones, pero también estudiamos pedidos de pequeñas cantidades. Consúltenos.",
+          q: "¿Es posible reservar para el mismo día en Higashiyodogawa?",
+          a: "Dependiendo de la disponibilidad, puede ser posible. Por favor, consúltenos primero.",
         },
         {
-          q: "¿Cuál es el plazo de entrega aproximado?",
-          a: "Según las especificaciones y la cantidad, el plazo estándar es de unas pocas semanas tras la realización del pedido.",
+          q: "¿Puedo dejarles mis llaves para que limpien cuando no estoy en casa?",
+          a: "Sí, tras acordar las condiciones, podemos custodiar sus llaves y limpiar en su ausencia siguiendo nuestras reglas de gestión de llaves.",
         },
         {
-          q: "¿Pueden suministrar muestras?",
-          a: "Sí, podemos fabricar muestras para comprobar la forma y la resistencia antes de la producción en serie.",
+          q: "¿Se pueden añadir tareas adicionales el mismo día?",
+          a: "Si el horario lo permite, intentaremos responder con flexibilidad. Hable con el personal en el momento.",
         },
         {
-          q: "¿Ofrecen materiales ecológicos?",
-          a: "Utilizamos papel de producción nacional y cartón ondulado con un contenido reciclado superior al 90 %. Para más detalles, póngase en contacto con nosotros.",
+          q: "¿Puedo utilizar el servicio sin estar presente en casa?",
+          a: "Sí, siempre que acordemos de antemano cómo guardar y gestionar las llaves.",
         },
       ],
       contactTitle: "Contacto",
       contactText:
-        "Para solicitudes de presupuesto o consultas sobre especificaciones, contáctenos a través del formulario de la web.",
-      toProductsText: "Volver a la lista de productos",
+        "Para comprobar la disponibilidad o solicitar un presupuesto, contáctenos por LINE o mediante el formulario de la web.",
+      toProductsText: "Volver a la página principal",
     },
   },
 
@@ -678,64 +676,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab ist eine Marke für Wellpappkartons und Verpackungslösungen, die sich an der japanischen Philosophie „gut für Verkäufer, gut für Käufer, gut für die Gesellschaft“ orientiert. Wir gehen über den klassischen Begriff der „Schachtel“ hinaus und entwickeln individuelle Verpackungen, die den Anforderungen unserer Zeit entsprechen. Mit 50 Jahren Erfahrung von Daiko Paper Industries setzen wir auf in Japan produzierte Papiere und Wellpappe mit einem Recyclinganteil von über 90 %. ",
+        "Wir bieten Haushaltsreinigung, Haushaltshilfe und Organisationsservice hauptsächlich in den Präfekturen Osaka und Hyogo an. Von Küche und Bad über das Wohnzimmer bis hin zu regelmäßigen Reinigungsplänen erstellen wir ein Angebot, das zu Ihrem Haushalt und Ihren Bedürfnissen passt.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Unternehmensprofil`,
-      heroAreas: "Kadoma, Präfektur Osaka (Japan)",
+      heroTitle: `${site.name} ─ Standorte`,
+      heroAreas: "Osaka & Hyogo",
       heroLead:
-        "Planung und Herstellung von individuellen Wellpappkartons und Verpackungsmaterialien.",
+        "Wir bieten Haushaltsreinigung, Haushaltshilfe und Organisationsservice an.",
       heroTail:
-        "Vom kleinen Testlos bis zur Großserie reagieren wir flexibel auf Ihre Verpackungsanforderungen.",
-      heroIntroLine:
-        "Von unserem Werk in Kadoma (Osaka) beliefert D.s.Lab Kunden in ganz Japan mit individuellen Wellpappkartons und Verpackungslösungen.",
+        "Die Einsatzgebiete und Detailinformationen der einzelnen Standorte finden Sie auf dieser Seite.",
+      heroIntroLine: `${site.name} bietet hauptsächlich in Osaka und Hyogo Haushaltsreinigung, Haushaltshilfe und Organisationsservice an.`,
     },
     areasLocal: {
-      h1: "Individuelle Wellpappkartons und Verpackungen aus Kadoma (Osaka)",
-      lead: "Von Kadoma aus beliefern wir Hersteller, Onlinehändler und Einzelhändler in ganz Japan.",
+      h1: "Haushaltshilfe & Reinigung in Higashiyodogawa (Osaka)",
+      lead: "Wir bedienen den gesamten Bezirk Higashiyodogawa, darunter Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima u. a.",
       services: [
         {
-          title: "Individuelle Kartonkonstruktionen",
+          title: "Haushaltshilfe (einmalig / regelmäßig)",
           bullets: [
-            "Optimierte Konstruktion für Produktgröße und -gewicht",
-            "Geschenkverpackungen, Versandkartons und weitere Lösungen für verschiedene Anwendungen",
-            "Flexible Unterstützung von Klein- bis Großserien",
+            "Reinigung, Aufräumen, Wäsche, Einkäufe",
+            "Leichte Betreuung von Kindern oder Senioren (im Rahmen der Haushaltstätigkeiten)",
+            "Weibliche Mitarbeiterinnen auf Wunsch möglich",
           ],
         },
         {
-          title: "Umweltfreundliche Verpackungskonzepte",
+          title: "Haushaltsreinigung",
           bullets: [
-            "Wellpappe mit einem Recyclinganteil von über 90 %",
-            "In Japan produzierte Papiere für stabile Qualität",
-            "Verpackungsdesigns, die Überverpackung vermeiden",
+            "Nassbereiche (Küche, Bad, Waschbecken, WC)",
+            "Klimaanlagenreinigung",
+            "Reinigung vor/nach Umzügen sowie leerstehender Wohnungen",
           ],
         },
       ],
-      coverageTitle: "Einsatzgebiet",
+      coverageTitle: "Einsatzgebiet (Bezirk Higashiyodogawa)",
       coverageBody:
-        "Unser Standort in Kadoma (Osaka) ermöglicht den Versand in ganz Japan.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo und Umgebung.",
       faq: [
         {
-          q: "Wie hoch ist die Mindestbestellmenge?",
-          a: "Das hängt von Größe und Spezifikation ab, wir prüfen jedoch auch Kleinserien. Bitte kontaktieren Sie uns.",
+          q: "Ist eine Buchung am selben Tag in Higashiyodogawa möglich?",
+          a: "Je nach Verfügbarkeit am jeweiligen Tag kann eine Buchung am selben Tag möglich sein. Bitte kontaktieren Sie uns vorab.",
         },
         {
-          q: "Wie lang ist die übliche Lieferzeit?",
-          a: "Je nach Spezifikation und Menge beträgt sie in der Regel einige Wochen nach Auftragseingang.",
+          q: "Kann ich Ihnen meinen Schlüssel anvertrauen, damit Sie in meiner Abwesenheit reinigen?",
+          a: "Ja, nach Abstimmung der Bedingungen bewahren wir Ihren Schlüssel sicher auf und reinigen gemäß unseren Schlüsselmanagement-Regeln.",
         },
         {
-          q: "Können Muster bereitgestellt werden?",
-          a: "Ja, wir fertigen Muster an, damit Sie Form und Stabilität vor der Serienproduktion prüfen können.",
+          q: "Kann ich am selben Tag zusätzliche Arbeiten beauftragen?",
+          a: "Wenn der Zeitplan es erlaubt, reagieren wir so flexibel wie möglich. Sprechen Sie unsere Mitarbeiter einfach an.",
         },
         {
-          q: "Bieten Sie umweltfreundliche Materialien an?",
-          a: "Wir verwenden in Japan produzierte Papiere und Wellpappe mit einem Recyclinganteil von über 90 %. Für Details kontaktieren Sie uns bitte.",
+          q: "Kann der Service genutzt werden, wenn ich nicht zu Hause bin?",
+          a: "Ja, sofern wir im Voraus die Schlüsselaufbewahrung und -verwaltung vereinbart haben.",
         },
       ],
       contactTitle: "Kontakt",
       contactText:
-        "Für Angebotsanfragen oder technische Rückfragen kontaktieren Sie uns bitte über das Online-Formular.",
-      toProductsText: "Zur Produktübersicht",
+        "Zur Verfügbarkeitsprüfung oder Angebotsanfrage kontaktieren Sie uns gerne über LINE oder das Kontaktformular.",
+      toProductsText: "Zur Startseite",
     },
   },
 
@@ -744,64 +741,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "A D.s.Lab é uma marca de caixas de papelão ondulado e soluções de embalagens baseada na filosofia japonesa de “bom para quem vende, bom para quem compra e bom para a sociedade”. Vamos além do conceito tradicional de “caixa” e criamos embalagens originais que acompanham as necessidades do mercado. Com o apoio de 50 anos de experiência da Daiko Paper Industries, utilizamos papel produzido no Japão e papelão ondulado com mais de 90% de conteúdo reciclado.",
+        "Oferecemos serviços de limpeza residencial, assistência doméstica e organização principalmente nas províncias de Osaka e Hyogo. Da cozinha e do banheiro até a sala de estar, além de planos regulares, propomos serviços adequados ao seu lar e às suas necessidades.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Sobre a empresa`,
-      heroAreas: "Kadoma, Osaka (Japão)",
+      heroTitle: `${site.name} ─ Unidades`,
+      heroAreas: "Osaka e Hyogo",
       heroLead:
-        "Planejamento e fabricação de caixas de papelão ondulado e materiais de embalagem sob medida.",
+        "Prestamos serviços de limpeza residencial, assistência doméstica e organização.",
       heroTail:
-        "Do pequeno lote de teste à produção em grande escala, atendemos de forma flexível às suas necessidades de embalagem.",
-      heroIntroLine:
-        "A partir de nossa fábrica em Kadoma, Osaka, a D.s.Lab fornece caixas de papelão ondulado e soluções de embalagem originais para todo o Japão.",
+        "Você pode conferir aqui as áreas atendidas e as informações detalhadas de cada unidade.",
+      heroIntroLine: `${site.name} oferece serviços de limpeza, assistência doméstica e organização principalmente em Osaka e Hyogo.`,
     },
     areasLocal: {
-      h1: "Caixas de papelão ondulado e embalagens sob medida a partir de Kadoma (Osaka)",
-      lead: "Nossa fábrica em Kadoma atende fabricantes, lojas virtuais e varejistas em todo o Japão.",
+      h1: "Assistência doméstica e limpeza em Higashiyodogawa (Osaka)",
+      lead: "Atendemos todo o bairro de Higashiyodogawa, incluindo Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima e outros.",
       services: [
         {
-          title: "Design de caixas personalizadas",
+          title: "Assistência doméstica (avulsa / regular)",
           bullets: [
-            "Estrutura otimizada de acordo com o tamanho e o peso do produto",
-            "Caixas para presentes, envio e outras aplicações",
-            "Atendimento flexível de pequenos lotes a grandes produções",
+            "Limpeza, arrumação, lavagem de roupas e compras",
+            "Acompanhamento leve de crianças ou idosos (dentro das atividades domésticas)",
+            "Possibilidade de solicitar funcionária do sexo feminino",
           ],
         },
         {
-          title: "Propostas de embalagens ecológicas",
+          title: "Limpeza residencial",
           bullets: [
-            "Papelão ondulado com mais de 90% de conteúdo reciclado",
-            "Papéis produzidos no Japão para qualidade estável",
-            "Projetos que evitam o excesso de embalagem",
+            "Áreas molhadas (cozinha, banheiro, lavatório, toalete)",
+            "Limpeza de ar-condicionado",
+            "Limpeza antes/depois de mudança e de imóveis vazios",
           ],
         },
       ],
-      coverageTitle: "Abrangência",
+      coverageTitle: "Área de atendimento (Higashiyodogawa)",
       coverageBody:
-        "Com base em Kadoma (Osaka), enviamos nossos produtos para todo o Japão.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo e arredores.",
       faq: [
         {
-          q: "Qual é o pedido mínimo?",
-          a: "Depende do tamanho e da especificação, mas também avaliamos pequenos lotes. Entre em contato para mais detalhes.",
+          q: "É possível agendar para o mesmo dia em Higashiyodogawa?",
+          a: "Dependendo da disponibilidade, pode ser possível. Entre em contato conosco primeiro.",
         },
         {
-          q: "Qual é o prazo médio de entrega?",
-          a: "De acordo com a especificação e a quantidade, o prazo padrão é de algumas semanas após o pedido.",
+          q: "Posso deixar a chave com vocês para limparem quando eu não estiver em casa?",
+          a: "Sim, depois de combinarmos as condições, podemos guardar sua chave com segurança e limpar em sua ausência, seguindo nossas regras de gestão de chaves.",
         },
         {
-          q: "Vocês fornecem amostras?",
-          a: "Sim. Podemos produzir amostras para que você verifique o formato e a resistência antes da produção em série.",
+          q: "Posso pedir tarefas adicionais no próprio dia?",
+          a: "Se o horário permitir, faremos o possível para atender. Fale diretamente com o(a) profissional.",
         },
         {
-          q: "Vocês trabalham com materiais ecológicos?",
-          a: "Utilizamos papéis produzidos no Japão e papelão ondulado com conteúdo reciclado superior a 90%. Para detalhes, entre em contato.",
+          q: "É possível usar o serviço sem estar em casa?",
+          a: "Sim, desde que tenhamos combinado antecipadamente como a chave será guardada e gerida.",
         },
       ],
       contactTitle: "Fale conosco",
       contactText:
-        "Para orçamentos ou consultas técnicas, fale conosco pelo formulário do site.",
-      toProductsText: "Voltar à lista de produtos",
+        "Para verificar disponibilidade ou solicitar orçamento, fale conosco pelo LINE ou pelo formulário do site.",
+      toProductsText: "Voltar à página inicial",
     },
   },
 
@@ -810,64 +806,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab è un marchio di scatole in cartone ondulato e soluzioni di imballaggio ispirato alla filosofia giapponese del “triplo vantaggio”: buono per chi vende, buono per chi compra e buono per la società. Andiamo oltre il semplice concetto di “scatola” progettando imballaggi originali che rispondono alle esigenze del mercato. Forte di 50 anni di esperienza di Daiko Paper Industries, utilizziamo carta prodotta in Giappone e cartone ondulato con oltre il 90% di contenuto riciclato.",
+        "Offriamo servizi di pulizia domestica, assistenza in casa e organizzazione principalmente nelle prefetture di Osaka e Hyogo. Dalla cucina e dal bagno al soggiorno, fino ai piani di pulizia periodica, proponiamo servizi adatti alla vostra casa e alle vostre esigenze.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Profilo aziendale`,
-      heroAreas: "Kadoma, Osaka (Giappone)",
+      heroTitle: `${site.name} ─ Elenco sedi`,
+      heroAreas: "Osaka e Hyogo",
       heroLead:
-        "Progettazione e produzione di scatole in cartone ondulato e materiali di imballaggio su misura.",
+        "Forniamo servizi di pulizia domestica, assistenza e organizzazione.",
       heroTail:
-        "Dai piccoli lotti di prova alla produzione su larga scala, ci adattiamo in modo flessibile alle vostre esigenze.",
-      heroIntroLine:
-        "Dalla nostra fabbrica di Kadoma, Osaka, D.s.Lab fornisce scatole e soluzioni di imballaggio originali in tutto il Giappone.",
+        "In questa pagina potete verificare le aree di servizio e le informazioni dettagliate di ogni sede.",
+      heroIntroLine: `${site.name} offre servizi di pulizia, assistenza domestica e organizzazione principalmente nelle prefetture di Osaka e Hyogo.`,
     },
     areasLocal: {
-      h1: "Scatole in cartone ondulato e imballaggi su misura da Kadoma (Osaka)",
-      lead: "La nostra fabbrica a Kadoma serve produttori, operatori e-commerce e rivenditori in tutto il Giappone.",
+      h1: "Assistenza domestica e pulizie a Higashiyodogawa (Osaka)",
+      lead: "Serviamo l’intero distretto di Higashiyodogawa: Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima e altre zone.",
       services: [
         {
-          title: "Progettazione di scatole personalizzate",
+          title: "Assistenza domestica (singola / periodica)",
           bullets: [
-            "Struttura ottimizzata in base a dimensioni e peso del prodotto",
-            "Scatole regalo, da spedizione e altre applicazioni",
-            "Flessibilità dai piccoli lotti alle grandi tirature",
+            "Pulizia, riordino, bucato, spesa",
+            "Sorveglianza leggera di bambini o anziani (nell’ambito delle faccende domestiche)",
+            "Possibilità di richiedere personale femminile",
           ],
         },
         {
-          title: "Proposte di imballaggi ecosostenibili",
+          title: "Pulizia della casa",
           bullets: [
-            "Cartone ondulato con oltre il 90% di materiale riciclato",
-            "Carta prodotta in Giappone per una qualità costante",
-            "Progetti che riducono il sovra-imballaggio",
+            "Zone umide (cucina, bagno, lavabo, WC)",
+            "Pulizia dei climatizzatori",
+            "Pulizie prima/dopo il trasloco e di abitazioni vuote",
           ],
         },
       ],
-      coverageTitle: "Area di servizio",
+      coverageTitle: "Zona di servizio (Higashiyodogawa)",
       coverageBody:
-        "Con sede a Kadoma (Osaka), spediamo prodotti in tutto il Giappone.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo e dintorni.",
       faq: [
         {
-          q: "Qual è il quantitativo minimo d’ordine?",
-          a: "Dipende da dimensioni e specifiche, ma valutiamo anche piccoli lotti. Contattateci per maggiori dettagli.",
+          q: "È possibile una prenotazione nello stesso giorno a Higashiyodogawa?",
+          a: "A seconda della disponibilità, può essere possibile. Contattateci prima per confermare.",
         },
         {
-          q: "Quali sono i tempi medi di consegna?",
-          a: "In base a specifiche e quantità, generalmente alcune settimane dall’ordine.",
+          q: "Posso affidarvi le chiavi per effettuare le pulizie in mia assenza?",
+          a: "Sì, dopo aver concordato le condizioni, possiamo custodire le chiavi in sicurezza e pulire secondo le nostre regole di gestione delle chiavi.",
         },
         {
-          q: "Potete fornire dei campioni?",
-          a: "Sì, possiamo realizzare campioni per verificare forma e resistenza prima della produzione in serie.",
+          q: "Posso richiedere lavori aggiuntivi il giorno stesso?",
+          a: "Se il programma lo consente, cercheremo di essere il più flessibili possibile. Parlatene direttamente con il nostro personale.",
         },
         {
-          q: "Offrite materiali eco-compatibili?",
-          a: "Utilizziamo carta prodotta in Giappone e cartone ondulato con oltre il 90% di contenuto riciclato. Contattateci per i dettagli tecnici.",
+          q: "È possibile utilizzare il servizio senza essere presenti in casa?",
+          a: "Sì, purché si sia concordato in anticipo come conservare e gestire le chiavi.",
         },
       ],
       contactTitle: "Contattaci",
       contactText:
-        "Per richieste di preventivo o consulenze tecniche, scrivici tramite il modulo del sito.",
-      toProductsText: "Torna all’elenco prodotti",
+        "Per verificare la disponibilità o richiedere un preventivo, contattaci tramite LINE o tramite il modulo sul sito.",
+      toProductsText: "Torna alla pagina iniziale",
     },
   },
 
@@ -876,64 +871,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab — это бренд гофрокартона и упаковочных решений, построенный на японской философии «выгода для продавца, выгода для покупателя, выгода для общества». Мы выходим за рамки привычного представления о «коробке», создавая оригинальные виды упаковки, соответствующие требованиям времени. Используя опыт компании Daiko Paper Industries, накопленный за 50 лет, мы применяем бумагу японского производства и гофрокартон с долей переработанного сырья более 90%.",
+        "Мы предлагаем услуги по уборке домов, помощь по хозяйству и организацию пространства в основном в префектурах Осака и Хёго. От кухни и ванной до гостиной и регулярных планов уборки — мы подбираем сервис, который подходит именно вашей семье и вашим потребностям.",
     },
     stores: {
-      heroTitle: `${site.name} ─ О компании`,
-      heroAreas: "Кадома, префектура Осака (Япония)",
+      heroTitle: `${site.name} ─ Список филиалов`,
+      heroAreas: "Префектуры Осака и Хёго",
       heroLead:
-        "Проектирование и производство индивидуальных гофрокартонных коробок и упаковочных материалов.",
+        "Мы предоставляем услуги по уборке дома, помощь по хозяйству и организацию пространства.",
       heroTail:
-        "От небольших пробных партий до крупносерийного производства — мы гибко подстраиваемся под ваши задачи.",
-      heroIntroLine:
-        "Из нашего завода в городе Кадома (Осака) D.s.Lab поставляет оригинальные коробки и упаковочные решения по всей Японии.",
+        "Здесь вы можете узнать зоны обслуживания и подробную информацию по каждому филиалу.",
+      heroIntroLine: `${site.name} оказывает услуги по уборке, помощи по хозяйству и организации пространства в основном в префектурах Осака и Хёго.`,
     },
     areasLocal: {
-      h1: "Индивидуальные коробки из гофрокартона и упаковка из Кадомы (Осака)",
-      lead: "Наш завод в Кадоме обслуживает производителей, интернет-магазины и розничные сети по всей Японии.",
+      h1: "Помощь по дому и уборка в районе Хигасийодогава (Осака)",
+      lead: "Мы работаем по всему району Хигасийодогава: Авадзи, Камисиндзё, Дайдо Тойосато, Итакано, Кунидзима и т. д.",
       services: [
         {
-          title: "Проектирование индивидуальных коробок",
+          title: "Помощь по хозяйству (разовая / регулярная)",
           bullets: [
-            "Оптимальная конструкция с учётом размеров и веса продукции",
-            "Подарочные коробки, транспортная упаковка и другие решения",
-            "Гибкая поддержка от малых до крупных партий",
+            "Уборка, наведение порядка, стирка, покупки",
+            "Лёгкий присмотр за детьми или пожилыми (в рамках домашних дел)",
+            "Возможность запросить сотрудницу-женщину",
           ],
         },
         {
-          title: "Экологичные варианты упаковки",
+          title: "Уборка дома",
           bullets: [
-            "Гофрокартон с долей переработанного сырья более 90 %",
-            "Бумага японского производства и стабильное качество",
-            "Конструкции, позволяющие избежать избыточной упаковки",
+            "Влажные зоны (кухня, ванная, умывальник, туалет)",
+            "Чистка кондиционеров",
+            "Уборка до/после переезда и уборка пустующих квартир",
           ],
         },
       ],
-      coverageTitle: "География поставок",
+      coverageTitle: "Зона обслуживания (район Хигасийодогава)",
       coverageBody:
-        "Базируясь в Кадоме (Осака), мы поставляем продукцию по всей территории Японии.",
+        "Авадзи, Хигаси-Авадзи, Сугавара, Тоёсин, Камисиндзё, Дзуйко, Комацу, Минами-Эгути, Кита-Эгути, Итакано, Одори, Осуми, Тоёсато, Дайдо-Минами, Кунидзима, Симосиндзё и окрестности.",
       faq: [
         {
-          q: "Каков минимальный объём заказа?",
-          a: "Он зависит от размера и характеристик изделия, но мы рассматриваем и небольшие партии. Пожалуйста, свяжитесь с нами для уточнения.",
+          q: "Можно ли оформить заказ в районе Хигасийодогава в тот же день?",
+          a: "В зависимости от загруженности это возможно. Пожалуйста, сначала свяжитесь с нами для уточнения.",
         },
         {
-          q: "Каковы ориентировочные сроки поставки?",
-          a: "В зависимости от характеристик и объёма заказа, обычно это несколько недель после оформления заказа.",
+          q: "Могу ли я передать вам ключи, чтобы вы убрали квартиру в моё отсутствие?",
+          a: "Да, после согласования условий мы безопасно храним ключи и проводим уборку согласно нашим правилам управления ключами.",
         },
         {
-          q: "Можно ли получить образцы?",
-          a: "Да, мы можем изготовить образцы для проверки формы и прочности до начала серийного производства.",
+          q: "Можно ли в день уборки добавить дополнительные работы?",
+          a: "Если позволяет расписание, мы постараемся пойти навстречу. Обсудите это с нашим сотрудником.",
         },
         {
-          q: "Предлагаете ли вы экологичные материалы?",
-          a: "Мы используем бумагу японского производства и гофрокартон с долей переработанного сырья более 90 %. Для подробностей свяжитесь с нами.",
+          q: "Можно ли воспользоваться услугами, если меня не будет дома?",
+          a: "Да, при условии, что мы заранее договорились о порядке хранения и использования ключей.",
         },
       ],
       contactTitle: "Связаться с нами",
       contactText:
-        "Для получения предложения или консультации по спецификациям воспользуйтесь формой обратной связи на сайте.",
-      toProductsText: "К списку продукции",
+        "Чтобы узнать о доступности или запросить стоимость услуг, свяжитесь с нами через LINE или форму на сайте.",
+      toProductsText: "Вернуться на главную страницу",
     },
   },
 
@@ -942,64 +936,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab เป็นแบรนด์กล่องกระดาษลูกฟูกและโซลูชันบรรจุภัณฑ์ที่ดำเนินธุรกิจด้วยแนวคิดญี่ปุ่นแบบ “สามฝ่ายได้ประโยชน์” คือ ดีต่อผู้ขาย ดีต่อผู้ซื้อ และดีต่อสังคม เราออกแบบบรรจุภัณฑ์ดั้งเดิมที่ก้าวข้ามกรอบคำว่า “กล่อง” ให้ตอบโจทย์ยุคสมัย โดยใช้ประสบการณ์กว่า 50 ปีของ Daiko Paper Industries และกระดาษที่ผลิตในญี่ปุ่นบนพื้นฐานกระดาษรีไซเคิลมากกว่า 90%.",
+        "เราให้บริการทำความสะอาดบ้าน แม่บ้าน และจัดระเบียบบ้านเป็นหลักในจังหวัดโอซาก้าและเฮียวโกะ ตั้งแต่ห้องครัว ห้องน้ำ ไปจนถึงห้องนั่งเล่น รวมถึงแพ็กเกจทำความสะอาดแบบรายครั้งและรายเดือนที่เหมาะกับบ้านและความต้องการของคุณ.",
     },
     stores: {
-      heroTitle: `${site.name} ─ ข้อมูลบริษัท`,
-      heroAreas: "เมืองคะโดะมะ จังหวัดโอซาก้า (ญี่ปุ่น)",
+      heroTitle: `${site.name} ─ รายชื่อสาขา`,
+      heroAreas: "โอซาก้าและเฮียวโกะ",
       heroLead:
-        "ออกแบบและผลิตกล่องกระดาษลูกฟูกและวัสดุบรรจุภัณฑ์ตามสั่ง.",
+        "ให้บริการทำความสะอาดบ้าน แม่บ้านช่วยงาน และจัดระเบียบบ้าน.",
       heroTail:
-        "รองรับตั้งแต่ล็อตทดลองจำนวนน้อยไปจนถึงการผลิตจำนวนมากอย่างยืดหยุ่นตามความต้องการ.",
-      heroIntroLine:
-        "จากโรงงานในเมืองคะโดะมะ จังหวัดโอซาก้า D.s.Lab จัดส่งกล่องกระดาษและโซลูชันบรรจุภัณฑ์ไปทั่วประเทศญี่ปุ่น.",
+        "คุณสามารถตรวจสอบพื้นที่ให้บริการและรายละเอียดของแต่ละสาขาได้จากหน้านี้.",
+      heroIntroLine: `${site.name} ให้บริการทำความสะอาดบ้าน แม่บ้าน และจัดระเบียบบ้านในพื้นที่โอซาก้าและเฮียวโกะ.`,
     },
     areasLocal: {
-      h1: "กล่องลูกฟูกและบรรจุภัณฑ์สั่งทำจากคะโดะมะ (โอซาก้า)",
-      lead: "โรงงานของเราที่คะโดะมะให้บริการผู้ผลิต ร้านค้าออนไลน์ และร้านค้าปลีกทั่วประเทศญี่ปุ่น.",
+      h1: "แม่บ้านและทำความสะอาดในเขตฮิกาชิโยโดกาวะ (โอซาก้า)",
+      lead: "ให้บริการครอบคลุมทั้งเขตฮิกาชิโยโดกาวะ เช่น Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima เป็นต้น",
       services: [
         {
-          title: "ออกแบบกล่องตามสั่ง",
+          title: "แม่บ้านช่วยงาน (รายครั้ง / รายเดือน)",
           bullets: [
-            "โครงสร้างกล่องที่เหมาะสมกับขนาดและน้ำหนักสินค้า",
-            "กล่องของขวัญ กล่องส่งของ และแบบอื่น ๆ ตามการใช้งาน",
-            "ยืดหยุ่นตั้งแต่ล็อตเล็กจนถึงการผลิตจำนวนมาก",
+            "ทำความสะอาด จัดของ ซักผ้า ซื้อของเข้าบ้าน",
+            "ช่วยดูแลเด็กและผู้สูงอายุในขอบเขตงานบ้าน",
+            "สามารถขอให้จัดส่งพนักงานผู้หญิงได้",
           ],
         },
         {
-          title: "ข้อเสนอด้านบรรจุภัณฑ์รักษ์สิ่งแวดล้อม",
+          title: "ทำความสะอาดบ้าน",
           bullets: [
-            "ใช้กระดาษลูกฟูกที่มีสัดส่วนรีไซเคิลมากกว่า 90%",
-            "ใช้กระดาษผลิตในญี่ปุ่นเพื่อคุณภาพที่มั่นคง",
-            "ออกแบบเพื่อลดการใช้บรรจุภัณฑ์เกินความจำเป็น",
+            "บริเวณที่เปียกน้ำ เช่น ห้องครัว ห้องน้ำ อ่างล้างหน้า ห้องสุขา",
+            "ทำความสะอาดเครื่องปรับอากาศ",
+            "ทำความสะอาดบ้านก่อน/หลังย้าย และห้องว่าง",
           ],
         },
       ],
-      coverageTitle: "พื้นที่ให้บริการ",
+      coverageTitle: "พื้นที่ให้บริการ (เขตฮิกาชิโยโดกาวะ)",
       coverageBody:
-        "มีฐานการผลิตที่คะโดะมะ (โอซาก้า) และสามารถจัดส่งสินค้าได้ทั่วประเทศญี่ปุ่น.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo และพื้นที่ใกล้เคียง",
       faq: [
         {
-          q: "ปริมาณสั่งซื้อขั้นต่ำเท่าไร?",
-          a: "ขึ้นอยู่กับขนาดและสเปกของกล่อง แต่สามารถพูดคุยเรื่องล็อตเล็กได้ โปรดติดต่อเรา.",
+          q: "สามารถจองงานวันเดียวกันในเขตฮิกาชิโยโดกาวะได้ไหม?",
+          a: "ขึ้นอยู่กับตารางงานในวันนั้น หากมีช่องว่างอาจทำได้ กรุณาติดต่อสอบถามก่อน.",
         },
         {
-          q: "ระยะเวลาจัดส่งโดยประมาณกี่วัน?",
-          a: "แล้วแต่สเปกและจำนวน โดยทั่วไปใช้เวลาหลังสั่งซื้อไม่กี่สัปดาห์ หากเร่งด่วนสามารถสอบถามเพิ่มเติมได้.",
+          q: "สามารถฝากกุญแจบ้านให้ไปทำความสะอาดตอนที่ไม่อยู่บ้านได้ไหม?",
+          a: "ได้ เมื่อได้ตกลงเงื่อนไขและวิธีการเก็บรักษากุญแจล่วงหน้า เราจะเก็บกุญแจอย่างปลอดภัยและเข้าไปทำความสะอาดตามกติกา.",
         },
         {
-          q: "สามารถทำตัวอย่างก่อนผลิตจริงได้หรือไม่?",
-          a: "ได้ เราสามารถทำตัวอย่างเพื่อให้ตรวจสอบรูปทรงและความแข็งแรงก่อนการผลิตจริง.",
+          q: "สามารถขอเพิ่มงานในวันทำความสะอาดได้ไหม?",
+          a: "ถ้าตารางเวลาว่างเพียงพอ เราจะพยายามช่วยให้ได้มากที่สุด กรุณาคุยกับพนักงานหน้างาน.",
         },
         {
-          q: "มีตัวเลือกวัสดุที่เป็นมิตรต่อสิ่งแวดล้อมหรือไม่?",
-          a: "เราใช้กระดาษที่ผลิตในญี่ปุ่นและกระดาษลูกฟูกที่มีสัดส่วนรีไซเคิลมากกว่า 90% หากต้องการข้อมูลรายละเอียด โปรดติดต่อเรา.",
+          q: "ใช้บริการได้ไหมถ้าไม่มีคนอยู่บ้าน?",
+          a: "ได้ หากได้ตกลงวิธีการเก็บและจัดการกุญแจล่วงหน้าแล้ว.",
         },
       ],
       contactTitle: "ติดต่อเรา",
       contactText:
-        "หากต้องการขอใบเสนอราคาหรือปรึกษาสเปกสินค้า กรุณาติดต่อผ่านแบบฟอร์มบนเว็บไซต์.",
-      toProductsText: "กลับไปยังหน้าสินค้า",
+        "หากต้องการตรวจสอบตารางว่างหรือขอใบเสนอราคา สามารถติดต่อผ่าน LINE หรือแบบฟอร์มบนเว็บไซต์ได้.",
+      toProductsText: "กลับไปหน้าหลัก",
     },
   },
 
@@ -1008,64 +1001,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab là thương hiệu hộp carton sóng và giải pháp bao bì được vận hành theo triết lý Nhật Bản “ba bên cùng có lợi”: tốt cho người bán, tốt cho người mua và tốt cho xã hội. Chúng tôi vượt qua khái niệm “chiếc hộp” thông thường để tạo ra các giải pháp bao bì độc đáo, phù hợp với xu hướng thời đại. Dựa trên 50 năm kinh nghiệm của Daiko Paper Industries, chúng tôi sử dụng giấy sản xuất tại Nhật và carton với tỷ lệ tái chế trên 90%.",
+        "Chúng tôi cung cấp dịch vụ vệ sinh nhà ở, giúp việc gia đình và sắp xếp nhà cửa chủ yếu tại Osaka và Hyogo. Từ nhà bếp, phòng tắm đến phòng khách và các gói vệ sinh định kỳ, chúng tôi đề xuất dịch vụ phù hợp với gia đình và nhu cầu của bạn.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Giới thiệu công ty`,
-      heroAreas: "Thành phố Kadoma, Osaka (Nhật Bản)",
+      heroTitle: `${site.name} ─ Danh sách cơ sở`,
+      heroAreas: "Osaka & Hyogo",
       heroLead:
-        "Thiết kế và sản xuất hộp carton sóng và vật liệu bao bì theo yêu cầu.",
+        "Cung cấp dịch vụ vệ sinh nhà ở, giúp việc gia đình và sắp xếp không gian.",
       heroTail:
-        "Từ lô thử nghiệm nhỏ đến sản xuất hàng loạt, chúng tôi linh hoạt đáp ứng mọi nhu cầu bao bì.",
-      heroIntroLine:
-        "Từ nhà máy tại Kadoma, Osaka, D.s.Lab cung cấp hộp carton và giải pháp bao bì độc đáo đến khắp Nhật Bản.",
+        "Bạn có thể xem khu vực phục vụ và thông tin chi tiết của từng cơ sở tại đây.",
+      heroIntroLine: `${site.name} cung cấp dịch vụ vệ sinh, giúp việc gia đình và sắp xếp nhà cửa chủ yếu tại Osaka và Hyogo.`,
     },
     areasLocal: {
-      h1: "Hộp carton sóng & bao bì theo yêu cầu từ Kadoma (Osaka)",
-      lead: "Nhà máy tại Kadoma phục vụ các nhà sản xuất, đơn vị thương mại điện tử và bán lẻ trên khắp Nhật Bản.",
+      h1: "Giúp việc gia đình và vệ sinh nhà ở tại quận Higashiyodogawa (Osaka)",
+      lead: "Phục vụ toàn bộ quận Higashiyodogawa, bao gồm Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima, v.v.",
       services: [
         {
-          title: "Thiết kế hộp theo yêu cầu",
+          title: "Giúp việc gia đình (lẻ / định kỳ)",
           bullets: [
-            "Kết cấu tối ưu theo kích thước và trọng lượng sản phẩm",
-            "Hộp quà tặng, hộp vận chuyển và nhiều kiểu dáng khác",
-            "Linh hoạt từ lô nhỏ đến sản xuất hàng loạt",
+            "Dọn dẹp, sắp xếp, giặt giũ, đi chợ",
+            "Trông chừng trẻ em hoặc người cao tuổi ở mức độ nhẹ (trong phạm vi công việc nhà)",
+            "Có thể yêu cầu nhân viên nữ",
           ],
         },
         {
-          title: "Giải pháp bao bì thân thiện môi trường",
+          title: "Vệ sinh nhà ở",
           bullets: [
-            "Carton sóng với tỷ lệ tái chế trên 90%",
-            "Giấy sản xuất tại Nhật cho chất lượng ổn định",
-            "Thiết kế giảm thiểu bao bì dư thừa",
+            "Khu vực ướt (bếp, phòng tắm, bồn rửa, nhà vệ sinh)",
+            "Vệ sinh điều hòa",
+            "Vệ sinh nhà trước/sau khi chuyển và nhà trống",
           ],
         },
       ],
-      coverageTitle: "Khu vực phục vụ",
+      coverageTitle: "Khu vực phục vụ (quận Higashiyodogawa)",
       coverageBody:
-        "Trụ sở tại Kadoma (Osaka) với khả năng giao hàng đi khắp Nhật Bản.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo và khu vực xung quanh.",
       faq: [
         {
-          q: "Số lượng đặt hàng tối thiểu là bao nhiêu?",
-          a: "Tùy thuộc kích thước và thông số, chúng tôi cũng cân nhắc các đơn hàng lô nhỏ. Hãy liên hệ để được tư vấn.",
+          q: "Có thể đặt dịch vụ trong ngày tại quận Higashiyodogawa không?",
+          a: "Tùy theo lịch làm việc ngày hôm đó, đôi khi có thể. Vui lòng liên hệ trước để kiểm tra.",
         },
         {
-          q: "Thời gian giao hàng dự kiến là bao lâu?",
-          a: "Theo thông số và số lượng, thông thường là vài tuần sau khi đặt hàng.",
+          q: "Tôi có thể giao chìa khóa để các bạn dọn nhà khi tôi vắng nhà không?",
+          a: "Được, sau khi thống nhất điều kiện, chúng tôi sẽ giữ chìa khóa an toàn và dọn dẹp theo quy định quản lý chìa khóa.",
         },
         {
-          q: "Có thể yêu cầu làm mẫu trước không?",
-          a: "Có. Chúng tôi có thể làm mẫu để bạn kiểm tra hình dáng và độ bền trước khi sản xuất hàng loạt.",
+          q: "Có thể yêu cầu thêm công việc ngay trong ngày không?",
+          a: "Nếu lịch làm việc cho phép, chúng tôi sẽ cố gắng hỗ trợ linh hoạt. Hãy trao đổi trực tiếp với nhân viên.",
         },
         {
-          q: "Có lựa chọn vật liệu thân thiện môi trường không?",
-          a: "Chúng tôi sử dụng giấy sản xuất tại Nhật và carton với tỷ lệ tái chế trên 90%. Vui lòng liên hệ để biết chi tiết.",
+          q: "Tôi có thể sử dụng dịch vụ khi không có nhà không?",
+          a: "Có, miễn là chúng ta đã thỏa thuận trước về cách giữ và quản lý chìa khóa.",
         },
       ],
       contactTitle: "Liên hệ",
       contactText:
-        "Để yêu cầu báo giá hoặc tư vấn kỹ thuật, vui lòng liên hệ qua biểu mẫu trên website.",
-      toProductsText: "Quay lại danh sách sản phẩm",
+        "Để kiểm tra lịch trống hoặc yêu cầu báo giá, hãy liên hệ qua LINE hoặc mẫu liên hệ trên website.",
+      toProductsText: "Quay lại trang chủ",
     },
   },
 
@@ -1074,64 +1066,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab adalah merek kotak karton bergelombang dan solusi kemasan yang dijalankan dengan filosofi Jepang “tiga pihak diuntungkan”: baik bagi penjual, baik bagi pembeli, dan baik bagi masyarakat. Kami melampaui konsep tradisional “kotak” dengan merancang kemasan orisinal yang mengikuti kebutuhan zaman. Berbekal pengalaman lebih dari 50 tahun Daiko Paper Industries, kami menggunakan kertas produksi Jepang dan karton bergelombang dengan kandungan daur ulang lebih dari 90%.",
+        "Kami menyediakan layanan pembersihan rumah, bantuan pekerjaan rumah tangga, dan penataan rumah terutama di wilayah Osaka dan Hyogo. Dari dapur dan kamar mandi hingga ruang keluarga serta paket pembersihan berkala, kami menawarkan layanan yang sesuai dengan kondisi dan kebutuhan rumah Anda.",
     },
     stores: {
-      heroTitle: `${site.name} ─ Profil perusahaan`,
-      heroAreas: "Kota Kadoma, Osaka (Jepang)",
+      heroTitle: `${site.name} ─ Daftar cabang`,
+      heroAreas: "Osaka & Hyogo",
       heroLead:
-        "Perencanaan dan produksi kotak karton bergelombang serta material kemasan sesuai pesanan.",
+        "Menyediakan layanan pembersihan rumah, bantuan rumah tangga, dan penataan rumah.",
       heroTail:
-        "Mulai dari lot percobaan kecil hingga produksi massal, kami merespons kebutuhan kemasan Anda secara fleksibel.",
-      heroIntroLine:
-        "Dari pabrik kami di Kadoma, Osaka, D.s.Lab memasok kotak karton dan solusi kemasan orisinal ke seluruh Jepang.",
+        "Anda dapat melihat area layanan dan informasi detail setiap cabang di halaman ini.",
+      heroIntroLine: `${site.name} menawarkan layanan pembersihan rumah, bantuan rumah tangga, dan penataan rumah terutama di wilayah Osaka dan Hyogo.`,
     },
     areasLocal: {
-      h1: "Kotak karton bergelombang & kemasan custom dari Kadoma (Osaka)",
-      lead: "Pabrik kami di Kadoma melayani produsen, pelaku e-commerce, dan ritel di seluruh Jepang.",
+      h1: "Bantuan rumah tangga & pembersihan di Higashiyodogawa (Osaka)",
+      lead: "Kami melayani seluruh distrik Higashiyodogawa, termasuk Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima, dan sekitarnya.",
       services: [
         {
-          title: "Desain kotak custom",
+          title: "Bantuan rumah tangga (sekali / rutin)",
           bullets: [
-            "Struktur dioptimalkan sesuai ukuran dan berat produk",
-            "Kotak hadiah, kotak pengiriman, dan berbagai penggunaan lainnya",
-            "Fleksibel dari lot kecil hingga produksi besar",
+            "Membersihkan, merapikan, mencuci, dan belanja kebutuhan",
+            "Mengawasi anak atau lansia secara ringan (dalam lingkup pekerjaan rumah)",
+            "Dapat meminta petugas perempuan",
           ],
         },
         {
-          title: "Usulan kemasan ramah lingkungan",
+          title: "Pembersihan rumah",
           bullets: [
-            "Karton bergelombang dengan kandungan daur ulang lebih dari 90%",
-            "Kertas produksi Jepang dengan kualitas stabil",
-            "Desain yang mengurangi kemasan berlebihan",
+            "Area basah (dapur, kamar mandi, wastafel, toilet)",
+            "Pembersihan AC",
+            "Pembersihan rumah sebelum/sesudah pindahan dan rumah kosong",
           ],
         },
       ],
-      coverageTitle: "Area layanan",
+      coverageTitle: "Area layanan (distrik Higashiyodogawa)",
       coverageBody:
-        "Berbasis di Kadoma (Osaka) dengan pengiriman ke seluruh Jepang.",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo dan sekitarnya.",
       faq: [
         {
-          q: "Berapa jumlah pesanan minimum?",
-          a: "Tergantung ukuran dan spesifikasi. Kami juga dapat mempertimbangkan lot kecil, silakan hubungi kami.",
+          q: "Apakah bisa memesan layanan di hari yang sama di Higashiyodogawa?",
+          a: "Tergantung ketersediaan di hari tersebut, kadang-kadang bisa. Silakan hubungi kami terlebih dahulu.",
         },
         {
-          q: "Berapa perkiraan waktu produksi/pengiriman?",
-          a: "Bergantung spesifikasi dan kuantitas, umumnya beberapa minggu setelah pemesanan.",
+          q: "Bisakah saya menitipkan kunci rumah agar kalian membersihkan saat saya tidak di rumah?",
+          a: "Bisa. Setelah menyepakati syaratnya, kami akan menyimpan kunci dengan aman dan membersihkan sesuai aturan pengelolaan kunci kami.",
         },
         {
-          q: "Apakah bisa dibuatkan sampel terlebih dahulu?",
-          a: "Bisa. Kami dapat membuat sampel untuk mengecek bentuk dan kekuatan sebelum produksi massal.",
+          q: "Bisakah menambah pekerjaan tambahan di hari yang sama?",
+          a: "Jika jadwal memungkinkan, kami akan berusaha memberikan respon yang fleksibel. Silakan bicarakan langsung dengan petugas.",
         },
         {
-          q: "Apakah tersedia material yang ramah lingkungan?",
-          a: "Kami menggunakan kertas produksi Jepang dan karton bergelombang dengan kandungan daur ulang > 90%. Untuk detail, silakan hubungi kami.",
+          q: "Apakah bisa menggunakan layanan jika saya tidak berada di rumah?",
+          a: "Bisa, selama sebelumnya sudah disepakati cara penyimpanan dan pengelolaan kunci.",
         },
       ],
       contactTitle: "Hubungi kami",
       contactText:
-        "Untuk permintaan penawaran atau konsultasi spesifikasi, silakan hubungi kami melalui formulir di situs.",
-      toProductsText: "Kembali ke daftar produk",
+        "Untuk mengecek ketersediaan jadwal atau meminta penawaran harga, hubungi kami melalui LINE atau formulir di situs.",
+      toProductsText: "Kembali ke halaman utama",
     },
   },
 
@@ -1140,64 +1131,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "D.s.Lab एक गत्ते (कुर्रुगेटेड बॉक्स) और पैकेजिंग समाधान का ब्रांड है, जो जापानी ‘तीन-तरफ़ा लाभ’ की सोच पर आधारित है — बेचने वाले के लिए अच्छा, खरीदने वाले के लिए अच्छा और समाज के लिए अच्छा। हम सामान्य ‘डिब्बे’ की धारणा से आगे बढ़कर, समय की ज़रूरतों के अनुरूप मौलिक पैकेजिंग डिज़ाइन करते हैं। Daiko Paper Industries के 50 वर्षों के अनुभव के साथ, हम जापान में निर्मित कागज़ और 90% से अधिक रीसायकल सामग्री वाले गत्ते का उपयोग करते हैं।",
+        "हम मुख्य रूप से ओसाका और ह्योगो क्षेत्र में हाउस क्लीनिंग, होम हेल्प और व्यवस्थित करने की सेवा प्रदान करते हैं। किचन और बाथरूम से लेकर लिविंग रूम और नियमित क्लीनिंग प्लान तक, हम आपके घर और जरूरतों के अनुसार सेवा सुझाते हैं।",
     },
     stores: {
-      heroTitle: `${site.name} ─ कंपनी प्रोफ़ाइल`,
-      heroAreas: "कडोमा, ओसाका (जापान)",
+      heroTitle: `${site.name} ─ शाखाओं की सूची`,
+      heroAreas: "ओसाका और ह्योगो",
       heroLead:
-        "ऑर्डर के अनुसार कुर्रुगेटेड बॉक्स और पैकेजिंग मटेरियल की डिज़ाइन व मैन्युफैक्चरिंग।",
+        "हम हाउस क्लीनिंग, होम हेल्प और घर व्यवस्थित करने की सेवाएँ प्रदान करते हैं।",
       heroTail:
-        "छोटे ट्रायल लॉट से लेकर बड़े पैमाने की उत्पादन तक, हम आपकी पैकेजिंग ज़रूरतों के अनुसार लचीलापन दिखाते हैं।",
-      heroIntroLine:
-        "कडोमा (ओसाका) स्थित हमारे प्लांट से D.s.Lab पूरे जापान में मौलिक गत्ते के बॉक्स और पैकेजिंग समाधान सप्लाई करता है।",
+        "प्रत्येक शाखा के सेवा क्षेत्र और विस्तृत जानकारी आप इस पेज पर देख सकते हैं।",
+      heroIntroLine: `${site.name} मुख्य रूप से ओसाका और ह्योगो क्षेत्र में हाउस क्लीनिंग, होम हेल्प और व्यवस्थित करने की सेवाएँ प्रदान करता है।`,
     },
     areasLocal: {
-      h1: "कडोमा (ओसाका) से कस्टम गत्ते के बॉक्स और पैकेजिंग",
-      lead: "हमारा प्लांट कडोमा से पूरे जापान के मैन्युफैक्चरर, ई-कॉमर्स और रिटेल ग्राहकों को सप्लाई करता है।",
+      h1: "हिगाशी-योदोगावा (ओसाका) में होम हेल्प और हाउस क्लीनिंग",
+      lead: "हम हिगाशी-योदोगावा वार्ड के पूरे क्षेत्र में सेवा देते हैं, जैसे Awaji, Kamishinjo, Daido Toyosato, Itakano, Kunijima आदि।",
       services: [
         {
-          title: "कस्टम बॉक्स डिज़ाइन",
+          title: "होम हेल्प (एक बार / नियमित)",
           bullets: [
-            "प्रोडक्ट के आकार और वज़न के अनुसार ऑप्टिमाइज़्ड स्ट्रक्चर",
-            "गिफ्ट बॉक्स, शिपिंग बॉक्स व अन्य उपयोगों के लिए डिज़ाइन",
-            "छोटे लॉट से लेकर बड़े उत्पादन तक लचीला सपोर्ट",
+            "सफाई, सामान व्यवस्थित करना, कपड़े धोना, खरीदारी में मदद",
+            "बच्चों या बुजुर्गों की हल्की देखभाल (घर के काम की सीमा में)",
+            "महिला स्टाफ की मांग की जा सकती है",
           ],
         },
         {
-          title: "पर्यावरण-अनुकूल पैकेजिंग प्रस्ताव",
+          title: "हाउस क्लीनिंग",
           bullets: [
-            "90% से अधिक रीसायकल कंटेंट वाला गत्ता",
-            "जापान में निर्मित कागज़ से स्थिर गुणवत्ता",
-            "ओवर-पैकेजिंग कम करने वाले डिज़ाइन प्रस्ताव",
+            "वेट एरिया (किचन, बाथरूम, वॉशबेसिन, टॉयलेट)",
+            "एयर कंडीशनर की सफाई",
+            "शिफ्टिंग से पहले/बाद और खाली घरों की सफाई",
           ],
         },
       ],
-      coverageTitle: "सेवा क्षेत्र",
+      coverageTitle: "सेवा क्षेत्र (हिगाशी-योदोगावा वार्ड)",
       coverageBody:
-        "कडोमा (ओसाका) को आधार बनाते हुए, हम पूरे जापान में सप्लाई कर सकते हैं।",
+        "Awaji, Higashi-Awaji, Sugahara, Toyoshin, Kamishinjo, Zuiko, Komatsu, Minami-Eguchi, Kita-Eguchi, Itakano, Odori, Osumi, Toyosato, Daido-Minami, Kunijima, Shimoshinjo और आस-पास के क्षेत्र।",
       faq: [
         {
-          q: "मिनिमम ऑर्डर क्वांटिटी (MOQ) क्या है?",
-          a: "यह साइज और स्पेसिफिकेशन पर निर्भर करता है। छोटे लॉट के लिए भी हम सलाह-मशविरा कर सकते हैं, कृपया संपर्क करें।",
+          q: "क्या हिगाशी-योदोगावा में उसी दिन बुकिंग संभव है?",
+          a: "उस दिन की उपलब्धता पर निर्भर करता है। कभी-कभी संभव है, कृपया पहले हमसे संपर्क करें।",
         },
         {
-          q: "डिलीवरी का अनुमानित समय कितना होता है?",
-          a: "स्पेसिफिकेशन और मात्रा के अनुसार, सामान्यतः ऑर्डर के बाद कुछ सप्ताह का समय लगता है।",
+          q: "क्या मैं घर की चाबी आपको दे सकता/सकती हूँ ताकि आप मेरी गैर-मौजूदगी में सफाई कर सकें?",
+          a: "हाँ, शर्तों पर सहमति के बाद हम आपकी चाबी सुरक्षित रूप से रखते हैं और अपने की-मैनेजमेंट नियमों के अनुसार सफाई करते हैं।",
         },
         {
-          q: "क्या पहले सैंपल बनवाना संभव है?",
-          a: "हाँ, हम मास प्रोडक्शन से पहले सैंपल तैयार कर सकते हैं ताकि आप आकार और मज़बूती की जाँच कर सकें।",
+          q: "क्या उसी दिन अतिरिक्त काम की रिक्वेस्ट कर सकते हैं?",
+          a: "यदि शेड्यूल में समय हो तो हम यथासंभव लचीला व्यवहार करते हैं। कृपया स्टाफ से सीधे बात करें।",
         },
         {
-          q: "क्या पर्यावरण-अनुकूल सामग्री उपलब्ध है?",
-          a: "हम जापान में बने कागज़ और 90% से अधिक रीसायकल कंटेंट वाले गत्ते का उपयोग करते हैं। विस्तृत जानकारी के लिए कृपया संपर्क करें।",
+          q: "क्या मेरी गैर-मौजूदगी में भी सेवा ली जा सकती है?",
+          a: "हाँ, यदि पहले से चाबी रखने और मैनेज करने के तरीके पर सहमति हो जाए तो।",
         },
       ],
       contactTitle: "संपर्क करें",
       contactText:
-        "कोटेशन या स्पेसिफिकेशन परामर्श के लिए वेबसाइट के संपर्क फ़ॉर्म के माध्यम से हमसे जुड़ें।",
-      toProductsText: "प्रोडक्ट सूची पर लौटें",
+        "उपलब्धता जाँचने या अनुमान (कोट) के लिए, कृपया LINE या वेबसाइट के संपर्क फॉर्म के माध्यम से हमसे जुड़ें।",
+      toProductsText: "टॉप पेज पर लौटें",
     },
   },
 
@@ -1206,64 +1196,63 @@ export const copy: Record<string, CopyBundle> = {
     home: {
       headline: site.name,
       description:
-        "تُعد D.s.Lab علامة تجارية متخصصة في صناديق الكرتون المضلع وحلول التغليف، وتستند في إدارتها إلى الفلسفة اليابانية «المنفعة للبائع، والمنفعة للمشتري، والمنفعة للمجتمع». نتجاوز المفهوم التقليدي لـ «الصندوق» من خلال تصميم حلول تغليف أصلية تواكب متطلبات العصر. بالاستفادة من خبرة شركة Daiko Paper Industries الممتدة لأكثر من 50 عامًا، نستخدم ورقًا مُنتَجًا في اليابان وكرتونًا متموجًا يحتوي على أكثر من 90٪ من المواد المعاد تدويرها.",
+        "نقدّم خدمات تنظيف المنازل، والمساعدة المنزلية، وتنظيم البيت بشكل أساسي في محافظتي أوساكا و هيوغو. من المطبخ والحمّام إلى غرفة المعيشة، إضافة إلى خطط تنظيف دورية، نوفّر خدمة تناسب منزلك واحتياجاتك.",
     },
     stores: {
-      heroTitle: `${site.name} ─ نبذة عن الشركة`,
-      heroAreas: "مدينة كادوما، أوساكا (اليابان)",
+      heroTitle: `${site.name} ─ قائمة الفروع`,
+      heroAreas: "أوساكا و هيوغو",
       heroLead:
-        "تصميم وتصنيع صناديق الكرتون المضلع ومواد التغليف حسب الطلب.",
+        "نقدّم خدمات تنظيف المنازل، والمساعدة المنزلية، وتنظيم المساحات.",
       heroTail:
-        "بدءًا من الدفعات التجريبية الصغيرة وحتى الإنتاج الكمي، نستجيب لاحتياجاتكم في التغليف بكل مرونة.",
-      heroIntroLine:
-        "من مصنعنا في كادوما (أوساكا)، تقوم D.s.Lab بتوريد صناديق كرتون مضلع وحلول تغليف مبتكرة إلى جميع أنحاء اليابان.",
+        "يمكنك الاطّلاع على مناطق الخدمة والمعلومات التفصيلية لكل فرع من خلال هذه الصفحة.",
+      heroIntroLine: `${site.name} يقدّم خدمات التنظيف والمساعدة المنزلية وتنظيم البيت بشكل رئيسي في محافظتي أوساكا و هيوغو.`,
     },
     areasLocal: {
-      h1: "صناديق كرتون مضلع وتغليف مخصص من كادوما (أوساكا)",
-      lead: "يخدم مصنعنا في كادوما الشركات المصنعة، ومتاجر التجارة الإلكترونية، وتجار التجزئة في جميع أنحاء اليابان.",
+      h1: "مساعدة منزلية وتنظيف في حي هيغاشي يودوغاوا (أوساكا)",
+      lead: "نغطي جميع أنحاء حي هيغاشي يودوغاوا، بما في ذلك Awaji و Kamishinjo و Daido Toyosato و Itakano و Kunijima وغيرها.",
       services: [
         {
-          title: "تصميم صناديق مخصصة",
+          title: "مساعدة منزلية (مرة واحدة / دورية)",
           bullets: [
-            "تصميم هيكل مُحسَّن وفقًا لحجم المنتج ووزنه",
-            "صناديق هدايا، وصناديق شحن، وغيرها من الاستخدامات",
-            "مرونة في التعامل مع الطلبات الصغيرة والكبيرة",
+            "تنظيف، ترتيب، غسيل، ومساعدة في التسوق",
+            "مراقبة خفيفة للأطفال أو كبار السن (في نطاق الأعمال المنزلية)",
+            "إمكانية طلب عاملة منزلية (أنثى)",
           ],
         },
         {
-          title: "مقترحات تغليف صديقة للبيئة",
+          title: "تنظيف المنزل",
           bullets: [
-            "استخدام كرتون مضلع يحتوي على أكثر من 90٪ من المواد المعاد تدويرها",
-            "ورق مُنتج في اليابان لضمان جودة مستقرة",
-            "تصاميم تقلل من فرط استخدام مواد التغليف",
+            "المناطق الرطبة (المطبخ، الحمّام، حوض الغسيل، دورة المياه)",
+            "تنظيف أجهزة التكييف",
+            "تنظيف المنازل قبل/بعد الانتقال والمنازل الخالية",
           ],
         },
       ],
-      coverageTitle: "نطاق الخدمة",
+      coverageTitle: "منطقة الخدمة (حي هيغاشي يودوغاوا)",
       coverageBody:
-        "نحن موجودون في كادوما (أوساكا) ونستطيع الشحن إلى أي منطقة داخل اليابان.",
+        "Awaji و Higashi-Awaji و Sugahara و Toyoshin و Kamishinjo و Zuiko و Komatsu و Minami-Eguchi و Kita-Eguchi و Itakano و Odori و Osumi و Toyosato و Daido-Minami و Kunijima و Shimoshinjo والمناطق المجاورة.",
       faq: [
         {
-          q: "ما هي أقل كمية يمكن طلبها؟",
-          a: "يعتمد ذلك على الحجم والمواصفات، لكن يمكننا دراسة الطلبات ذات الكميات القليلة. يُرجى التواصل معنا للتفاصيل.",
+          q: "هل يمكن الحجز في نفس اليوم في حي هيغاشي يودوغاوا؟",
+          a: "يعتمد ذلك على مدى توفّر الوقت في ذلك اليوم، وقد يكون ممكنًا أحيانًا. يُرجى التواصل معنا أولًا للتأكّد.",
         },
         {
-          q: "ما هو الزمن التقريبي للتسليم؟",
-          a: "وفقًا للمواصفات والكمية، يكون الزمن المعتاد بضع أسابيع بعد تأكيد الطلب.",
+          q: "هل يمكنني تسليمكم مفتاح المنزل لتنظيفه أثناء غيابي؟",
+          a: "نعم، بعد الاتفاق على الشروط، نقوم بحفظ المفتاح بأمان ونلتزم بقواعد إدارة المفاتيح الخاصة بنا أثناء التنظيف.",
         },
         {
-          q: "هل يمكن الحصول على عيّنات قبل الإنتاج الكمي؟",
-          a: "نعم، يمكننا إنتاج عيّنات للتحقق من الشكل والقوة قبل بدء الإنتاج الكمي.",
+          q: "هل يمكن طلب أعمال إضافية في نفس اليوم؟",
+          a: "إذا سمح الجدول الزمني، سنحاول الاستجابة بشكل مرن قدر الإمكان. يُرجى التحدّث مباشرة مع الموظف.",
         },
         {
-          q: "هل تتوفر خيارات مواد صديقة للبيئة؟",
-          a: "نستخدم ورقًا مُنتَجًا في اليابان وكرتونًا مضلعًا بنسبة عالية من المواد المعاد تدويرها (أكثر من 90٪). لمزيد من التفاصيل، نرجو التواصل معنا.",
+          q: "هل يمكن الاستفادة من الخدمة دون وجودي في المنزل؟",
+          a: "نعم، طالما تم الاتفاق مسبقًا على طريقة حفظ وإدارة المفتاح.",
         },
       ],
       contactTitle: "اتصل بنا",
       contactText:
-        "لطلب عرض سعر أو استشارة فنية، يُرجى استخدام نموذج التواصل على الموقع.",
-      toProductsText: "العودة إلى قائمة المنتجات",
+        "للاستفسار عن المواعيد المتاحة أو طلب عرض سعر، يُرجى التواصل معنا عبر LINE أو نموذج الاتصال على الموقع.",
+      toProductsText: "العودة إلى الصفحة الرئيسية",
     },
   },
 };
@@ -1283,8 +1272,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "公式サイト",
-    siteAlt: footerAlt(site.name),
-    areaLinkText: "大阪府門真市の段ボール・梱包資材 D.s.Lab",
+    siteAlt: site.name,
+    areaLinkText: "東淀川区の家事代行・ハウスクリーニング",
     rights: "All rights reserved.",
   },
   en: {
@@ -1294,7 +1283,7 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     lineAlt: "LINE",
     siteAria: "Official website",
     siteAlt: footerAlt(site.name),
-    areaLinkText: "Corrugated boxes & packaging from Kadoma, Osaka",
+    areaLinkText: "Housekeeping & house cleaning in local",
     rights: "All rights reserved.",
   },
   zh: {
@@ -1303,8 +1292,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官网",
-    siteAlt: footerAlt(site.name),
-    areaLinkText: "大阪门真市的纸箱与包装解决方案",
+    siteAlt: `Tayotteya 官方网站`,
+    areaLinkText: "东淀川区的家政与家居清洁",
     rights: "版权所有。",
   },
   "zh-TW": {
@@ -1313,8 +1302,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "官方網站",
-    siteAlt: footerAlt(site.name),
-    areaLinkText: "大阪門真市的紙箱・包裝解決方案",
+    siteAlt: `Tayotteya 官方網站`,
+    areaLinkText: "東淀川區的家事服務・居家清潔",
     rights: "版權所有。",
   },
   ko: {
@@ -1323,8 +1312,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "공식 사이트",
-    siteAlt: footerAlt(site.name),
-    areaLinkText: "오사카 가도마의 골판지·포장 자재 D.s.Lab",
+    siteAlt: `Tayotteya 공식`,
+    areaLinkText: "히가시요도가와구 가사도우미·하우스 클리닝",
     rights: "판권 소유.",
   },
   fr: {
@@ -1333,8 +1322,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site officiel",
-    siteAlt: footerAlt(site.name),
-    areaLinkText: "Boîtes en carton & emballages depuis Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Officiel)`,
+    areaLinkText: "Ménage & nettoyage domestique à local",
     rights: "Tous droits réservés.",
   },
   es: {
@@ -1343,9 +1332,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sitio oficial",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Cajas de cartón ondulado y embalajes desde Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Oficial)`,
+    areaLinkText: "Servicio doméstico y limpieza en local",
     rights: "Todos los derechos reservados.",
   },
   de: {
@@ -1354,9 +1342,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Offizielle Website",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Wellpappkartons & Verpackungslösungen aus Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Offiziell)`,
+    areaLinkText: "Haushaltshilfe & Hausreinigung in local",
     rights: "Alle Rechte vorbehalten.",
   },
   pt: {
@@ -1365,9 +1352,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Site oficial",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Caixas de papelão ondulado e embalagens de Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Oficial)`,
+    areaLinkText: "Serviços domésticos e limpeza em local",
     rights: "Todos os direitos reservados.",
   },
   it: {
@@ -1376,9 +1362,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Sito ufficiale",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Scatole in cartone ondulato e imballaggi da Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Ufficiale)`,
+    areaLinkText: "Servizi domestici e pulizie a local",
     rights: "Tutti i diritti riservati.",
   },
   ru: {
@@ -1387,9 +1372,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Официальный сайт",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Гофрокартоные коробки и упаковка из Кадомы (Осака)",
+    siteAlt: `Tayotteya (Официальный)`,
+    areaLinkText: "Бытовые услуги и уборка в районе Хигасийодогава",
     rights: "Все права защищены.",
   },
   th: {
@@ -1398,9 +1382,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "เว็บไซต์ทางการ",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "กล่องลูกฟูกและบรรจุภัณฑ์จากเมืองคะโดะมะ (โอซาก้า)",
+    siteAlt: `Tayotteya (ทางการ)`,
+    areaLinkText: "แม่บ้านและทำความสะอาดในเขตฮิกาชิโยโดกาวะ",
     rights: "สงวนลิขสิทธิ์",
   },
   vi: {
@@ -1409,9 +1392,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Trang chính thức",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Hộp carton & giải pháp bao bì từ Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Chính thức)`,
+    areaLinkText: "Dọn dẹp & giúp việc nhà tại local",
     rights: "Mọi quyền được bảo lưu.",
   },
   id: {
@@ -1420,9 +1402,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "Situs resmi",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "Karton bergelombang & kemasan dari Kadoma (Osaka)",
+    siteAlt: `Tayotteya (Resmi)`,
+    areaLinkText: "Jasa bersih-bersih & asisten rumah tangga di local",
     rights: "Hak cipta dilindungi.",
   },
   hi: {
@@ -1431,9 +1412,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "Instagram",
     lineAlt: "LINE",
     siteAria: "आधिकारिक वेबसाइट",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "कडोमा (ओसाका) से गत्ते के बॉक्स व पैकेजिंग",
+    siteAlt: `Tayotteya (आधिकारिक)`,
+    areaLinkText: "हिगाशी-योदोगावा में हाउसकीपिंग व हाउस क्लीनिंग",
     rights: "सर्वाधिकार सुरक्षित।",
   },
   ar: {
@@ -1442,9 +1422,8 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
     instagramAlt: "إنستغرام",
     lineAlt: "لاين",
     siteAria: "الموقع الرسمي",
-    siteAlt: footerAlt(site.name),
-    areaLinkText:
-      "صناديق كرتون مضلع وحلول تغليف من كادوما (أوساكا)",
+    siteAlt: `تايوتيّا (رسمي)` as unknown as string,
+    areaLinkText: "خدمات التدبير المنزلي وتنظيف المنازل في هيغاشي يودوغاوا",
     rights: "جميع الحقوق محفوظة.",
   },
 };
@@ -1454,29 +1433,29 @@ export const FOOTER_STRINGS: Record<string, FooterI18n> = {
 ========================= */
 export const faqItems: FaqItem[] = [
   {
-    question: "最小ロットはどのくらいから対応できますか？",
+    question: "対応エリアはどこですか？",
     answer:
-      "サイズや仕様によって異なりますが、小ロットのご相談も承っています。まずはお問い合わせフォームよりご連絡ください。",
+      "大阪府・兵庫県を中心に対応しています。豊中市・吹田市・東淀川区・池田市・箕面市・尼崎市など、まずはお気軽にご相談ください。",
   },
   {
-    question: "納期はどのくらいかかりますか？",
+    question: "見積もりは無料ですか？",
     answer:
-      "仕様・数量により変動しますが、通常はご発注から数週間が目安です。お急ぎの場合も可能な範囲で調整いたします。",
+      "はい、無料です。現地確認が必要な場合もありますが、費用はいただきません。",
   },
   {
-    question: "サンプル製作は可能ですか？",
+    question: "支払い方法は？",
     answer:
-      "はい、量産前に形状・寸法・強度を確認していただけるサンプル製作が可能です（内容によっては費用を頂戴する場合があります）。",
+      "現金・銀行振込・各種キャッシュレス（ご相談ください）に対応しています。",
   },
   {
-    question: "環境配慮型の素材や仕様には対応していますか？",
+    question: "当日の追加依頼や延長は可能ですか？",
     answer:
-      "国内生産の原紙を使用し、再生率90％以上の段ボールを製造しております。具体的な仕様についてはお気軽にご相談ください。",
+      "当日のスケジュール次第ですが、可能な限り柔軟に対応いたします。スタッフへご相談ください。",
   },
   {
-    question: "全国発送は可能ですか？",
+    question: "キャンセル料はかかりますか？",
     answer:
-      "はい、大阪府門真市の工場から日本全国への出荷に対応しています。ロットや配送先によって最適な配送方法をご提案いたします。",
+      "前日キャンセルは無料、当日キャンセルは作業代の50％を頂戴しております（事前連絡なしの不在は100％）。",
   },
 ];
 
@@ -1486,63 +1465,61 @@ export const faqItems: FaqItem[] = [
 const PAGES = {
   home: {
     path: "/",
-    title: `${site.name}｜オリジナル段ボール・梱包資材`,
+    title: `${site.name}｜家事代行`,
     description:
-      "《売り手よし》《買い手よし》《世間よし》三方よしの精神で経営するオリジナル段ボール・梱包資材ブランド。大光紙工の国内生産原紙と再生率90％以上の段ボールで、時代のニーズに合わせた【箱】のかたちをご提案します。",
+      "大阪・兵庫エリア対応のハウスクリーニング／家事代行／整理収納のご案内。",
     ogType: "website",
   },
   about: {
     path: "/about",
-    title: `D.s.Labについて｜${site.name}`,
+    title: `私たちの想い｜${site.name}`,
     description:
-      "「売り手よし・買い手よし・世間よし」の三方よしの精神と、創業50年を誇る大光紙工の歴史。国内生産原紙・高いリサイクル率にこだわった段ボールづくりへの想いをご紹介します。",
+      "お客様の暮らしに寄り添い、快適で清潔な空間づくりをサポートする私たちの理念。",
     ogType: "website",
   },
   news: {
     path: "/news",
     title: `お知らせ｜${site.name}`,
-    description: `${site.name} の最新情報や工場稼働スケジュール、新製品・キャンペーン等のお知らせを掲載します。`,
+    description: `${site.name} の最新情報・キャンペーン・営業時間などのお知らせ。`,
     ogType: "website",
   },
   areasLocal: {
     path: "/areas/local",
-    title: `大阪府門真市の段ボール・梱包資材工場｜${site.name}`,
+    title: `東淀川区の家事代行・ハウスクリーニング｜${site.name}`,
     description:
-      "大阪府門真市北岸和田の自社工場から、日本全国のメーカー・EC事業者・小売店へオリジナル段ボール・梱包資材をお届けします。",
+      "東淀川区（淡路・上新庄…）で家事代行・ハウスクリーニング。定期/スポット対応。",
     ogType: "article",
   },
   products: {
     path: "/products",
-    title: `商品一覧｜${site.name}`,
-    description: `${site.name} のオリジナル段ボール・梱包資材の商品一覧。用途やサイズに合わせた各種パッケージを掲載しています。`,
+    title: `サービス一覧｜${site.name}`,
+    description: `${site.name}の家事代行・ハウスクリーニングのサービス一覧。水回り清掃や整理整頓、エアコン掃除などを掲載。`,
     ogType: "website",
     ogImage: "/ogp-products.jpg",
   },
   productsEC: {
     path: "/products-ec",
-    title: `オンライン販売（EC）｜${site.name}`,
-    description: `${site.name} の段ボール・梱包資材をオンラインでご注文いただけるページです。標準サイズ箱からオリジナル仕様まで柔軟に対応します。`,
+    title: `サービス一覧（オンライン予約）｜${site.name}`,
+    description: `${site.name}のサービス一覧（オンライン予約対応）。水回り・キッチン・浴室など日常のお手伝いをプロが丁寧に実施。`,
     ogType: "website",
     ogImage: "/ogp-products.jpg",
   },
   projects: {
     path: "/projects",
-    title: `製作事例｜${site.name}`,
-    description:
-      "オーダーメイド段ボールや特殊形状の箱、ギフトボックスなど、${site.name} が手掛けた製作事例を写真付きでご紹介します。",
+    title: `サービス一覧｜${site.name}`,
+    description: `${site.name}のサービス紹介ページ。水回り清掃、リビング清掃、整理収納などを写真付きで掲載。`,
     ogType: "website",
   },
   stores: {
     path: "/stores",
-    title: `会社情報・アクセス｜${site.name}`,
-    description:
-      "大阪府門真市北岸和田2-1-12にある自社工場・事務所の情報とアクセス方法をご案内します。TEL 072-882-0154。",
+    title: `店舗一覧｜${site.name}`,
+    description: `${site.name}の店舗一覧ページ。大阪・兵庫エリア対応の拠点情報をご紹介します。`,
     ogType: "website",
   },
   faq: {
     path: "/faq",
     title: `よくある質問（FAQ）｜${site.name}`,
-    description: `ロット・納期・サンプル・環境配慮など、${site.name} の段ボール・梱包資材に関するよくある質問をまとめました。`,
+    description: `料金・対応エリア・キャンセル・支払い方法など、${site.name}のハウスクリーニング／家事代行に関するよくある質問。`,
     ogType: "article",
   },
 } as const;
@@ -1670,15 +1647,15 @@ export const AI_SITE: AiSiteConfig = {
   brand: site.name,
   url: site.baseUrl,
   areasByLang: {
-    ja: "日本全国（大阪府門真市の自社工場から出荷）",
-    en: "Nationwide Japan (factory based in Kadoma, Osaka)",
+    ja: "大阪・兵庫（例：大阪市東淀川区／豊中市／吹田市 など）",
+    en: "Osaka & Hyogo (e.g., local, Toyonaka, Suita)",
   },
   servicesByLang: {
-    ja: ["オリジナル段ボール", "梱包資材", "エコ包装提案"],
-    en: ["original corrugated boxes", "packaging materials", "eco packaging"],
+    ja: ["ハウスクリーニング", "エアコンクリーニング", "家事代行", "整理収納"],
+    en: ["house cleaning", "A/C cleaning", "housekeeping", "organizing"],
   },
   retail: true,
-  productPageRoute: "/products-ec",
+  productPageRoute: "/products",
   languages: {
     default: "ja",
     allowed: [
