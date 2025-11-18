@@ -30,7 +30,7 @@ interface Props {
 
   className?: string;
   autoPlay?: boolean; // 既定: true（自動スライドON/OFF用）
-  loop?: boolean;     // 既定: true（動画のみで使用・ただし ended でスライド）
+  loop?: boolean;     // ※未使用（動画は isSingleVideo で制御）
   muted?: boolean;    // 既定: true（動画用）
   alt?: string;
 }
@@ -66,39 +66,39 @@ export default function ProductMedia({
     total === 0 ? 0 : ((currentIndex % total) + total) % total;
   const active = slides[safeIndex] ?? slides[0];
 
-  const activeKey =
-    typeof active?.src === "string"
-      ? active.src
-      : (active?.src as StaticImageData | undefined)?.src ?? "";
-
-  // 動画が1枚だけのケースではループ再生させる
+  const isVideoSlide = active.type === "video";
   const isSingleVideo = total === 1 && active.type === "video";
 
+  // 全スライド分の video ref を持つ
+  const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
+
   /* =======================
-     VIDEO 用 ref & 再生制御
+     VIDEO 再生制御
+     - 可視範囲 & アクティブな動画だけ再生
+     - それ以外の動画は停止
   ======================= */
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // 可視範囲に入ったら動画を再生／外れたら停止
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    videoRefs.current.forEach((video, index) => {
+      if (!video) return;
+      const slide = slides[index];
 
-    if (visible && active.type === "video") {
-      const p = v.play();
-      // モバイルの自動再生制限などで reject されても握りつぶす
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    } else {
-      v.pause();
-    }
-  }, [visible, active.type]);
+      if (visible && index === safeIndex && slide?.type === "video") {
+        const p = video.play();
+        if (p && typeof p.catch === "function") {
+          p.catch(() => {
+            // モバイルの自動再生制限などは無視
+          });
+        }
+      } else {
+        video.pause();
+      }
+    });
+  }, [visible, safeIndex, slides]);
 
   /* =======================
      自動スライド
      👉 動画がアクティブなときは動かさない
   ======================= */
-  const isVideoSlide = active.type === "video";
-
   useEffect(() => {
     if (!autoPlay) return;
     if (total <= 1) return;
@@ -107,7 +107,8 @@ export default function ProductMedia({
     const id = window.setInterval(() => {
       setCurrentIndex((prev) => {
         const next = prev + 1;
-        return total <= 0 ? 0 : next >= total ? 0 : next;
+        if (total <= 0) return 0;
+        return next >= total ? 0 : next;
       });
     }, 3500); // 3.5秒ごとにスライド
 
@@ -140,7 +141,7 @@ export default function ProductMedia({
     goTo(idx);
   };
 
-  // 動画再生が終わったら、ループせずに次のスライドへ
+  // 動画再生が終わったら、ループしない場合は次のスライドへ
   const handleVideoEnded = () => {
     if (!autoPlay) return;
     if (total <= 1) return;
@@ -148,77 +149,10 @@ export default function ProductMedia({
   };
 
   /* =======================
-     VIDEO 表示
-  ======================= */
-  if (active.type === "video") {
-    const videoSrc =
-      typeof active.src === "string"
-        ? active.src
-        : (active.src as StaticImageData).src;
-
-    return (
-      <div
-        ref={ref}
-        className={clsx(
-          "relative w-full aspect-square overflow-hidden",
-          className
-        )}
-      >
-        <video
-          key={activeKey}
-          ref={videoRef}
-          src={videoSrc}
-          className="absolute inset-0 w-full h-full object-cover"
-          playsInline
-          muted={muted}
-          autoPlay={autoPlay}
-          // 動画1枚だけのときはループ、それ以外はループしない
-          loop={isSingleVideo}
-          preload={visible ? "auto" : "metadata"}
-          onEnded={handleVideoEnded}
-        />
-
-        {/* スライドナビ */}
-        {total > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 text-white w-8 h-8 flex items-center justify-center text-lg"
-            >
-              ›
-            </button>
-            <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1 z-10">
-              {slides.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={(e) => handleDotClick(e, i)}
-                  className={clsx(
-                    "w-2 h-2 rounded-full transition-opacity",
-                    i === currentIndex
-                      ? "bg-white"
-                      : "bg-white/50 hover:bg-white/80"
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  /* =======================
-     IMAGE 表示
-     👉 インジケーター（スピナー）なしでシンプルに表示
+     スライダー表示
+     - flex で横並び
+     - translateX で左にスライド
+     - 背景が一瞬見えないように連続表示
   ======================= */
   return (
     <div
@@ -228,18 +162,62 @@ export default function ProductMedia({
         className
       )}
     >
-      <Image
-        key={activeKey}
-        src={active.src}
-        alt={alt}
-        fill
-        className="object-cover"
-        sizes="(min-width:1024px) 320px, (min-width:640px) 45vw, 90vw"
-        priority={false}
-        unoptimized
-      />
+      <div
+        className={clsx(
+          "flex h-full w-full",
+          "transition-transform duration-500 ease-out" // ← 左にスライド＆右から出てくる
+        )}
+        style={{
+          transform: `translateX(-${safeIndex * 100}%)`,
+        }}
+      >
+        {slides.map((slide, index) => {
+          const key =
+            typeof slide.src === "string"
+              ? slide.src
+              : (slide.src as StaticImageData).src;
 
-      {/* スライドナビ（画像用） */}
+          return (
+            <div
+              key={key + index}
+              className="relative w-full h-full flex-shrink-0"
+            >
+              {slide.type === "video" ? (
+                <video
+                  ref={(el) => {
+                    videoRefs.current[index] = el;
+                  }}
+                  src={
+                    typeof slide.src === "string"
+                      ? slide.src
+                      : (slide.src as StaticImageData).src
+                  }
+                  className="absolute inset-0 w-full h-full object-cover"
+                  playsInline
+                  muted={muted}
+                  // 自動再生は useEffect 側で制御
+                  autoPlay={false}
+                  loop={isSingleVideo}
+                  preload={visible ? "auto" : "metadata"}
+                  onEnded={handleVideoEnded}
+                />
+              ) : (
+                <Image
+                  src={slide.src}
+                  alt={alt}
+                  fill
+                  className="object-cover"
+                  sizes="(min-width:1024px) 320px, (min-width:640px) 45vw, 90vw"
+                  priority={false}
+                  unoptimized
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* スライドナビ（画像・動画共通） */}
       {total > 1 && (
         <>
           <button
@@ -264,7 +242,7 @@ export default function ProductMedia({
                 onClick={(e) => handleDotClick(e, i)}
                 className={clsx(
                   "w-2 h-2 rounded-full transition-opacity",
-                  i === currentIndex
+                  i === safeIndex
                     ? "bg-white"
                     : "bg-white/50 hover:bg-white/80"
                 )}
