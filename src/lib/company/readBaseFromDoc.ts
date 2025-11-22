@@ -1,5 +1,6 @@
 import { CompanyDoc, TranslatableFields } from "@/types/company";
 
+//テスト
 export function readBaseFromDoc(
   d: CompanyDoc | null | undefined
 ): Required<TranslatableFields> {
