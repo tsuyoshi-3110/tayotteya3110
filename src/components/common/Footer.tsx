@@ -54,7 +54,6 @@ export default function Footer() {
                 ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
                 : "bg-emerald-600 hover:bg-emerald-700"
             )}
-            label="連絡先を保存"
           />
 
           {/* SNSアイコン */}

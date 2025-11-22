@@ -26,6 +26,7 @@ import CategoryPicker from "@/components/blog/CategoryPicker";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { THEMES, type ThemeKey } from "@/lib/themes";
 import { type UILang, useUILang } from "@/lib/langsState";
+import { StaggerChars } from "@/components/animated/StaggerChars";
 
 /* ===== 定数 ===== */
 const PAGE_SIZE = 20;
@@ -190,7 +191,7 @@ export default function BlogListPage() {
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-3xl font-semibold text-white text-outline">
-          {BLOG_T[uiLang] ?? BLOG_T.ja}
+          <StaggerChars text={BLOG_T[uiLang] ?? BLOG_T.ja} />
         </h1>
         <CategoryPicker
           value={selectedKey}

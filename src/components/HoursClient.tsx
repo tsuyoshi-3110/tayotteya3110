@@ -7,6 +7,8 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { doc, onSnapshot } from "firebase/firestore";
 import clsx from "clsx";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
+import { motion } from "framer-motion";
+import { StaggerChars } from "@/components/animated/StaggerChars";
 
 /** Firestore 保存スキーマ（BusinessHoursCard に一致） */
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -555,7 +557,7 @@ export default function HoursSection() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-8 text-neutral-900">
       <h1 className="text-3xl font-extrabold tracking-tight mb-4 text-white text-outline">
-        {t.title}
+        <StaggerChars text={t.title} />
       </h1>
       <h2 className="sr-only">{t.srTitle}</h2>
 
@@ -566,11 +568,15 @@ export default function HoursSection() {
       ) : (
         <>
           {/* 本日情報カード */}
-          <div
+          <motion.div
             className={clsx(
               "rounded-2xl shadow-xl ring-1 ring-black/10 p-5 mb-6",
               openNow ? "bg-green-300/30" : "bg-white"
             )}
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.7 }}
+            transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
           >
             <p className="text-lg font-semibold">{todayMessage}</p>
             {(bh?.notes || bh?.note) && (
@@ -578,19 +584,23 @@ export default function HoursSection() {
                 {bh.notes || bh.note}
               </p>
             )}
-          </div>
+          </motion.div>
 
           {/* 週間テーブル */}
-          <div className="overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/10 bg-white/50">
+          <motion.div
+            className="overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/10 bg-white/50"
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.7 }}
+            transition={{ duration: 1.05, ease: [0.16, 1, 0.3, 1] }}
+          >
             <table className="w-full text-sm text-neutral-900">
               <thead className="bg-neutral-100">
                 <tr>
                   <th className="text-left px-4 py-3 w-24">
                     {t.tableDayHeader}
                   </th>
-                  <th className="text-left px-4 py-3">
-                    {t.tableHoursHeader}
-                  </th>
+                  <th className="text-left px-4 py-3">{t.tableHoursHeader}</th>
                 </tr>
               </thead>
               <tbody>
@@ -623,7 +633,7 @@ export default function HoursSection() {
                 })}
               </tbody>
             </table>
-          </div>
+          </motion.div>
 
           <p className="text-xs text-white text-outline mt-6">{t.note}</p>
         </>

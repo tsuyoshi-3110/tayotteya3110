@@ -10,7 +10,7 @@ import {
   SwipeAction,
 } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
-import { motion } from "framer-motion";
+
 
 import { ThemeKey, THEMES } from "@/lib/themes";
 import { useThemeGradient } from "@/lib/useThemeGradient";
@@ -244,12 +244,7 @@ export default function MenuItemCard({
     ) : undefined;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-    >
+   <div>
       <SwipeableList threshold={0.25}>
         <SwipeableListItem
           leadingActions={leading()}
@@ -309,6 +304,6 @@ export default function MenuItemCard({
           </div>
         </SwipeableListItem>
       </SwipeableList>
-    </motion.div>
+</div>
   );
 }

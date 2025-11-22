@@ -35,6 +35,7 @@ import { BusyOverlay } from "../BusyOverlay";
 import { v4 as uuid } from "uuid";
 import { IMAGE_MIME_TYPES, VIDEO_MIME_TYPES } from "@/lib/fileTypes";
 import { getExt, getVideoMetaFromFile } from "@/lib/media";
+import { animations, transition } from "@/lib/animation";
 
 type MediaType = "image" | "video";
 
@@ -586,14 +587,10 @@ export default function MenuSectionCard({
     <>
       <motion.div
         className="bg-white/50 backdrop-blur-sm shadow-md p-4 rounded mb-6"
-        initial={{ opacity: 0, y: 12 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={animations.fadeInUp.initial}
+        whileInView={animations.fadeInUp.animate}
+        transition={transition.slow}
         viewport={{ once: true, amount: 0.3 }}
-        transition={{
-          duration: 0.45,
-          ease: "easeOut",
-          delay: 0.05,
-        }}
       >
         {isLoggedIn && (
           <div className="flex gap-2 flex-wrap mt-6 mb-6">
@@ -625,28 +622,35 @@ export default function MenuSectionCard({
 
         {mediaNode}
 
-        {items.map((item) => {
+        {items.map((item, index) => {
           const loc = pickItemLocalized(item, uiLang);
           return (
-            <MenuItemCard
+            <motion.div
               key={item.id}
-              item={{ ...item, name: loc.name, description: loc.description }}
-              isLoggedIn={isLoggedIn}
-              onDelete={async () => {
-                if (!confirm("このメニューを削除しますか？")) return;
-                await deleteDoc(
-                  doc(db, `menuSections/${section.id}/items`, item.id)
-                );
-                setItems((prev) => prev.filter((it) => it.id !== item.id));
-              }}
-              onEdit={(it) =>
-                setItemModal({
-                  open: true,
-                  mode: "edit",
-                  target: it,
-                })
-              }
-            />
+              initial={animations.fadeInUp.initial}
+              whileInView={animations.fadeInUp.animate}
+              transition={{ ...transition.normal, delay: index * 0.08 }}
+              viewport={{ once: true, amount: 0.3 }}
+            >
+              <MenuItemCard
+                item={{ ...item, name: loc.name, description: loc.description }}
+                isLoggedIn={isLoggedIn}
+                onDelete={async () => {
+                  if (!confirm("このメニューを削除しますか？")) return;
+                  await deleteDoc(
+                    doc(db, `menuSections/${section.id}/items`, item.id)
+                  );
+                  setItems((prev) => prev.filter((it) => it.id !== item.id));
+                }}
+                onEdit={(it) =>
+                  setItemModal({
+                    open: true,
+                    mode: "edit",
+                    target: it,
+                  })
+                }
+              />
+            </motion.div>
           );
         })}
 

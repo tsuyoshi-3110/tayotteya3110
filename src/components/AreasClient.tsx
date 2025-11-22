@@ -13,6 +13,8 @@ import CardSpinner from "./CardSpinner";
 import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang } from "@/lib/atoms/uiLangAtom";
 import { UILang } from "@/lib/langsState";
+import { motion, type Transition } from "framer-motion";
+import { StaggerChars } from "./animated/StaggerChars";
 
 type ServiceArea = {
   address?: string; // ← JA 原文（編集対象）
@@ -48,6 +50,8 @@ const AREAS_T: Record<UILang, { page: string; map: string }> = {
   hi: { page: "सेवा क्षेत्र", map: "सेवा दायरा (मानचित्र)" },
   ar: { page: "نطاق الخدمة", map: "نطاق الخدمة (خريطة)" },
 };
+
+const STAGGER_EASE: Transition["ease"] = [0.16, 1, 0.3, 1];
 
 const SETTINGS_REF = doc(db, "siteSettingsEditable", SITE_KEY);
 const PUBLIC_REF = doc(db, "siteSettings", SITE_KEY);
@@ -421,43 +425,58 @@ export default function AreasClient() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 space-y-6">
-      <h1 className="text-3xl font-semibold text-white text-outline">
-        {T.page}
+      <h1 className="text-3xl sm:text-4xl font-bold text-white text-outline mb-6 leading-tight">
+        <StaggerChars
+          text={T.page}
+          className="inline-block"
+          delay={0.35}
+          stagger={0.1}
+          duration={1.1}
+        />
       </h1>
 
       {/* 閲覧用（UI言語で表示を切替） */}
-      <Card className="shadow-md bg-white/50">
-        <CardHeader>
-          <CardTitle className="text-lg">{T.map}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {mapsError && <p className="text-sm text-red-600">{mapsError}</p>}
-          {displayAddr ? (
-            <p className="text-sm">
-              拠点：<span className="font-medium">{displayAddr}</span>
-              {Number.isFinite(radiusKm) ? `（半径 約${radiusKm}km）` : null}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              拠点住所が未設定です。
-            </p>
-          )}
-          {displayNote && (
-            <p className="text-sm whitespace-pre-wrap">{displayNote}</p>
-          )}
-          <div
-            ref={mapDivRef}
-            className="h-[60vh] w-full rounded-md border"
-            aria-label="対応エリア地図"
-          />
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.6 }}
+        transition={{ duration: 1.2, ease: STAGGER_EASE }}
+      >
+        <Card className="shadow-md bg-white/50">
+          <CardHeader>
+            <CardTitle className="text-lg">{T.map}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {mapsError && <p className="text-sm text-red-600">{mapsError}</p>}
+            {displayAddr ? (
+              <p className="text-sm">
+                拠点：<span className="font-medium">{displayAddr}</span>
+                {Number.isFinite(radiusKm) ? `（半径 約${radiusKm}km）` : null}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                拠点住所が未設定です。
+              </p>
+            )}
+            {displayNote && (
+              <p className="text-sm whitespace-pre-wrap">{displayNote}</p>
+            )}
+            <div
+              ref={mapDivRef}
+              className="h-[60vh] w-full rounded-md border"
+              aria-label="対応エリア地図"
+            />
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* 編集用（オーナーのみ / 編集は JA 原文のみ） */}
       {isOwner && (
         <Card className="shadow-md">
           <CardHeader>
-           <CardTitle className="text-lg">編集（オーナーのみ / 日本語原文）</CardTitle>
+            <CardTitle className="text-lg">
+              編集（オーナーのみ / 日本語原文）
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">

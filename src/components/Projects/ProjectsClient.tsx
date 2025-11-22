@@ -9,8 +9,8 @@ import imageCompression from "browser-image-compression";
 import { motion } from "framer-motion";
 
 // UI
-import { BusyOverlay } from "./BusyOverlay";
-import ProductMedia from "./ProductMedia";
+import { BusyOverlay } from "../BusyOverlay";
+import ProductMedia from "../ProductMedia";
 
 // Firebase
 import {
@@ -42,6 +42,7 @@ import { onAuthStateChanged } from "firebase/auth";
 // Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
+import { StaggerChars } from "../animated/StaggerChars";
 
 // DnD
 import {
@@ -567,7 +568,7 @@ export default function ProjectsClient() {
         className="text-3xl font-semibold text-white text-outline mb-10"
         aria-label={pageTitle}
       >
-        {pageTitle}
+        <StaggerChars text={pageTitle} />
       </h1>
 
       {/* 空状態（初回ロード後に件数0なら表示） */}

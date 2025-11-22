@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Pin, Plus } from "lucide-react";
 import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
+import { StaggerChars } from "./animated/StaggerChars";
 
 import {
   collection,
@@ -515,7 +516,7 @@ export default function StaffClient() {
         className="text-3xl font-semibold text-white text-outline mb-10"
         aria-label={pageTitle}
       >
-        {pageTitle}
+        <StaggerChars text={pageTitle} />
       </h1>
 
       {/* ====== 並べ替えリスト ====== */}

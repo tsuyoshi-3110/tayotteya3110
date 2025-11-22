@@ -1,5 +1,5 @@
 // app/projects/page.tsx
-import ProjectsClient from "@/components/ProjectsClient";
+import ProjectsClient from "@/components/Projects/ProjectsClient";
 import { seo } from "@/config/site";
 
 export const metadata = seo.page("projects");
