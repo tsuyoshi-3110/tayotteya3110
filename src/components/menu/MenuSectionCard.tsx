@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
   collection,
   getDocs,
@@ -583,7 +584,17 @@ export default function MenuSectionCard({
   /* ===== 画面 ===== */
   return (
     <>
-      <div className="bg-white/50 backdrop-blur-sm shadow-md p-4 rounded mb-6">
+      <motion.div
+        className="bg-white/50 backdrop-blur-sm shadow-md p-4 rounded mb-6"
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{
+          duration: 0.45,
+          ease: "easeOut",
+          delay: 0.05,
+        }}
+      >
         {isLoggedIn && (
           <div className="flex gap-2 flex-wrap mt-6 mb-6">
             <Button
@@ -650,7 +661,7 @@ export default function MenuSectionCard({
             ＋ メニュー追加
           </Button>
         )}
-      </div>
+      </motion.div>
 
       {/* セクション名編集＋メディア編集モーダル（画像3＋動画1・並べ替え可） */}
       {showEditSectionModal && (

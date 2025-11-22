@@ -25,6 +25,7 @@ import {
   getDownloadURL,
   type UploadTask,
 } from "firebase/storage";
+import { motion } from "framer-motion";
 
 import {
   DndContext,
@@ -555,7 +556,17 @@ export default function MenuPageClient() {
               {sections.map((section) => (
                 <SortableSectionItem key={section.id} id={section.id}>
                   {({ attributes, listeners, isDragging }) => (
-                    <div className="relative">
+                    <motion.div
+                      className="relative"
+                      initial={{ opacity: 0, y: 12 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.3 }}
+                      transition={{
+                        duration: 0.45,
+                        ease: "easeOut",
+                        delay: 0.05,
+                      }}
+                    >
                       {isLoggedIn && (
                         <div
                           {...attributes}
@@ -588,7 +599,7 @@ export default function MenuPageClient() {
                           }}
                         />
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                 </SortableSectionItem>
               ))}

@@ -10,6 +10,7 @@ import {
   SwipeAction,
 } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
+import { motion } from "framer-motion";
 
 import { ThemeKey, THEMES } from "@/lib/themes";
 import { useThemeGradient } from "@/lib/useThemeGradient";
@@ -243,53 +244,71 @@ export default function MenuItemCard({
     ) : undefined;
 
   return (
-    <SwipeableList threshold={0.25}>
-      <SwipeableListItem
-        leadingActions={leading()}
-        trailingActions={trailing()}
-      >
-        <div
-          className={clsx(
-            "flex flex-col gap-1 py-3 px-2 rounded border-b",
-            isDark ? "text-white border-white/20" : "text-black border-gray-200"
-          )}
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      <SwipeableList threshold={0.25}>
+        <SwipeableListItem
+          leadingActions={leading()}
+          trailingActions={trailing()}
         >
-          {/* メニュー名 */}
-          <p className={clsx("font-semibold whitespace-pre-wrap text-black")}>
-            {item.name}
-          </p>
-
-          {/* 価格（為替通貨で表示） */}
-          {item.price != null && priceDisplay && (
-            <div className={clsx("text-sm", "text-black")}>
-              <span>
-                {priceDisplay.text}
-                {typeof item.isTaxIncluded === "boolean"
-                  ? `（${
-                      item.isTaxIncluded
-                        ? priceMsgs.taxIncluded
-                        : priceMsgs.taxExcluded
-                    }）`
-                  : ""}
-              </span>
-
-              {/* 日本語 UI 以外のときだけ注意書きを表示 */}
-              {uiLang !== "ja" && priceMsgs.jpyNote && (
-                <p className="mt-0.5 text-[10px] leading-snug opacity-80">
-                  {priceMsgs.jpyNote}
-                </p>
+          <div
+            className={clsx(
+              "flex flex-col gap-1 py-3 px-2 rounded border-b",
+              isDark
+                ? "text-white border-white/20"
+                : "text-black border-gray-200"
+            )}
+          >
+            {/* メニュー名 */}
+            <p
+              className={clsx(
+                "font-semibold whitespace-pre-wrap text-black"
               )}
-            </div>
-          )}
-
-          {/* 説明文 */}
-          {item.description && (
-            <p className={clsx("whitespace-pre-wrap text-sm", "text-black")}>
-              {item.description}
+            >
+              {item.name}
             </p>
-          )}
-        </div>
-      </SwipeableListItem>
-    </SwipeableList>
+
+            {/* 価格（為替通貨で表示） */}
+            {item.price != null && priceDisplay && (
+              <div className={clsx("text-sm", "text-black")}>
+                <span>
+                  {priceDisplay.text}
+                  {typeof item.isTaxIncluded === "boolean"
+                    ? `（${
+                        item.isTaxIncluded
+                          ? priceMsgs.taxIncluded
+                          : priceMsgs.taxExcluded
+                      }）`
+                    : ""}
+                </span>
+
+                {/* 日本語 UI 以外のときだけ注意書きを表示 */}
+                {uiLang !== "ja" && priceMsgs.jpyNote && (
+                  <p className="mt-0.5 text-[10px] leading-snug opacity-80">
+                    {priceMsgs.jpyNote}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 説明文 */}
+            {item.description && (
+              <p
+                className={clsx(
+                  "whitespace-pre-wrap text-sm",
+                  "text-black"
+                )}
+              >
+                {item.description}
+              </p>
+            )}
+          </div>
+        </SwipeableListItem>
+      </SwipeableList>
+    </motion.div>
   );
 }
