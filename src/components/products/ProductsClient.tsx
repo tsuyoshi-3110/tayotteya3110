@@ -17,6 +17,8 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import clsx from "clsx";
+import { motion, type Variants, type Transition } from "framer-motion";
+
 import {
   DndContext,
   closestCenter,
@@ -29,7 +31,7 @@ import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import SortableItem from "../SortableItem";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+
 import ProductMedia from "../ProductMedia";
 import { uploadProductMedia } from "@/lib/media/uploadProductMedia";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
@@ -76,6 +78,58 @@ type SelectedRow = {
   file: File;
   index: number;
 };
+
+const STAGGER_EASE: Transition["ease"] = [0.16, 1, 0.3, 1];
+
+function StaggerChars({
+  text,
+  className,
+  delay = 0.15,
+  stagger = 0.045,
+  duration = 0.9,
+}: {
+  text: string;
+  className?: string;
+  delay?: number;
+  stagger?: number;
+  duration?: number;
+}) {
+  const container: Variants = {
+    hidden: { opacity: 1 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: stagger,
+        delayChildren: delay,
+      },
+    },
+  };
+
+  const child: Variants = {
+    hidden: { opacity: 0, y: 6 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration, ease: STAGGER_EASE },
+    },
+  };
+
+  return (
+    <motion.span
+      variants={container}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.7 }} // 画面にしっかり入ってから発火
+      className={className}
+    >
+      {Array.from(text).map((ch, i) => (
+        <motion.span key={i} variants={child} className="inline-block">
+          {ch === " " ? "\u00A0" : ch}
+        </motion.span>
+      ))}
+    </motion.span>
+  );
+}
 
 /* ======================= 本体 ======================= */
 
@@ -450,11 +504,23 @@ export default function ProductsClient() {
         className="text-3xl font-semibold text-white text-outline"
         aria-label={pageTitle}
       >
-        {pageTitle}
+        <StaggerChars
+          text={pageTitle}
+          className="inline-block"
+          delay={0.25} // 少し待ってから
+          stagger={0.08} // 1文字ずつゆっくり
+          duration={1.0} // フワッと
+        />
       </h1>
 
       {/* ヘッダー */}
-      <div className="mb-10 mt-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <motion.div
+        className="mb-10 mt-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+        initial={{ opacity: 0, y: 12 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.9 }} // ほぼ全部見えたら発火
+        transition={{ duration: 1.6, ease: STAGGER_EASE }} // ゆっくりフワッと
+      >
         {/* セクションピッカー */}
         <div className="flex items-center gap-2 ">
           <label className="text-sm text-white text-outline opacity-70">
@@ -496,7 +562,7 @@ export default function ProductsClient() {
             セクション管理
           </button>
         )}
-      </div>
+      </motion.div>
 
       {/* セクション管理モーダル */}
       {showSecModal && (
@@ -574,10 +640,14 @@ export default function ProductsClient() {
                 <SortableItem key={p.id} product={p}>
                   {({ listeners, attributes, isDragging }) => (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                      transition={{ duration: 0.3 }}
+                      initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                      viewport={{ once: true, amount: 0.65 }}
+                      exit={{ opacity: 0, y: 24, scale: 0.96 }}
+                      transition={{
+                        duration: 1.4, // ← ゆっくりフワッと
+                        ease: [0.16, 1, 0.3, 1], // ← なめらかカーブ
+                      }}
                       onClick={() => {
                         if (isDragging) return;
                         router.push(`/products/${p.id}`);
@@ -619,7 +689,9 @@ export default function ProductsClient() {
 
                       <div className="p-1 space-y-1">
                         <h2 className="text-white text-outline">
-                          {loc.title || p.title || "（無題）"}
+                          <StaggerChars
+                            text={loc.title || p.title || "（無題）"}
+                          />
                         </h2>
                         <p className="text-white text-outline">
                           {approx ? "≈ " : ""}

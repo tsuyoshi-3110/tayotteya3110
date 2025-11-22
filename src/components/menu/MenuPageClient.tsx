@@ -25,7 +25,7 @@ import {
   getDownloadURL,
   type UploadTask,
 } from "firebase/storage";
-import { motion } from "framer-motion";
+import { motion, Transition, Variants } from "framer-motion";
 
 import {
   DndContext,
@@ -71,6 +71,33 @@ const PAGE_TITLE_T: Record<UILang, string> = {
   hi: "कीमतें",
   ar: "الأسعار",
 };
+
+// 追加：下に貼り替えるための定義
+const EASE: Transition["ease"] = [0.16, 1, 0.3, 1];
+
+const titleParent: Variants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.17,   // ←ゆっくり一文字ずつ
+      delayChildren: 0.25,
+    },
+  },
+};
+
+const titleChild: Variants = {
+  hidden: { opacity: 0, y: 14, scale: 0.96 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 1.8,          // ← 表示速度をさらに遅く
+      ease: EASE,
+    },
+  },
+};
+
 
 /* =========================
    Firestore保存用の型
@@ -535,12 +562,20 @@ export default function MenuPageClient() {
           </button>
         )}
 
-        <h1
+        <motion.h1
+          variants={titleParent}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.3 }}
           className="text-3xl font-semibold text-white text-outline mb-10"
           aria-label={pageTitle}
         >
-          {pageTitle}
-        </h1>
+          {Array.from(pageTitle).map((ch, i) => (
+            <motion.span key={i} variants={titleChild} className="inline-block">
+              {ch === " " ? "\u00A0" : ch}
+            </motion.span>
+          ))}
+        </motion.h1>
 
         {/* 並び替えコンテナ */}
         <DndContext
