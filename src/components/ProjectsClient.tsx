@@ -9,8 +9,8 @@ import imageCompression from "browser-image-compression";
 import { motion } from "framer-motion";
 
 // UI
-import { BusyOverlay } from "../BusyOverlay";
-import ProductMedia from "../ProductMedia";
+import { BusyOverlay } from "./BusyOverlay";
+import ProductMedia from "./ProductMedia";
 
 // Firebase
 import {
@@ -42,7 +42,7 @@ import { onAuthStateChanged } from "firebase/auth";
 // Theme
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-import { StaggerChars } from "../animated/StaggerChars";
+import { StaggerChars } from "./animated/StaggerChars";
 
 // DnD
 import {

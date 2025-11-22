@@ -35,7 +35,7 @@ import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
 // 共通UI/ユーティリティ
-import { BusyOverlay } from "../BusyOverlay";
+import { BusyOverlay } from "./BusyOverlay";
 import {
   IMAGE_MIME_TYPES,
   VIDEO_MIME_TYPES,
@@ -94,8 +94,6 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
     .map((r) => r.value);
 }
 
-
-
 /* ---------- 本体 ---------- */
 export default function ProjectsDetail({ product }: { product: Product }) {
   const router = useRouter();
@@ -148,7 +146,6 @@ export default function ProjectsDetail({ product }: { product: Product }) {
         setTitleJa(merged.base?.title ?? merged.title ?? "");
         setBodyJa(merged.base?.body ?? merged.body ?? "");
       }
-
     })();
   }, [product.id, product]);
 
@@ -246,8 +243,6 @@ export default function ProjectsDetail({ product }: { product: Product }) {
       const t = await translateAll(titleJa.trim(), bodyJa.trim());
       const base = { title: titleJa.trim(), body: bodyJa.trim() };
 
-
-
       await updateDoc(docRef, {
         base,
         t,
@@ -305,8 +300,6 @@ export default function ProjectsDetail({ product }: { product: Product }) {
   };
 
   if (!gradient) return null;
-
-
 
   return (
     <main className="min-h-screen flex items-start justify-center p-4 pt-24">
@@ -379,8 +372,6 @@ export default function ProjectsDetail({ product }: { product: Product }) {
               {display.body}
             </p>
           )}
-
-
         </div>
       </motion.div>
 
