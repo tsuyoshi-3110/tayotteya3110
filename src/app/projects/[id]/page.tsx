@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import ProjectsDetail from "@/components/ProjectsDetail";
+import ProjectsDetail from "@/components/projects/ProjectsDetail";
 import CardSpinner from "@/components/CardSpinner";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 

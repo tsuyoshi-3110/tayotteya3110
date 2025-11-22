@@ -35,7 +35,7 @@ import { LANGS, type LangKey } from "@/lib/langs";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
 
 // 共通UI/ユーティリティ
-import { BusyOverlay } from "./BusyOverlay";
+import { BusyOverlay } from "../BusyOverlay";
 import {
   IMAGE_MIME_TYPES,
   VIDEO_MIME_TYPES,
@@ -380,7 +380,7 @@ export default function ProjectsDetail({ product }: { product: Product }) {
             </p>
           )}
 
-         
+
         </div>
       </motion.div>
 

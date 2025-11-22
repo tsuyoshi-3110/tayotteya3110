@@ -13,7 +13,7 @@ import StoresClient from "./StoresClient";
 import AboutClient from "./AboutClient";
 import MenuPageClient from "./menu/MenuPageClient";
 import NewsClient from "./NewsClient";
-import ProjectsClient from "./Projects/ProjectsClient";
+import ProjectsClient from "./projects/ProjectsClient";
 import HoursClient from "./HoursClient";
 
 const META_REF = doc(db, "siteSettingsEditable", SITE_KEY);
