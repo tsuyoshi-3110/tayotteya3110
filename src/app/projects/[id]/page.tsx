@@ -5,10 +5,9 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import ProjectsDetail from "@/components/projects/ProjectsDetail";
+import ProjectsDetail from "@/components/projects/ProjectsDetail"
 import CardSpinner from "@/components/CardSpinner";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
-
 
 export default function ProductPage() {
   const { id } = useParams() as { id: string };
@@ -21,6 +20,6 @@ export default function ProductPage() {
     })();
   }, [id]);
 
-  if (!product) return <CardSpinner />
-  return <ProjectsDetail  product={product} />;
+  if (!product) return <CardSpinner />;
+  return <ProjectsDetail product={product} />;
 }
