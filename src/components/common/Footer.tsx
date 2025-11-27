@@ -69,7 +69,7 @@ export default function Footer() {
               className="transition-opacity hover:opacity-80"
             >
               <Image
-                src="/instagram-logo.png"
+                src="/images/instagram-logo.png"
                 alt={t.instagramAlt}
                 width={iconSize}
                 height={iconSize}
@@ -84,7 +84,7 @@ export default function Footer() {
               className="transition-opacity hover:opacity-80"
             >
               <Image
-                src="/line-logo.png"
+                src="/images/line-logo.png"
                 alt={t.lineAlt}
                 width={iconSize}
                 height={iconSize}
@@ -99,7 +99,7 @@ export default function Footer() {
               className="transition-opacity hover:opacity-80"
             >
               <Image
-                src="/tayotteya_circle_image.png"
+                src="/images/ogpLogo.png"
                 alt={t.siteAlt || site.name}
                 width={iconSize}
                 height={iconSize}

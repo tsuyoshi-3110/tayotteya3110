@@ -9,7 +9,11 @@ import type { DocumentData } from "firebase/firestore";
 const trimSlash = (u: string) => u.replace(/\/$/, "");
 
 /** 相対→絶対URL（先頭スラ無しも許容）。未指定時は fallbackPath を付与 */
-const toAbs = (u: string | undefined, siteUrl: string, fallbackPath = "/ogpLogo.png") => {
+const toAbs = (
+  u: string | undefined,
+  siteUrl: string,
+  fallbackPath = "/images/ogpLogo.png"
+) => {
   const root = trimSlash(siteUrl || "");
   if (!u || typeof u !== "string") return `${root}${fallbackPath}`;
   if (/^https?:\/\//i.test(u)) return u;
@@ -20,9 +24,7 @@ const toAbs = (u: string | undefined, siteUrl: string, fallbackPath = "/ogpLogo.
 const toAbsList = (list: (string | undefined)[] | undefined, siteUrl: string) =>
   Array.from(
     new Set(
-      (list ?? [])
-        .filter(Boolean)
-        .map((u) => toAbs(u as string, siteUrl))
+      (list ?? []).filter(Boolean).map((u) => toAbs(u as string, siteUrl))
     )
   );
 
@@ -40,10 +42,21 @@ const normalizeOpeningHours = (raw: any): any[] => {
   if (Array.isArray(raw) && raw.length > 0) {
     return raw.map((r) => {
       if (!r || typeof r !== "object") return r;
-      const days = Array.isArray(r.dayOfWeek) ? r.dayOfWeek : r.dayOfWeek ? [r.dayOfWeek] : undefined;
+      const days = Array.isArray(r.dayOfWeek)
+        ? r.dayOfWeek
+        : r.dayOfWeek
+        ? [r.dayOfWeek]
+        : undefined;
       return {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: days ?? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        dayOfWeek: days ?? [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ],
         opens: r.opens ?? "09:00",
         closes: r.closes ?? "18:00",
       };
@@ -53,7 +66,14 @@ const normalizeOpeningHours = (raw: any): any[] => {
   return [
     {
       "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      dayOfWeek: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ],
       opens: "09:00",
       closes: "18:00",
     },
@@ -86,7 +106,9 @@ const normalizeSameAs = (d: Record<string, any>, siteUrl: string) => {
     .filter(Boolean) as string[];
 
   // 簡易URLバリデーション
-  const valid = candidates.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u));
+  const valid = candidates.filter(
+    (u) => typeof u === "string" && /^https?:\/\//i.test(u)
+  );
   return Array.from(new Set(valid));
 };
 
@@ -114,12 +136,16 @@ const normalizeAreaServed = (raw: any): any[] => {
  * - store: Firestoreから取れた任意shape（undefinedでもOK）
  * - siteUrl: ルートURL（例: https://example.com）※末尾スラは自動除去
  */
-export function buildStoreJsonLd(store: DocumentData | undefined, siteUrl: string) {
+export function buildStoreJsonLd(
+  store: DocumentData | undefined,
+  siteUrl: string
+) {
   const d = (store ?? {}) as Record<string, any>;
   const root = trimSlash(siteUrl);
 
   // 基本情報
-  const siteName = d.siteName ?? d.title ?? d.shopName ?? "おそうじ処 たよって屋";
+  const siteName =
+    d.siteName ?? d.title ?? d.shopName ?? "おそうじ処 たよって屋";
   const description =
     d.description ??
     "大阪府豊中市の家事代行・ハウスクリーニング専門店。水回り清掃から整理収納まで丁寧に対応します。";
@@ -129,22 +155,28 @@ export function buildStoreJsonLd(store: DocumentData | undefined, siteUrl: strin
   const heroUrl = toAbs(
     d.imageUrls?.[0] ?? d.heroImageUrl ?? d.imageUrl1 ?? d.imageUrl,
     root,
-    "/ogpLogo.png"
+    "/images/ogpLogo.png"
   );
 
   // ロゴ（未設定時は OGP でフォールバック）
-  const logoUrl = toAbs(d.logoUrl ?? d.headerLogoUrl, root, "/ogpLogo.png");
+  const logoUrl = toAbs(
+    d.logoUrl ?? d.headerLogoUrl,
+    root,
+    "/images/ogpLogo.png"
+  );
 
   // image は配列で渡すと採用されやすい（重複除去）
   const images = toAbsList([heroUrl, logoUrl], root);
 
   // 電話番号
-  const telephone = toE164JP(d.ownerTel ?? d.tel ?? d.phone) ?? "+81 90-6559-9110";
+  const telephone =
+    toE164JP(d.ownerTel ?? d.tel ?? d.phone) ?? "+81 90-6559-9110";
 
   // 住所
   const address = {
     "@type": "PostalAddress",
-    streetAddress: d.address?.streetAddress ?? d.streetAddress ?? "小曽根3-6-13",
+    streetAddress:
+      d.address?.streetAddress ?? d.streetAddress ?? "小曽根3-6-13",
     addressLocality: d.address?.addressLocality ?? d.city ?? "豊中市",
     addressRegion: d.address?.addressRegion ?? d.pref ?? "大阪府",
     postalCode: d.address?.postalCode ?? d.postalCode ?? "561-0813",
@@ -152,7 +184,9 @@ export function buildStoreJsonLd(store: DocumentData | undefined, siteUrl: strin
   };
 
   // 営業時間
-  const openingHoursSpecification = normalizeOpeningHours(d.openingHoursSpecification);
+  const openingHoursSpecification = normalizeOpeningHours(
+    d.openingHoursSpecification
+  );
 
   // 緯度経度
   const geo = normalizeGeo(d);
@@ -167,25 +201,29 @@ export function buildStoreJsonLd(store: DocumentData | undefined, siteUrl: strin
   const hasMap = typeof d.hasMap === "string" ? d.hasMap : undefined;
 
   // 任意: 価格帯（例: "¥" | "¥¥" | "¥¥¥"）
-  const priceRange = typeof d.priceRange === "string" ? d.priceRange : undefined;
+  const priceRange =
+    typeof d.priceRange === "string" ? d.priceRange : undefined;
 
   // 任意: 動画（オーナーが heroVideo を設定していれば VideoObject を付ける）
-  const heroVideo = d.heroVideo && typeof d.heroVideo === "object"
-    ? {
-        "@type": "VideoObject",
-        name: d.heroVideo.name ?? `${siteName} 紹介動画`,
-        description: d.heroVideo.description ?? "サービス紹介動画です。",
-        contentUrl: d.heroVideo.contentUrl, // Storage のダウンロードURLでOK
-        thumbnailUrl: toAbs(
-          d.heroVideo.thumbnailUrl ??
-            (typeof d.url === "string" ? d.url.replace(/\.mp4(\?.*)?$/i, ".jpg") : undefined),
-          root,
-          "/ogpLogo.png"
-        ),
-        uploadDate: d.heroVideo.uploadDate ?? new Date().toISOString(),
-        duration: d.heroVideo.duration, // 例: "PT30S"
-      }
-    : undefined;
+  const heroVideo =
+    d.heroVideo && typeof d.heroVideo === "object"
+      ? {
+          "@type": "VideoObject",
+          name: d.heroVideo.name ?? `${siteName} 紹介動画`,
+          description: d.heroVideo.description ?? "サービス紹介動画です。",
+          contentUrl: d.heroVideo.contentUrl, // Storage のダウンロードURLでOK
+          thumbnailUrl: toAbs(
+            d.heroVideo.thumbnailUrl ??
+              (typeof d.url === "string"
+                ? d.url.replace(/\.mp4(\?.*)?$/i, ".jpg")
+                : undefined),
+            root,
+            "/images/ogpLogo.png"
+          ),
+          uploadDate: d.heroVideo.uploadDate ?? new Date().toISOString(),
+          duration: d.heroVideo.duration, // 例: "PT30S"
+        }
+      : undefined;
 
   // エンティティの安定識別子
   const entityId = `${root}#localbusiness`;

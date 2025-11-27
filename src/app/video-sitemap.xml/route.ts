@@ -18,7 +18,13 @@ const toAbs = (u?: string, base = site.baseUrl): string | undefined => {
 
 // XMLエスケープ
 const esc = (s = "") =>
-  s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c] as string));
+  s.replace(
+    /[<>&'"]/g,
+    (c) =>
+      ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[
+        c
+      ] as string)
+  );
 
 // ISO8601 → 秒（失敗時は undefined）
 const isoToSec = (iso?: string) => {
@@ -39,7 +45,10 @@ export async function GET() {
   // Firestore 設定取得
   let s: any = {};
   try {
-    const snap = await adminDb.collection("siteSettingsEditable").doc(SITE_KEY).get();
+    const snap = await adminDb
+      .collection("siteSettingsEditable")
+      .doc(SITE_KEY)
+      .get();
     s = snap.exists ? (snap.data() as any) : {};
   } catch {
     s = {};
@@ -60,7 +69,7 @@ export async function GET() {
       ? s.url.replace(/\.mp4(\?.*)?$/i, ".jpg")
       : undefined) ??
     toAbs(s.headerLogoUrl) ??
-    pageUrl("/ogpLogo.png");
+    pageUrl("/images/ogpLogo.png");
 
   // 必須：サムネ + （本編 or 埋め込み）
   if (!thumbnailUrl || (!contentUrl && !embedUrl)) {
@@ -77,12 +86,16 @@ export async function GET() {
 
   // duration: 秒数（durationSec 優先、無ければ ISO8601 の duration を秒化）
   const duration =
-    typeof hv.durationSec === "number" ? Math.round(hv.durationSec) : isoToSec(hv.duration);
+    typeof hv.durationSec === "number"
+      ? Math.round(hv.durationSec)
+      : isoToSec(hv.duration);
 
   // 公開日
   const pubDate =
     (typeof hv.uploadDate === "string" && hv.uploadDate) ||
-    (s?.updatedAt?.toDate?.() ? s.updatedAt.toDate().toISOString() : new Date().toISOString());
+    (s?.updatedAt?.toDate?.()
+      ? s.updatedAt.toDate().toISOString()
+      : new Date().toISOString());
 
   // 視聴ページ（実際に動画を見られるURLが推奨）
   const landingPath = hv.landingPath || "/video";
@@ -96,15 +109,25 @@ export async function GET() {
     "<video:video>",
     `<video:thumbnail_loc>${esc(thumbnailUrl)}</video:thumbnail_loc>`,
     `<video:title>${esc(hv.name || "紹介動画")}</video:title>`,
-    `<video:description>${esc(hv.description || "サービス紹介動画")}</video:description>`,
-    contentUrl ? `<video:content_loc>${esc(contentUrl)}</video:content_loc>` : "",
-    embedUrl ? `<video:player_loc allow_embed="yes">${esc(embedUrl)}</video:player_loc>` : "",
+    `<video:description>${esc(
+      hv.description || "サービス紹介動画"
+    )}</video:description>`,
+    contentUrl
+      ? `<video:content_loc>${esc(contentUrl)}</video:content_loc>`
+      : "",
+    embedUrl
+      ? `<video:player_loc allow_embed="yes">${esc(
+          embedUrl
+        )}</video:player_loc>`
+      : "",
     duration ? `<video:duration>${duration}</video:duration>` : "",
     `<video:publication_date>${esc(pubDate)}</video:publication_date>`,
     ...tags.map((t) => `<video:tag>${esc(t)}</video:tag>`),
     category ? `<video:category>${esc(category)}</video:category>` : "",
     "</video:video>",
-  ].filter(Boolean).join("");
+  ]
+    .filter(Boolean)
+    .join("");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"

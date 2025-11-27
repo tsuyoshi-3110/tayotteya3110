@@ -269,7 +269,8 @@ export default function CommunityPage() {
             ownerName: data.ownerName ?? "(名前未設定)",
             ownerAddress: data.ownerAddress ?? "(住所不明)",
             ownerId: data.ownerId ?? "",
-            iconUrl: (editableData as any)?.headerLogoUrl ?? "/noImage.png",
+            iconUrl:
+              (editableData as any)?.headerLogoUrl ?? "/images/noImage.png",
             industry,
           };
           return row;
@@ -315,7 +316,7 @@ export default function CommunityPage() {
     });
   }, [owners, query]);
 
-   const handleChange = useCallback(
+  const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value),
     []
   );
@@ -398,95 +399,93 @@ export default function CommunityPage() {
   }, [owners, myIndustryName]);
 
   /* ===== カード個別：AIが協業案 ===== */
- const proposeLocal = useCallback(
-  (partner: SiteOwner) => {
-    const myGroup = groupOf({ key: "", name: myIndustryName });
-    const pg = groupOf(partner.industry);
-    const distTxt =
-      partner.distanceKm != null
-        ? formatDistance(partner.distanceKm)
-        : "距離不明";
+  const proposeLocal = useCallback(
+    (partner: SiteOwner) => {
+      const myGroup = groupOf({ key: "", name: myIndustryName });
+      const pg = groupOf(partner.industry);
+      const distTxt =
+        partner.distanceKm != null
+          ? formatDistance(partner.distanceKm)
+          : "距離不明";
 
-    const relation =
-      myGroup === pg
-        ? "同ジャンルの相乗効果が期待できます"
-        : COMPLEMENTS[myGroup]?.includes(pg)
-        ? "互いを補完する関係です"
-        : "関連度は高くありませんが距離面で取り組みやすいです";
+      const relation =
+        myGroup === pg
+          ? "同ジャンルの相乗効果が期待できます"
+          : COMPLEMENTS[myGroup]?.includes(pg)
+          ? "互いを補完する関係です"
+          : "関連度は高くありませんが距離面で取り組みやすいです";
 
-    const ideas = [
-      `相互SNS紹介（ストーリーズ/リール）で近隣ユーザーに訴求（${distTxt}）`,
-      `店頭QRで相互送客：「${partner.siteName}」×「${myIndustryName}」コラボ特典`,
-      `季節の共同キャンペーン（${myIndustryName}×${
-        partner.industry?.name ?? "相手業種"
-      }）`,
-      partner.distanceKm != null && partner.distanceKm < 3
-        ? "徒歩圏“ハシゴ割”（同日利用で双方5%OFF）"
-        : "近隣マップ（Web）で相互紹介・回遊促進",
-      "共同インスタライブ or ショート動画撮影で“体験”訴求",
-    ].filter(Boolean) as string[];
+      const ideas = [
+        `相互SNS紹介（ストーリーズ/リール）で近隣ユーザーに訴求（${distTxt}）`,
+        `店頭QRで相互送客：「${partner.siteName}」×「${myIndustryName}」コラボ特典`,
+        `季節の共同キャンペーン（${myIndustryName}×${
+          partner.industry?.name ?? "相手業種"
+        }）`,
+        partner.distanceKm != null && partner.distanceKm < 3
+          ? "徒歩圏“ハシゴ割”（同日利用で双方5%OFF）"
+          : "近隣マップ（Web）で相互紹介・回遊促進",
+        "共同インスタライブ or ショート動画撮影で“体験”訴求",
+      ].filter(Boolean) as string[];
 
-    return {
-      reason: `距離は${distTxt}、${relation}。`,
-      ideas: ideas.slice(0, 5),
-    };
-  },
-  [myIndustryName] // ← myIndustryNameに依存
-);
+      return {
+        reason: `距離は${distTxt}、${relation}。`,
+        ideas: ideas.slice(0, 5),
+      };
+    },
+    [myIndustryName] // ← myIndustryNameに依存
+  );
 
-const handleProposeForCard = useCallback(
-  async (partner: SiteOwner) => {
-    setGeneratingCardId(partner.id);
-    try {
-      const res = await fetch("/api/collab-ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          my: { industry: myIndustryName || "未設定" },
-          partner: {
-            id: partner.id,
-            siteName: partner.siteName,
-            industry: partner.industry?.name ?? "未設定",
-            distanceKm: partner.distanceKm ?? null,
+  const handleProposeForCard = useCallback(
+    async (partner: SiteOwner) => {
+      setGeneratingCardId(partner.id);
+      try {
+        const res = await fetch("/api/collab-ideas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            my: { industry: myIndustryName || "未設定" },
+            partner: {
+              id: partner.id,
+              siteName: partner.siteName,
+              industry: partner.industry?.name ?? "未設定",
+              distanceKm: partner.distanceKm ?? null,
+            },
+          }),
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        const j = await res.json();
+
+        setCardProposals((prev) => ({
+          ...prev,
+          [partner.id]: {
+            reason: typeof j.reason === "string" ? j.reason : "",
+            ideas: Array.isArray(j.ideas) ? j.ideas.slice(0, 5) : [],
           },
-        }),
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-      const j = await res.json();
-
-      setCardProposals((prev) => ({
-        ...prev,
-        [partner.id]: {
-          reason: typeof j.reason === "string" ? j.reason : "",
-          ideas: Array.isArray(j.ideas) ? j.ideas.slice(0, 5) : [],
-        },
-      }));
-      setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
-    } catch {
-      const fb = proposeLocal(partner);
-      setCardProposals((prev) => ({ ...prev, [partner.id]: fb }));
-      setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
-    } finally {
-      setGeneratingCardId(null);
-    }
-  },
-  [myIndustryName, proposeLocal] // ← proposeLocalがuseCallback化されてるのでOK
-);
-
+        }));
+        setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
+      } catch {
+        const fb = proposeLocal(partner);
+        setCardProposals((prev) => ({ ...prev, [partner.id]: fb }));
+        setOpenCards((prev) => ({ ...prev, [partner.id]: true }));
+      } finally {
+        setGeneratingCardId(null);
+      }
+    },
+    [myIndustryName, proposeLocal] // ← proposeLocalがuseCallback化されてるのでOK
+  );
 
   return (
     <main className="mx-auto max-w-3xl p-4 pt-20">
       {/* ヘッダ行：検索＋AI選択ボタン */}
       <div className="mb-4 flex gap-2 items-center">
-         <input
+        <input
           type="text"
           placeholder="店舗名/業種で検索…" // ← 変更
           value={query}
           onChange={handleChange}
           className={clsx(
-            "flex-1 bg-white/50 rounded border px-3 py-2 text-sm focus:outline-none",
-
+            "flex-1 bg-white/50 rounded border px-3 py-2 text-sm focus:outline-none"
           )}
         />
         <button

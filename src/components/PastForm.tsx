@@ -43,7 +43,7 @@ export default function PostForm() {
   > | null>(null);
 
   const [siteName, setSiteName] = useState("Anonymous");
-  const [logoUrl, setLogoUrl] = useState("/noImage.png");
+  const [logoUrl, setLogoUrl] = useState("/images/noImage.png");
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [keywords, setKeywords] = useState(["", "", ""]);
@@ -57,7 +57,7 @@ export default function PostForm() {
       if (s1.exists()) setSiteName((s1.data() as any).siteName ?? "Anonymous");
       const s2 = await getDoc(doc(db, "siteSettingsEditable", SITE_KEY));
       if (s2.exists())
-        setLogoUrl((s2.data() as any).headerLogoUrl ?? "/noImage.png");
+        setLogoUrl((s2.data() as any).headerLogoUrl ?? "/images/noImage.png");
     })();
   }, []);
 

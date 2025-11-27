@@ -6,14 +6,16 @@ export const metadata: Metadata = {
   title: "浴室クリーニング｜おそうじ処 たよって屋",
   description:
     "浴室のカビ・水垢・皮脂汚れを丁寧に除去。換気扇・鏡・排水口までプロの手で徹底清掃。大阪・兵庫の浴室クリーニングはたよって屋へ。",
-  alternates: { canonical: "https://tayotteya.shop/services/bathroom-cleaning" },
+  alternates: {
+    canonical: "https://tayotteya.shop/services/bathroom-cleaning",
+  },
   openGraph: {
     title: "浴室クリーニング｜おそうじ処 たよって屋",
     description:
       "カビ・水垢・皮脂汚れを徹底除去。プロの浴室クリーニングで清潔なお風呂に。",
     url: "https://tayotteya.shop/services/bathroom-cleaning",
     siteName: "おそうじ処 たよって屋",
-    images: [{ url: "/ogpLogo.png", width: 1200, height: 630 }],
+    images: [{ url: "/images/ogpLogo.png", width: 1200, height: 630 }],
     locale: "ja_JP",
     type: "article",
   },
@@ -65,8 +67,14 @@ export default function BathroomCleaningPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safe(breadcrumbLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safe(serviceLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safe(breadcrumbLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safe(serviceLd) }}
+      />
 
       <h1 className="text-3xl font-extrabold mb-4">浴室クリーニング</h1>
       <p className="mb-6 leading-relaxed">
@@ -84,7 +92,10 @@ export default function BathroomCleaningPage() {
       <p>2〜3時間（汚れ具合により変動）</p>
 
       <div className="mt-8">
-        <a href="/contact" className="inline-block rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white hover:bg-emerald-700">
+        <a
+          href="/contact"
+          className="inline-block rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white hover:bg-emerald-700"
+        >
           無料見積もり・お問い合わせ
         </a>
       </div>

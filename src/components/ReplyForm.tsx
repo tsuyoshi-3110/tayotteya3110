@@ -10,8 +10,6 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 
-
-
 export default function ReplyForm({
   postId,
   onDone,
@@ -23,7 +21,7 @@ export default function ReplyForm({
 
   /* ----- サイト名 & アイコン URL を取得 ----- */
   const [siteName, setSiteName] = useState("Anonymous");
-  const [logoUrl, setLogoUrl] = useState("/noImage.png");
+  const [logoUrl, setLogoUrl] = useState("/images/noImage.png");
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -36,7 +34,9 @@ export default function ReplyForm({
       /* headerLogoUrl */
       const eSnap = await getDoc(doc(db, "siteSettingsEditable", SITE_KEY));
       if (eSnap.exists()) {
-        setLogoUrl((eSnap.data() as any).headerLogoUrl ?? "/noImage.png");
+        setLogoUrl(
+          (eSnap.data() as any).headerLogoUrl ?? "/images/noImage.png"
+        );
       }
     };
     fetchMeta();

@@ -2,7 +2,11 @@
 import type { DocumentData } from "firebase/firestore";
 
 /** 相対→絶対URL */
-const toAbs = (u: string | undefined, siteUrl: string, fallbackPath = "/ogpLogo.png") => {
+const toAbs = (
+  u: string | undefined,
+  siteUrl: string,
+  fallbackPath = "/images/ogpLogo.png"
+) => {
   if (!u || typeof u !== "string") return `${siteUrl}${fallbackPath}`;
   if (u.startsWith("http://") || u.startsWith("https://")) return u;
   return `${siteUrl}${u.startsWith("/") ? u : `/${u}`}`;
@@ -12,7 +16,7 @@ const toAbs = (u: string | undefined, siteUrl: string, fallbackPath = "/ogpLogo.
 const toAbsArray = (
   u: string | string[] | undefined,
   siteUrl: string,
-  fallbackPath = "/ogpLogo.png"
+  fallbackPath = "/images/ogpLogo.png"
 ) => {
   if (!u) return [toAbs(undefined, siteUrl, fallbackPath)];
   const arr = Array.isArray(u) ? u : [u];
@@ -20,12 +24,17 @@ const toAbsArray = (
 };
 
 /** VideoObject を “ある時だけ” 生成（要件満たさなければ null） */
-export function buildVideoJsonLd(settings: DocumentData | undefined, siteUrl: string) {
+export function buildVideoJsonLd(
+  settings: DocumentData | undefined,
+  siteUrl: string
+) {
   const d = (settings ?? {}) as Record<string, any>;
 
   // 背景動画 or heroVideo があるときだけ
   const hasVideo =
-    d?.type === "video" || !!d?.heroVideo?.contentUrl || !!d?.heroVideo?.embedUrl;
+    d?.type === "video" ||
+    !!d?.heroVideo?.contentUrl ||
+    !!d?.heroVideo?.embedUrl;
   if (!hasVideo) return null;
 
   // 入力候補
@@ -44,16 +53,20 @@ export function buildVideoJsonLd(settings: DocumentData | undefined, siteUrl: st
 
   // サムネ（配列対応・背景動画からの推定もあり）
   const fallbackPoster =
-    typeof d?.url === "string" ? d.url.replace(/\.mp4(\?.*)?$/, ".jpg") : undefined;
+    typeof d?.url === "string"
+      ? d.url.replace(/\.mp4(\?.*)?$/, ".jpg")
+      : undefined;
   const thumbnails = toAbsArray(
     d?.heroVideo?.thumbnailUrl ?? fallbackPoster ?? d?.headerLogoUrl,
     siteUrl,
-    "/ogpLogo.png"
+    "/images/ogpLogo.png"
   );
 
   const uploadDate: string =
     d?.heroVideo?.uploadDate ??
-    (d?.updatedAt?.toDate?.() ? d.updatedAt.toDate().toISOString() : new Date().toISOString());
+    (d?.updatedAt?.toDate?.()
+      ? d.updatedAt.toDate().toISOString()
+      : new Date().toISOString());
 
   // 最低限（Google推奨の必須相当）
   const video: Record<string, any> = {
@@ -74,8 +87,13 @@ export function buildVideoJsonLd(settings: DocumentData | undefined, siteUrl: st
   // 任意（あれば付与）
   if (d?.heroVideo?.duration) video.duration = d.heroVideo.duration; // ISO8601: "PT30S" など
 
-  const publisherName = d?.heroVideo?.publisherName ?? d?.siteName ?? "おそうじ処 たよって屋";
-  const publisherLogoUrl = toAbs(d?.headerLogoUrl, siteUrl, "/ogpLogo.png");
+  const publisherName =
+    d?.heroVideo?.publisherName ?? d?.siteName ?? "おそうじ処 たよって屋";
+  const publisherLogoUrl = toAbs(
+    d?.headerLogoUrl,
+    siteUrl,
+    "/images/ogpLogo.png"
+  );
   video.publisher = {
     "@type": "Organization",
     name: publisherName,

@@ -81,7 +81,7 @@ function createSite(overrides: SiteOverrides) {
     description: overrides.description,
     keywords: overrides.keywords as readonly string[],
     tel: overrides.tel ?? "",
-    logoPath: overrides.logoPath ?? "/ogpLogo.png",
+    logoPath: overrides.logoPath ?? "/images/ogpLogo.png",
     googleSiteVerification: overrides.googleSiteVerification ?? "",
     socials: {
       instagram: overrides.socials?.instagram ?? "",
@@ -115,7 +115,7 @@ const SITE_OVERRIDES: SiteOverrides = {
     "エアコンクリーニング",
   ],
   tel: "+81 90-6559-9110",
-  logoPath: "/ogpLogo.png",
+  logoPath: "/images/ogpLogo.png",
   googleSiteVerification: "uN73if1NMw0L6lYoLXqKJDBt56lxDXlmbZwfurtPFNs",
   socials: {
     instagram: "https://www.instagram.com/yuki.tayotte2017",
@@ -941,8 +941,7 @@ export const copy: Record<string, CopyBundle> = {
     stores: {
       heroTitle: `${site.name} ─ รายชื่อสาขา`,
       heroAreas: "โอซาก้าและเฮียวโกะ",
-      heroLead:
-        "ให้บริการทำความสะอาดบ้าน แม่บ้านช่วยงาน และจัดระเบียบบ้าน.",
+      heroLead: "ให้บริการทำความสะอาดบ้าน แม่บ้านช่วยงาน และจัดระเบียบบ้าน.",
       heroTail:
         "คุณสามารถตรวจสอบพื้นที่ให้บริการและรายละเอียดของแต่ละสาขาได้จากหน้านี้.",
       heroIntroLine: `${site.name} ให้บริการทำความสะอาดบ้าน แม่บ้าน และจัดระเบียบบ้านในพื้นที่โอซาก้าและเฮียวโกะ.`,
