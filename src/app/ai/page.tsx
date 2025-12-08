@@ -5,10 +5,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/firebase";
 import { useUILang, type UILang } from "@/lib/atoms/uiLangAtom";
+import { Textarea } from "@/components/ui/textarea";
 
 type Message = {
   role: "user" | "assistant";
@@ -251,7 +251,7 @@ export default function AIChatPage() {
         </div>
 
         <div className="flex gap-2">
-          <Input
+          <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={TXT.placeholder}

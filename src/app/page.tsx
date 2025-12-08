@@ -2,7 +2,6 @@
 import type { Metadata } from "next";
 import { seo } from "@/config/site";
 import BackgroundVideo from "@/components/backgroundVideo/BackgroundVideo";
-import TopFixedText from "@/components/TopFixedText";
 import TopVisibleSections from "@/components/TopVisibleSections";
 import HomePageText from "@/components/HomePageText";
 
@@ -19,7 +18,7 @@ export default function HomePage() {
 
       {/* ② テキスト紹介 */}
       <section className="relative z-10 text-white px-4 py-20">
-        <TopFixedText />
+
         {/* ⬇️ ここが言語に応じて変わる */}
         <HomePageText />
         <TopVisibleSections />

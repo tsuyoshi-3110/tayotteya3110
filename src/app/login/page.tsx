@@ -804,8 +804,9 @@ function SeoGuideCard() {
       <CardContent className="space-y-4 text-sm leading-relaxed text-black">
         <p>
           Pageitは、Googleが評価しやすい構造（高速・軽量・構造化データ対応）で作られています。
-          つまり、<strong>「土台のSEO」ではWordPress等の一般的なCMSよりも有利</strong>です。
-          残るのは「中身＝運用」です。
+          つまり、
+          <strong>「土台のSEO」ではWordPress等の一般的なCMSよりも有利</strong>
+          です。 残るのは「中身＝運用」です。
         </p>
 
         <ul className="list-disc pl-5 space-y-1">
@@ -1360,6 +1361,36 @@ export default function LoginPage() {
                     </div>
                   </div>
 
+                  {/* Footer 表示設定（問い合わせ / 連絡先保存のみ） */}
+                  <div className="space-y-2">
+                    <SectionTitle>フッターの表示設定</SectionTitle>
+
+                    {[
+                      {
+                        key: "footerCTA",
+                        label: "問い合わせボタン（CTA）を表示",
+                      },
+                      {
+                        key: "footerVCard",
+                        label: "連絡先保存ボタン（vCard）を表示",
+                      },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={visibleKeys.includes(item.key)}
+                          onChange={(e) => {
+                            const newKeys = e.target.checked
+                              ? [...visibleKeys, item.key]
+                              : visibleKeys.filter((k) => k !== item.key);
+                            handleVisibleKeysChange(newKeys); 
+                          }}
+                        />
+                        {item.label}
+                      </label>
+                    ))}
+                  </div>
+
                   {/* トップに表示するもの（限定） */}
                   <div>
                     <SectionTitle>トップに表示するもの</SectionTitle>
@@ -1411,12 +1442,10 @@ export default function LoginPage() {
               {/* Stripe Connect 連携カード */}
               <StripeConnectCard />
 
-
-
               {/* Ship&co への導線（Stripeの近くに設置） */}
               {hasConnect && <ShipAndCoLinkCard />}
 
-               <SeoGuideCard />
+              <SeoGuideCard />
 
               {/* アカウント操作（※既存そのまま） */}
               <Card className="shadow-xl bg白/50">
@@ -1438,8 +1467,6 @@ export default function LoginPage() {
                   </Button>
                 </CardContent>
               </Card>
-
-
             </div>
           )}
         </>
