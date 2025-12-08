@@ -168,7 +168,7 @@ function StripeConnectCard() {
             variant="outline"
             onClick={fetchStatus}
             disabled={loading}
-            className="w-full sm:w-auto sm:min-w-[96px]"
+            className="w-full sm:w-auto sm:min-w-24"
             title="状態を再取得"
           >
             再取得
@@ -1383,7 +1383,7 @@ export default function LoginPage() {
                             const newKeys = e.target.checked
                               ? [...visibleKeys, item.key]
                               : visibleKeys.filter((k) => k !== item.key);
-                            handleVisibleKeysChange(newKeys); 
+                            handleVisibleKeysChange(newKeys);
                           }}
                         />
                         {item.label}

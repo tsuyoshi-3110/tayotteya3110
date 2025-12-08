@@ -106,7 +106,7 @@ export default function Footer() {
               className={clsx(
                 "h-12 px-5 rounded-2xl shadow-2xl font-bold text-white text-outline",
                 gradient
-                  ? ["bg-gradient-to-r", gradient, "hover:brightness-110"]
+                  ? ["bg-linear-to-r", gradient, "hover:brightness-110"]
                   : "bg-emerald-600 hover:bg-emerald-700"
               )}
             />

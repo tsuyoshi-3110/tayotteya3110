@@ -660,17 +660,17 @@ export default function Header({ className = "" }: { className?: string }) {
             side="right"
             className={clsx(
               "flex h-dvh min-h-0 flex-col p-0",
-              gradient && "bg-gradient-to-b",
+              gradient && "bg-linear-to-b",
               gradient || "bg-gray-100",
               isDark
-                ? "[&>button]:text-white [&>button>svg]:!text-white [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
-                : "[&>button]:text-black [&>button>svg]:!text-black [&>button>svg]:stroke-[3] [&>button>svg]:w-7 [&>button>svg]:h-6"
+                ? "[&>button]:text-white [&>button>svg]:text-white! [&>button>svg]:stroke-3 [&>button>svg]:w-7 [&>button>svg]:h-6"
+                : "[&>button]:text-black [&>button>svg]:text-black! [&>button>svg]:stroke-3 [&>button>svg]:w-7 [&>button>svg]:h-6"
             )}
             dir={rtl ? "rtl" : "ltr"}
           >
             {/* 視覚タイトル */}
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className="text-center text-xl !text-white text-outline">
+              <SheetTitle className="text-center text-xl text-white text-outline">
                 {(T[uiLang] ?? T.ja).menuTitle}
               </SheetTitle>
             </SheetHeader>
