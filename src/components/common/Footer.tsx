@@ -33,6 +33,10 @@ const MENU_KEYS = [
   "reserve",
   "aiChat",
   "partners",
+
+  // ★ フッター専用キーを追加
+  "footerCTA",
+  "footerVCard",
 ];
 
 export default function Footer() {
@@ -83,7 +87,7 @@ export default function Footer() {
   return (
     <footer
       dir={dir}
-      className="relative z-20 mt-10 border-t bg-white/30 text-sm text-white text-outline backdrop-blur supports-[backdrop-filter]:bg-white/40"
+      className="relative z-20 mt-10 border-t bg-white/30 text-sm text-white text-outline backdrop-blur "
     >
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="flex flex-col items-center gap-6 text-center">
