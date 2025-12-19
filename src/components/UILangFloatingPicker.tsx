@@ -9,7 +9,8 @@ import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { doc, onSnapshot } from "firebase/firestore";
 
 type LangOption = { key: UILang; label: string; emoji: string };
-const ALL_OPTIONS: ReadonlyArray<LangOption> = LANGS as unknown as ReadonlyArray<LangOption>;
+const ALL_OPTIONS: ReadonlyArray<LangOption> =
+  LANGS as unknown as ReadonlyArray<LangOption>;
 
 const TAP_MOVE_THRESHOLD = 8;
 const TAP_TIME_THRESHOLD = 500;
@@ -47,7 +48,9 @@ export default function UILangFloatingPicker() {
 
   // ---- サイト設定に連動（有効/無効, 許可言語） ----
   const [i18nEnabled, setI18nEnabled] = useState<boolean>(true);
-  const [allowedFromServer, setAllowedFromServer] = useState<UILang[] | null>(null); // ← 初期は null（未ロード）
+  const [allowedFromServer, setAllowedFromServer] = useState<UILang[] | null>(
+    null
+  ); // ← 初期は null（未ロード）
   const [loaded, setLoaded] = useState(false); // ← 初回スナップショット受信フラグ
 
   // 配置
@@ -78,10 +81,10 @@ export default function UILangFloatingPicker() {
   const visibleOptions = useMemo(() => {
     if (!loaded || allowedFromServer === null) {
       // ロード前は現在の言語 + ja を最小限出しておく（フォールバック抑制）
-      const cur = ALL_OPTIONS.find(o => o.key === uiLang) ?? ALL_OPTIONS[0];
+      const cur = ALL_OPTIONS.find((o) => o.key === uiLang) ?? ALL_OPTIONS[0];
       const base = new Map<UILang, LangOption>([
         [cur.key, cur],
-        ["ja" as UILang, ALL_OPTIONS.find(o => o.key === "ja")!],
+        ["ja" as UILang, ALL_OPTIONS.find((o) => o.key === "ja")!],
       ]);
       return Array.from(base.values());
     }
@@ -204,7 +207,7 @@ export default function UILangFloatingPicker() {
           aria-label="表示言語を選択"
         >
           <span className="text-lg leading-none">{current?.emoji}</span>
-          <span className="text-sm truncate text-white">
+          <span className="text-sm truncate text-white text-outline">
             {current?.label} / {current?.key}
           </span>
           <span className="ml-auto text-white/70">▾</span>
@@ -241,7 +244,7 @@ export default function UILangFloatingPicker() {
                 option={o}
                 active={o.key === uiLang}
                 onSelect={(val) => {
-                  setUiLang(val);   // ← 操作時のみ更新
+                  setUiLang(val); // ← 操作時のみ更新
                   setOpen(false);
                 }}
               />

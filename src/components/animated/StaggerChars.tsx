@@ -2,14 +2,15 @@
 
 import { motion, Variants, Transition } from "framer-motion";
 
-const STAGGER_EASE: Transition["ease"] = [0.16, 1, 0.3, 1];
+// Apple / Stripe 系の“減速が美しい”カーブ
+const LUXURY_EASE: Transition["ease"] = [0.22, 1, 0.36, 1];
 
 export function StaggerChars({
   text,
   className,
-  delay = 0.25,
-  stagger = 0.08,
-  duration = 1.0,
+  delay = 0.35,
+  stagger = 0.14,
+  duration = 1.6,
 }: {
   text: string;
   className?: string;
@@ -29,11 +30,19 @@ export function StaggerChars({
   };
 
   const child: Variants = {
-    hidden: { opacity: 0, y: 8 },
+    hidden: {
+      opacity: 0,
+      y: 2,                 // 動きは極小
+      filter: "blur(4px)",  // 空気感の正体
+    },
     show: {
       opacity: 1,
       y: 0,
-      transition: { duration, ease: STAGGER_EASE },
+      filter: "blur(0px)",
+      transition: {
+        duration,
+        ease: LUXURY_EASE,
+      },
     },
   };
 

@@ -670,7 +670,7 @@ export default function Header({ className = "" }: { className?: string }) {
           >
             {/* 視覚タイトル */}
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className="text-center text-xl text-white text-outline">
+              <SheetTitle className="text-center text-xl text-white! text-outline">
                 {(T[uiLang] ?? T.ja).menuTitle}
               </SheetTitle>
             </SheetHeader>

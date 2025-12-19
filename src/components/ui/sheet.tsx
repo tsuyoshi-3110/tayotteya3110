@@ -122,13 +122,13 @@ function SheetTitle({
     <SheetPrimitive.Title
       data-slot="sheet-title"
       className={cn(
-        "font-semibold",          // 既定は太字だけ
-        className || "text-foreground" // 呼び出し側で色未指定のときだけ text-foreground
+        "font-semibold text-foreground", // ← デフォルトは常にここ
+        className                         // ← 呼び出し側が後勝ち
       )}
       {...props}
     />
   );
-};
+}
 
 
 function SheetDescription({
