@@ -76,6 +76,7 @@ import { ThemeKey, THEMES } from "@/lib/themes";
 
 /* ===================== 型 ===================== */
 type MediaType = "image" | "video";
+type MediaItem = { src: string; type: MediaType };
 
 type Base = { title: string; body: string };
 type Tr = { lang: LangKey; title?: string; body?: string };
@@ -88,8 +89,17 @@ type ProductDoc = {
   t: Tr[];
   title?: string;
   body?: string;
+
+  // 互換（旧）
   mediaURL: string;
   mediaType: MediaType;
+
+  // ✅ 複数メディア（画像最大5 + 動画最大1）
+  mediaItems?: MediaItem[];
+
+  // ✅ Storage削除用（複数のStorageパス）
+  mediaPaths?: string[];
+
   price: number;
   order?: number;
   originalFileName?: string;
@@ -156,7 +166,7 @@ async function translateAll(titleJa: string, bodyJa: string): Promise<Tr[]> {
 
 function mapsUrlFromPlaceId(placeId: string) {
   return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
-    placeId
+    placeId,
   )}`;
 }
 
@@ -188,6 +198,25 @@ function SortableItem({
   );
 }
 
+/* ===================== 動画長さ取得 ===================== */
+async function getVideoDurationSec(f: File): Promise<number> {
+  const blobUrl = URL.createObjectURL(f);
+  try {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.src = blobUrl;
+
+    await new Promise<void>((resolve, reject) => {
+      v.onloadedmetadata = () => resolve();
+      v.onerror = () => reject(new Error("video metadata load failed"));
+    });
+
+    return Number.isFinite(v.duration) ? v.duration : 0;
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
 /* ===================== 本体 ===================== */
 export default function ProjectsClient() {
   const router = useRouter();
@@ -206,8 +235,8 @@ export default function ProjectsClient() {
   const [titleJa, setTitleJa] = useState("");
   const [bodyJa, setBodyJa] = useState("");
 
-  // メディア
-  const [file, setFile] = useState<File | null>(null);
+  // メディア（✅ 複数：画像最大5 + 動画最大1）
+  const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -240,7 +269,7 @@ export default function ProjectsClient() {
   // Firestore 参照
   const colRef: CollectionReference<DocumentData> = useMemo(
     () => collection(db, COL_PATH),
-    []
+    [],
   );
 
   /* -------- 権限 -------- */
@@ -274,6 +303,24 @@ export default function ProjectsClient() {
           body: data.body ?? "",
         };
         const t: Tr[] = Array.isArray(data.t) ? data.t : [];
+
+        const mediaItems: MediaItem[] | undefined = Array.isArray(
+          data.mediaItems,
+        )
+          ? data.mediaItems
+              .filter(
+                (x: any) =>
+                  x &&
+                  typeof x.src === "string" &&
+                  (x.type === "image" || x.type === "video"),
+              )
+              .slice(0, 6)
+          : undefined;
+
+        const mediaPaths: string[] | undefined = Array.isArray(data.mediaPaths)
+          ? data.mediaPaths.filter((p: any) => typeof p === "string")
+          : undefined;
+
         const row: ProductDoc = {
           id: d.id,
           base,
@@ -282,6 +329,8 @@ export default function ProjectsClient() {
           body: data.body,
           mediaURL: data.mediaURL ?? "",
           mediaType: (data.mediaType as MediaType) ?? "image",
+          mediaItems,
+          mediaPaths,
           price: typeof data.price === "number" ? data.price : 0,
           order: data.order ?? 9999,
           originalFileName: data.originalFileName,
@@ -317,7 +366,7 @@ export default function ProjectsClient() {
       colRef,
       orderBy("order", "asc"),
       startAfter(lastVisible),
-      limit(20)
+      limit(20),
     );
     const snap = await getDocs(q);
 
@@ -330,6 +379,24 @@ export default function ProjectsClient() {
           body: data.body ?? "",
         };
         const t: Tr[] = Array.isArray(data.t) ? data.t : [];
+
+        const mediaItems: MediaItem[] | undefined = Array.isArray(
+          data.mediaItems,
+        )
+          ? data.mediaItems
+              .filter(
+                (x: any) =>
+                  x &&
+                  typeof x.src === "string" &&
+                  (x.type === "image" || x.type === "video"),
+              )
+              .slice(0, 6)
+          : undefined;
+
+        const mediaPaths: string[] | undefined = Array.isArray(data.mediaPaths)
+          ? data.mediaPaths.filter((p: any) => typeof p === "string")
+          : undefined;
+
         const row: ProductDoc = {
           id: d.id,
           base,
@@ -338,6 +405,8 @@ export default function ProjectsClient() {
           body: data.body,
           mediaURL: data.mediaURL ?? "",
           mediaType: (data.mediaType as MediaType) ?? "image",
+          mediaItems,
+          mediaPaths,
           price: typeof data.price === "number" ? data.price : 0,
           order: data.order ?? 9999,
           originalFileName: data.originalFileName,
@@ -377,7 +446,7 @@ export default function ProjectsClient() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
-    })
+    }),
   );
 
   const handleDragEnd = useCallback(
@@ -393,36 +462,67 @@ export default function ProjectsClient() {
       next.forEach((p, i) => batch.update(doc(colRef, p.id), { order: i }));
       await batch.commit();
     },
-    [list, colRef]
+    [list, colRef],
   );
 
-  /* -------- ファイル選択（動画長さチェック） -------- */
-  const onSelectFile = (f: File) => {
-    if (!f) return;
-    const isVideo = f.type.startsWith("video/");
-    if (!isVideo) {
-      setFile(f);
+  /* -------- ファイル選択（✅ 画像5 + 動画1、動画長さチェック） -------- */
+  const onSelectFiles = useCallback(async (fileList: FileList) => {
+    const raw = Array.from(fileList || []);
+    if (raw.length === 0) return;
+
+    const picked: File[] = [];
+    let imgCount = 0;
+    let vidCount = 0;
+
+    for (const f of raw) {
+      const isVideo = f.type.startsWith("video/");
+      const isImage = f.type.startsWith("image/");
+
+      const okVideo = isVideo && VIDEO_MIME_TYPES.includes(f.type);
+      const okImage = isImage && IMAGE_MIME_TYPES.includes(f.type);
+
+      if (!okVideo && !okImage) continue;
+
+      if (okVideo) {
+        if (vidCount >= 1) continue;
+        vidCount += 1;
+        picked.push(f);
+        continue;
+      }
+
+      if (imgCount >= 5) continue;
+      imgCount += 1;
+      picked.push(f);
+    }
+
+    if (picked.length === 0) {
+      alert("対応形式のファイルが選択されていません");
       return;
     }
-    const blobUrl = URL.createObjectURL(f);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.src = blobUrl;
-    v.onloadedmetadata = () => {
-      URL.revokeObjectURL(blobUrl);
-      if (v.duration > MAX_VIDEO_SEC) {
-        alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+
+    const video = picked.find((f) => f.type.startsWith("video/"));
+    if (video) {
+      try {
+        const sec = await getVideoDurationSec(video);
+        if (sec > MAX_VIDEO_SEC) {
+          alert(`動画は ${MAX_VIDEO_SEC} 秒以内にしてください`);
+          return;
+        }
+      } catch {
+        alert("動画の情報取得に失敗しました");
         return;
       }
-      setFile(f);
-    };
-  };
+    }
+
+    setFiles(picked);
+  }, []);
 
   /* -------- 保存 -------- */
   const saveProduct = useCallback(async () => {
     if (progress !== null || saving) return;
     if (!titleJa.trim()) return alert("タイトルは必須です");
-    if (formMode === "add" && !file) return alert("メディアを選択してください");
+    if (formMode === "add" && files.length === 0)
+      return alert("メディアを選択してください");
 
     setSaving(true);
     try {
@@ -431,70 +531,96 @@ export default function ProjectsClient() {
       let mediaType: MediaType = editing?.mediaType ?? "image";
       let originalFileName = editing?.originalFileName;
 
-      // 画像/動画アップロード
-      if (file) {
-        const isVideo = file.type.startsWith("video/");
-        mediaType = isVideo ? "video" : "image";
+      // ✅ 複数メディア（互換用に先頭を mediaURL/mediaType にも入れる）
+      let mediaItems: MediaItem[] | undefined = editing?.mediaItems;
+      let mediaPaths: string[] | undefined = editing?.mediaPaths;
 
-        const isValidVideo = VIDEO_MIME_TYPES.includes(file.type);
-        const isValidImage = IMAGE_MIME_TYPES.includes(file.type);
-        if (!isValidImage && !isValidVideo) {
-          alert("対応形式ではありません");
+      // 画像/動画アップロード（複数）
+      if (files.length > 0) {
+        const storage = getStorage();
+
+        // 旧ファイル削除（mediaPaths がある場合）
+        if (formMode === "edit" && editing?.mediaPaths?.length) {
+          await Promise.all(
+            editing.mediaPaths.map((p) =>
+              deleteObject(storageRef(storage, p)).catch(() => {}),
+            ),
+          );
+        }
+
+        const nextItems: MediaItem[] = [];
+        const nextPaths: string[] = [];
+
+        setProgress(0);
+
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const isVideo = f.type.startsWith("video/");
+          const type2: MediaType = isVideo ? "video" : "image";
+
+          const isValidVideo = isVideo && VIDEO_MIME_TYPES.includes(f.type);
+          const isValidImage = !isVideo && IMAGE_MIME_TYPES.includes(f.type);
+          if (!isValidImage && !isValidVideo) continue;
+
+          // 画像は jpeg に統一
+          const ext = isVideo ? extFromMime(f.type) : "jpg";
+
+          const uploadFile = isVideo
+            ? f
+            : await imageCompression(f, {
+                maxWidthOrHeight: 1200,
+                maxSizeMB: 0.7,
+                useWebWorker: true,
+                fileType: "image/jpeg",
+                initialQuality: 0.8,
+              });
+
+          // ✅ 複数保存用にパスを分ける
+          const path = `projects/public/${SITE_KEY}/${id}_${type2}_${i}.${ext}`;
+          const sref = storageRef(storage, path);
+
+          const task = uploadBytesResumable(sref, uploadFile, {
+            contentType: isVideo ? f.type : "image/jpeg",
+          });
+
+          await new Promise<void>((resolve, reject) => {
+            task.on(
+              "state_changed",
+              (s) => {
+                const ratio = s.totalBytes
+                  ? s.bytesTransferred / s.totalBytes
+                  : 0;
+                const overall = ((i + ratio) / files.length) * 100;
+                setProgress(Math.round(overall));
+              },
+              (e) => reject(e),
+              () => resolve(),
+            );
+          });
+
+          const downloadURL = await getDownloadURL(sref);
+          const url = `${downloadURL}?v=${uuid()}`;
+
+          nextItems.push({ src: url, type: type2 });
+          nextPaths.push(path);
+        }
+
+        setProgress(null);
+
+        if (nextItems.length === 0) {
+          alert("メディアのアップロードに失敗しました");
           setSaving(false);
           return;
         }
 
-        const ext = extFromMime(file.type);
-        const uploadFile = isVideo
-          ? file
-          : await imageCompression(file, {
-              maxWidthOrHeight: 1200,
-              maxSizeMB: 0.7,
-              useWebWorker: true,
-              fileType: "image/jpeg",
-              initialQuality: 0.8,
-            });
+        mediaItems = nextItems;
+        mediaPaths = nextPaths;
 
-        const sref = storageRef(
-          getStorage(),
-          `projects/public/${SITE_KEY}/${id}.${ext}`
-        );
-        const task = uploadBytesResumable(sref, uploadFile, {
-          contentType: isVideo ? file.type : "image/jpeg",
-        });
+        // 互換用：先頭
+        mediaURL = mediaItems[0].src;
+        mediaType = mediaItems[0].type;
 
-        setProgress(0);
-        await new Promise<void>((resolve, reject) => {
-          task.on(
-            "state_changed",
-            (s) =>
-              setProgress(
-                Math.round((s.bytesTransferred / s.totalBytes) * 100)
-              ),
-            (e) => reject(e),
-            () => resolve()
-          );
-        });
-
-        const downloadURL = await getDownloadURL(sref);
-        mediaURL = `${downloadURL}?v=${uuid()}`;
-        originalFileName = file.name;
-        setProgress(null);
-
-        // 拡張子が変わった時は旧ファイル削除（拡張子推定）
-        if (formMode === "edit" && editing) {
-          const oldExt = extFromMime(
-            editing.mediaType === "video" ? "video/mp4" : "image/jpeg"
-          );
-          if (oldExt !== ext) {
-            await deleteObject(
-              storageRef(
-                getStorage(),
-                `projects/public/${SITE_KEY}/${id}.${oldExt}`
-              )
-            ).catch(() => {});
-          }
-        }
+        originalFileName = files.map((x) => x.name).join(", ");
       }
 
       // 翻訳
@@ -515,6 +641,11 @@ export default function ProjectsClient() {
         body: base.body,
         mediaURL,
         mediaType,
+
+        // ✅ 追加（複数）
+        ...(mediaItems ? { mediaItems } : {}),
+        ...(mediaPaths ? { mediaPaths } : {}),
+
         ...(originalFileName ? { originalFileName } : {}),
         ...(storeLink ? { storeLink } : {}),
         updatedAt: serverTimestamp() as any,
@@ -534,7 +665,7 @@ export default function ProjectsClient() {
       // リセット
       setFormMode(null);
       setEditing(null);
-      setFile(null);
+      setFiles([]);
       setSelectedStoreId("");
     } catch (e) {
       console.error(e);
@@ -549,7 +680,7 @@ export default function ProjectsClient() {
     titleJa,
     bodyJa,
     formMode,
-    file,
+    files,
     editing,
     colRef,
     list,
@@ -576,7 +707,7 @@ export default function ProjectsClient() {
         <p
           className={clsx(
             "text-sm",
-            isDark ? "text-white/70" : "text-muted-foreground"
+            isDark ? "text-white/70" : "text-muted-foreground",
           )}
         >
           準備中...
@@ -634,13 +765,14 @@ export default function ProjectsClient() {
                             "bg-gradient-to-b",
                             gradient,
                             isDragging ? "bg-yellow-100" : "bg-white",
-                            !isDragging && "hover:shadow-lg"
+                            !isDragging && "hover:shadow-lg",
                           )}
                         >
-                          {/* メディア */}
+                          {/* メディア（✅ 複数があればスライド表示） */}
                           <ProductMedia
                             src={p.mediaURL}
                             type={p.mediaType}
+                            items={p.mediaItems}
                             alt={loc.title || "project"}
                             className="shadow-lg"
                           />
@@ -684,7 +816,7 @@ export default function ProjectsClient() {
             setEditing(null);
             setTitleJa("");
             setBodyJa("");
-            setFile(null);
+            setFiles([]);
             setSelectedStoreId("");
             setFormMode("add");
           }}
@@ -724,7 +856,7 @@ export default function ProjectsClient() {
                 onClick={() => setShowBodyGen(true)}
                 className={clsx(
                   "w-full px-4 py-2 rounded text-white",
-                  canOpenBodyGen ? "bg-indigo-600" : "bg-gray-400"
+                  canOpenBodyGen ? "bg-indigo-600" : "bg-gray-400",
                 )}
                 disabled={!canOpenBodyGen || saving}
               >
@@ -768,7 +900,7 @@ export default function ProjectsClient() {
                             try {
                               setAiGenLoading(true);
                               const keywords = aiKeywords.filter((k) =>
-                                k.trim()
+                                k.trim(),
                               );
                               const res = await fetch(
                                 "/api/generate-description",
@@ -781,7 +913,7 @@ export default function ProjectsClient() {
                                     title: titleJa,
                                     keywords,
                                   }),
-                                }
+                                },
                               );
                               const data = await res.json();
                               if (!res.ok)
@@ -800,7 +932,7 @@ export default function ProjectsClient() {
                           }}
                           className={clsx(
                             "flex-1 py-2 rounded text-white",
-                            canGenerateBody ? "bg-indigo-600" : "bg-gray-400"
+                            canGenerateBody ? "bg-indigo-600" : "bg-gray-400",
                           )}
                           disabled={!canGenerateBody || aiGenLoading}
                         >
@@ -812,13 +944,18 @@ export default function ProjectsClient() {
                 </div>
               )}
 
-              {/* メディア */}
+              {/* メディア（✅ 複数選択） */}
+              <p className="text-xs text-gray-600">
+                ※
+                画像は最大5枚まで、動画は最大1本まで選択できます（動画は60秒以内）
+              </p>
               <input
                 type="file"
+                multiple
                 accept={[...IMAGE_MIME_TYPES, ...VIDEO_MIME_TYPES].join(",")}
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onSelectFile(f);
+                  const fl = e.target.files;
+                  if (fl) onSelectFiles(fl);
                 }}
                 className="bg-gray-500 text-white w-full h-10 px-3 py-1 rounded"
               />

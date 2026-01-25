@@ -7,7 +7,7 @@ import clsx from "clsx";
 import { v4 as uuid } from "uuid";
 import imageCompression from "browser-image-compression";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ShoppingCart } from "lucide-react";
 
 import { useThemeGradient } from "@/lib/useThemeGradient";
 import { ThemeKey, THEMES } from "@/lib/themes";
@@ -92,7 +92,7 @@ const TOAST_DURATION_MS = 3000;
 /* 表示テキスト（UI言語で解決） */
 function pickLocalized(
   p: ProductDoc,
-  lang: UILang
+  lang: UILang,
 ): { title: string; body: string } {
   if (lang === "ja") {
     return {
@@ -175,7 +175,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
   // 表示用
   const [displayProduct, setDisplayProduct] = useState<ProductDoc>(
-    product as ProductDoc
+    product as ProductDoc,
   );
 
   // セクション一覧（未使用でも購読維持）
@@ -192,15 +192,15 @@ export default function ProductECDetail({ product }: { product: Product }) {
     (typeof (product as any).priceExcl === "number"
       ? toInclYen((product as any).priceExcl, TAX_RATE)
       : typeof product.price === "number"
-      ? product.price
-      : 0);
+        ? product.price
+        : 0);
 
   const [price, setPrice] = useState<number | "">(
-    typeof initialIncl === "number" ? initialIncl : ""
+    typeof initialIncl === "number" ? initialIncl : "",
   );
   const [taxIncluded] = useState<boolean>(true);
   const [published, setPublished] = useState<boolean>(
-    (product as any).published !== false
+    (product as any).published !== false,
   );
   const [file] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -223,7 +223,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
   // セクション選択
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
-    (product as any).sectionId ?? null
+    (product as any).sectionId ?? null,
   );
 
   // ===== 在庫購読 =====
@@ -237,7 +237,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
       stockCol,
       where("siteKey", "==", SITE_KEY),
       where("productId", "==", product.id),
-      fsLimit(1)
+      fsLimit(1),
     );
     const unsub = onSnapshot(
       qy,
@@ -250,7 +250,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
             stockQty: Math.max(0, Number(s.stockQty ?? 0) || 0),
             lowStockThreshold: Math.max(
               0,
-              Number(s.lowStockThreshold ?? 0) || 0
+              Number(s.lowStockThreshold ?? 0) || 0,
             ),
           });
         } else {
@@ -258,7 +258,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
         }
         setStockLoaded(true);
       },
-      () => setStockLoaded(true)
+      () => setStockLoaded(true),
     );
     return () => unsub();
   }, [product.id]);
@@ -381,7 +381,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
         const storageRef = ref(
           getStorage(),
-          `products/public/${SITE_KEY}/${product.id}.${ext}`
+          `products/public/${SITE_KEY}/${product.id}.${ext}`,
         );
         const task = uploadBytesResumable(storageRef, uploadFile, {
           contentType: isVideo ? file.type : "image/jpeg",
@@ -443,7 +443,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
 
       await updateDoc(
         doc(db, "siteProducts", SITE_KEY, "items", product.id),
-        payload
+        payload,
       );
 
       // ローカル反映
@@ -503,7 +503,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
         alert(
           (uiLang === "ja"
             ? `在庫は最大 ${max} 個までです`
-            : `Up to ${max} pcs in stock`) as string
+            : `Up to ${max} pcs in stock`) as string,
         );
         return;
       }
@@ -708,7 +708,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
         className={clsx(
           "fixed left-1/2 -translate-x-1/2 top-16 z-40",
           addedToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2",
-          "transition-all duration-300"
+          "transition-all duration-300",
         )}
       >
         {addedToast && (
@@ -734,7 +734,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
           "bg-gradient-to-b",
           "mt-5",
           gradient,
-          isDark ? "bg-black/40 text-white" : "bg-white"
+          isDark ? "bg-black/40 text-white" : "bg-white",
         )}
       >
         {isAdmin && (
@@ -745,7 +745,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
                 "px-2 py-1 rounded text-xs font-semibold",
                 displayProduct.published !== false
                   ? "bg-green-100 text-green-700"
-                  : "bg-gray-200 text-gray-700"
+                  : "bg-gray-200 text-gray-700",
               )}
             >
               {displayProduct.published !== false ? "公開" : "非公開"}
@@ -794,7 +794,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
             <p
               className={clsx(
                 "text-sm whitespace-pre-wrap leading-relaxed",
-                isDark && "text-white"
+                isDark && "text-white",
               )}
             >
               {loc.body}
@@ -812,7 +812,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
                 aria-label="数量を1減らす"
                 className={clsx(
                   "h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]",
-                  disableMinus && "opacity-50 cursor-not-allowed"
+                  disableMinus && "opacity-50 cursor-not-allowed",
                 )}
               >
                 −
@@ -833,7 +833,7 @@ export default function ProductECDetail({ product }: { product: Product }) {
                 aria-label="数量を1増やす"
                 className={clsx(
                   "h-11 w-11 rounded-xl border text-xl font-bold active:scale-[0.98]",
-                  disablePlus && "opacity-50 cursor-not-allowed"
+                  disablePlus && "opacity-50 cursor-not-allowed",
                 )}
               >
                 ＋
@@ -853,12 +853,16 @@ export default function ProductECDetail({ product }: { product: Product }) {
               disabled={disableAdd}
               className={clsx(
                 "ml-auto h-11 px-4 rounded-xl font-semibold disabled:opacity-50",
+                "flex items-center justify-center gap-2",
                 isDark ? "bg-white text-black" : "bg-black text-white",
-                disableAdd && "cursor-not-allowed"
+                disableAdd && "cursor-not-allowed",
               )}
-              aria-label={cartBtnLabel}
+              aria-label={isOut ? stockText.addDisabled : cartBtnLabel}
             >
-              {isOut ? stockText.addDisabled : cartBtnLabel}
+              <ShoppingCart className="h-5 w-5" />
+              <span className="sr-only">
+                {isOut ? stockText.addDisabled : cartBtnLabel}
+              </span>
             </button>
           </div>
         </div>

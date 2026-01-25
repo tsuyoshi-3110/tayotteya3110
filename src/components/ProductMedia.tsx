@@ -3,13 +3,7 @@
 
 import Image, { StaticImageData } from "next/image";
 import clsx from "clsx";
-import {
-  useEffect,
-  useRef,
-  useState,
-  useMemo,
-  MouseEvent,
-} from "react";
+import { useEffect, useRef, useState, useMemo, MouseEvent } from "react";
 import { useOnScreen } from "@/lib/useOnScreen";
 
 type Src = string | StaticImageData;
@@ -30,17 +24,41 @@ interface Props {
 
   className?: string;
   autoPlay?: boolean; // 既定: true（自動スライドON/OFF用）
-  loop?: boolean;     // ※未使用（動画は isSingleVideo で制御）
-  muted?: boolean;    // 既定: true（動画用）
+  loop?: boolean; // ※未使用（動画は isSingleVideo で制御）
+  muted?: boolean; // 既定: true（動画用）
   alt?: string;
 }
 
 /** items があればそれを優先。なければ旧来の単枚 src/type を1枚目として使う */
 function normalizeItems(src: Src, type: MediaType, items?: MediaItem[]) {
-  if (Array.isArray(items) && items.length > 0) {
-    return items.filter((m) => m && m.src);
+  const MAX_IMAGES = 5;
+  const MAX_VIDEOS = 1;
+
+  const raw =
+    Array.isArray(items) && items.length > 0 ? items : [{ src, type }];
+
+  // 空srcなどを除外しつつ、画像5・動画1に制限（順序は維持）
+  const out: MediaItem[] = [];
+  let imgCount = 0;
+  let vidCount = 0;
+
+  for (const m of raw) {
+    if (!m || !m.src) continue;
+
+    if (m.type === "video") {
+      if (vidCount >= MAX_VIDEOS) continue;
+      vidCount += 1;
+      out.push(m);
+      continue;
+    }
+
+    // image
+    if (imgCount >= MAX_IMAGES) continue;
+    imgCount += 1;
+    out.push(m);
   }
-  return [{ src, type }];
+
+  return out.length > 0 ? out : [{ src, type }];
 }
 
 export default function ProductMedia({
@@ -58,12 +76,11 @@ export default function ProductMedia({
 
   const slides = useMemo(
     () => normalizeItems(src, type, items),
-    [src, type, items]
+    [src, type, items],
   );
 
   const total = slides.length || 1;
-  const safeIndex =
-    total === 0 ? 0 : ((currentIndex % total) + total) % total;
+  const safeIndex = total === 0 ? 0 : ((currentIndex % total) + total) % total;
   const active = slides[safeIndex] ?? slides[0];
 
   const isVideoSlide = active.type === "video";
@@ -159,13 +176,13 @@ export default function ProductMedia({
       ref={ref}
       className={clsx(
         "relative w-full aspect-square overflow-hidden",
-        className
+        className,
       )}
     >
       <div
         className={clsx(
           "flex h-full w-full",
-          "transition-transform duration-500 ease-out" // ← 左にスライド＆右から出てくる
+          "transition-transform duration-500 ease-out", // ← 左にスライド＆右から出てくる
         )}
         style={{
           transform: `translateX(-${safeIndex * 100}%)`,
@@ -244,7 +261,7 @@ export default function ProductMedia({
                   "w-2 h-2 rounded-full transition-opacity",
                   i === safeIndex
                     ? "bg-white"
-                    : "bg-white/50 hover:bg-white/80"
+                    : "bg-white/50 hover:bg-white/80",
                 )}
               />
             ))}
