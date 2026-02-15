@@ -659,6 +659,7 @@ export default function Header({ className = "" }: { className?: string }) {
           <SheetContent
             side="right"
             className={clsx(
+              "z-100",
               "flex h-dvh min-h-0 flex-col p-0",
               gradient && "bg-linear-to-b",
               gradient || "bg-gray-100",

@@ -654,7 +654,7 @@ export default function ProductsClient() {
                       }}
                       className={clsx(
                         "flex flex-col h-full border shadow relative transition-colors duration-200 rounded-2xl",
-                        "bg-gradient-to-b",
+                        "bg-linear-to-b",
                         gradient,
                         isDragging ? "bg-yellow-100" : "bg-transparent",
                         "backdrop-blur-sm",
