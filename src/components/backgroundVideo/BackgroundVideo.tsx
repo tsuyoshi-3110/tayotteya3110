@@ -51,7 +51,7 @@ type MetaDoc = {
 export default function BackgroundMedia() {
   const [heroItems, setHeroItems] = useState<HeroItem[]>([]);
   const [heroVideoMeta, setHeroVideoMeta] = useState<HeroVideoMeta | undefined>(
-    undefined
+    undefined,
   );
   const [theme, setTheme] = useState<ThemeKey>("brandA");
 
@@ -157,7 +157,7 @@ export default function BackgroundMedia() {
       "state_changed",
       (snapshot) => {
         const percent = Math.round(
-          (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
         );
         setProgress(percent);
       },
@@ -171,7 +171,7 @@ export default function BackgroundMedia() {
         await setDoc(META_REF, { imageUrl: url }, { merge: true });
         setProgress(null);
         alert("画像を更新しました！");
-      }
+      },
     );
   };
 
@@ -198,7 +198,7 @@ export default function BackgroundMedia() {
       "state_changed",
       (snapshot) => {
         const percent = Math.round(
-          (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
         );
         setProgress(percent);
       },
@@ -212,11 +212,11 @@ export default function BackgroundMedia() {
         await setDoc(
           doc(db, "siteSettingsEditable", SITE_KEY),
           { headerLogoUrl: url },
-          { merge: true }
+          { merge: true },
         );
         setProgress(null);
         alert("ヘッダー画像を更新しました！");
-      }
+      },
     );
   };
 
@@ -293,7 +293,7 @@ export default function BackgroundMedia() {
     const uploadVideoFile = async (file: File) => {
       const videoRef = ref(
         storage,
-        `videos/public/${SITE_KEY}/homeBackground.mp4`
+        `videos/public/${SITE_KEY}/homeBackground.mp4`,
       );
 
       try {
@@ -329,12 +329,12 @@ export default function BackgroundMedia() {
               resolve(
                 isFinite(video.duration)
                   ? Math.round(video.duration)
-                  : undefined
+                  : undefined,
               );
             };
             video.onerror = () =>
               reject(new Error("動画メタデータの読み込みに失敗"));
-          }
+          },
         );
 
         const seekTo = Math.min(1, Math.max(0.1, (video.duration || 1) * 0.1));
@@ -354,13 +354,13 @@ export default function BackgroundMedia() {
           canvas.toBlob(
             (b) => (b ? resolve(b) : reject(new Error("ポスター生成に失敗"))),
             "image/jpeg",
-            0.82
-          )
+            0.82,
+          ),
         );
 
         const posterRef = ref(
           storage,
-          `videos/public/${SITE_KEY}/homeBackground.jpg`
+          `videos/public/${SITE_KEY}/homeBackground.jpg`,
         );
         try {
           await deleteObject(posterRef);
@@ -398,7 +398,7 @@ export default function BackgroundMedia() {
             heroVideoMetaNext = heroVideoMeta;
           } else if (m.mode === "new" && m.file) {
             const { videoUrl, posterUrl, durationSec } = await uploadVideoFile(
-              m.file
+              m.file,
             );
             newHeroItems.push({ type: "video", src: videoUrl });
 
@@ -454,7 +454,7 @@ export default function BackgroundMedia() {
 
       setHeroItems(newHeroItems);
       setHeroVideoMeta(
-        hasVideo ? heroVideoMetaNext || heroVideoMeta : undefined
+        hasVideo ? heroVideoMetaNext || heroVideoMeta : undefined,
       );
 
       setProgress(null);
@@ -522,7 +522,7 @@ export default function BackgroundMedia() {
       {authChecked && isAdmin && (
         <>
           {progress !== null && (
-            <div className="fixed inset-0 z-50 flex items-center justify中心 bg-black/60">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
               <BroomDustLoader
                 label={`アップロード中… ${progress}%`}
                 size={100}
