@@ -66,12 +66,12 @@ export default function HomePageText() {
   }
 
   return (
-    <div ref={ref} className="flex flex-col items-center text-center space-y-6">
+    <div ref={ref} className="flex flex-col items-center text-center space-y-6 bg-white/30 backdrop-blur-md rounded-3xl shadow-2xl border border-white/50 px-8 py-10 max-w-2xl mx-auto">
 
       {/* ======= 見出し（1文字ずつ Stagger） ======= */}
       <StaggerText
         text={headline}
-        className="text-3xl lg:text-4xl font-extrabold leading-tight text-outline"
+        className="text-3xl lg:text-4xl font-extrabold leading-tight text-white text-outline"
         stagger={0.05}
         duration={0.7}
         delay={0.1}
@@ -81,7 +81,7 @@ export default function HomePageText() {
       {description && (
         <StaggerText
           text={description}
-          className="max-w-3xl text-sm md:text-lg opacity-80 leading-relaxed text-outline"
+          className="max-w-3xl text-sm md:text-lg opacity-80 leading-relaxed text-black"
           delay={0.3}
           stagger={0.02}
           duration={0.5}

@@ -232,7 +232,7 @@ export default async function ReportsPage({
   /* ========= Render ========= */
   return (
     <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-      <h1 className="text-2xl font-semibold text-white text-outline">
+      <h1 className="text-2xl font-semibold text-black">
         売上レポート
       </h1>
 

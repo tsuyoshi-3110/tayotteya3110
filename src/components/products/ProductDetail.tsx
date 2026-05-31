@@ -582,7 +582,7 @@ export default function ProductDetail({ product }: { product: Product }) {
           "bg-gradient-to-b",
           "mt-5",
           gradient,
-          "text-white text-outline"
+          "text-black"
         )}
       >
         {/* 編集・削除 */}
@@ -615,10 +615,10 @@ export default function ProductDetail({ product }: { product: Product }) {
 
         {/* テキスト */}
         <div className="p-4 space-y-2">
-          <h1 className={clsx("text-lg font-bold", "text-white text-outline")}>
+          <h1 className={clsx("text-lg font-bold", "text-black")}>
             {loc.title}
           </h1>
-          <p className={clsx("font-semibold", "text-white text-outline")}>
+          <p className={clsx("font-semibold", "text-black")}>
             {approx ? "≈ " : ""}
             {priceText}（{taxT.incl}）
           </p>
@@ -626,7 +626,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             <p
               className={clsx(
                 "text-sm whitespace-pre-wrap leading-relaxed",
-                "text-white text-outline"
+                "text-black"
               )}
             >
               {loc.body}

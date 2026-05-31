@@ -508,7 +508,7 @@ export default function NewsClient() {
       {/* ===== 一覧 ===== */}
       <ul className="space-y-4 p-4">
         {items.length === 0 ? (
-          <li className="p-6 rounded-lg shadow border bg-white/30 text-white text-outline">
+          <li className="p-6 rounded-lg shadow border bg-white/30 text-black">
             現在、お知らせはまだありません。
           </li>
         ) : (
@@ -816,7 +816,7 @@ function NewsCard({
       exit={{ opacity: 0, y: 40 }}
       className={`p-6 rounded-lg shadow border bg-white/30`}
     >
-      <h2 className="font-bold whitespace-pre-wrap text-white text-outline">
+      <h2 className="font-bold whitespace-pre-wrap text-black">
         {titleText}
       </h2>
 
@@ -836,7 +836,7 @@ function NewsCard({
         />
       )}
 
-      <p className="mt-2 whitespace-pre-wrap  text-white text-outline">
+      <p className="mt-2 whitespace-pre-wrap  text-black">
         {bodyText}
       </p>
 

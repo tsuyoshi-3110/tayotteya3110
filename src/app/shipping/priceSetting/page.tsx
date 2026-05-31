@@ -340,10 +340,10 @@ export default function ShippingPriceSettingPage() {
   /* ---------- UI ---------- */
   return (
     <div className="max-w-6xl mx-auto px-4 pt-6 pb-28 space-y-6">
-      <h1 className="text-xl font-bold text-white text-outline">
+      <h1 className="text-xl font-bold text-black">
         各国の送料・「◯円以上で送料無料」設定
       </h1>
-      <p className="text-sm text-white text-outline">
+      <p className="text-sm text-black">
         「◯円以上で送料無料」は、
         <strong>その地域のご注文金額がこの金額を超えると送料が0円</strong>
         になる仕組みです。

@@ -289,7 +289,7 @@ export default function CompanyOverview() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-3xl font-semibold text-white text-outline mb-4">
+      <h1 className="text-3xl font-semibold text-black mb-4">
         <StaggerChars text={headingText} />
       </h1>
       {/* ===== 会社概要カード ===== */}
@@ -341,14 +341,14 @@ export default function CompanyOverview() {
               <Building2 className="h-6 w-6 text-slate-700" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold text-white text-outline">
+              <h1 className="text-xl md:text-2xl font-semibold text-black">
                 {(!isEditing ? displayData?.name ?? "" : editBase.name) ||
                   "（会社名未設定）"}
               </h1>
               {(!isEditing
                 ? displayData?.tagline ?? ""
                 : editBase.tagline ?? "") && (
-                <p className="text-white text-outline mt-1 ">
+                <p className="text-black mt-1 ">
                   {!isEditing ? displayData?.tagline : editBase.tagline}
                 </p>
               )}

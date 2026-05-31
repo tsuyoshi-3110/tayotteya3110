@@ -357,7 +357,7 @@ export function InlineMediaEditor({
         )}
       </div>
 
-      <p className="mt-2 text-xs text-white text-outline">
+      <p className="mt-2 text-xs text-black">
         ※ 画像・動画ともにアップロード前に 1:1
         でトリミングできます（動画は端末内で再エンコード）。
       </p>

@@ -34,7 +34,7 @@ export default function StoresPageClient() {
           {t.heroTitle}
         </h1>
 
-        <p className="leading-relaxed text-white text-outline">
+        <p className="leading-relaxed text-black">
           {t.heroIntroLine}
           <br className="hidden lg:block" />
           {t.heroTail}

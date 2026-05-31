@@ -705,13 +705,13 @@ export default function ProjectsDetail({ product }: { product: Product }) {
         />
 
         <div className="p-4 space-y-2">
-          <h1 className="text-lg font-bold whitespace-pre-wrap text-white text-outline">
+          <h1 className="text-lg font-bold whitespace-pre-wrap text-black">
             {display.title}
           </h1>
 
           {/* 施工実績の本文 */}
           {display.body && (
-            <p className="text-sm whitespace-pre-wrap leading-relaxed text-white text-outline">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed text-black">
               {display.body}
             </p>
           )}

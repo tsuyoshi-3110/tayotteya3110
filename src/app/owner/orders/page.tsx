@@ -109,7 +109,7 @@ export default async function OrdersPage({
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6">
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-2xl font-semibold text-white text-outline">販売履歴</h1>
+        <h1 className="text-2xl font-semibold text-black">販売履歴</h1>
         <Pager initialPage={page} totalCount={rows.length} pageSize={PAGE_SIZE} />
       </div>
 

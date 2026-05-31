@@ -635,7 +635,7 @@ export default function HoursSection() {
             </table>
           </motion.div>
 
-          <p className="text-xs text-white text-outline mt-6">{t.note}</p>
+          <p className="text-xs text-black mt-6">{t.note}</p>
         </>
       )}
     </section>

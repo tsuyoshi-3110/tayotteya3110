@@ -13,7 +13,7 @@ function LabeledInput({
 }) {
   return (
     <label className="block">
-      <div className="mb-1 text-sm text-white text-outline">{label}</div>
+      <div className="mb-1 text-sm text-black">{label}</div>
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}

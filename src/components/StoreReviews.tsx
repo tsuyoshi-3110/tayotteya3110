@@ -269,7 +269,7 @@ export default function StoreReviews({
       {/* ヘッダ */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-white text-outline">
+          <span className="text-lg font-semibold text-black">
             口コミ
           </span>
           {typeof avg === "number" && (
@@ -278,7 +278,7 @@ export default function StoreReviews({
             </span>
           )}
           {typeof total === "number" && (
-            <span className="text-sm opacity-70 text-white text-outline">
+            <span className="text-sm opacity-70 text-black">
               （{total}件）
             </span>
           )}
@@ -297,7 +297,7 @@ export default function StoreReviews({
       {reviews.map((rv, i) => (
         <div
           key={i}
-          className={`rounded-md border p-4 shadow-sm ${"bg-white/30 text-white text-outline"}`}
+          className={`rounded-md border p-4 shadow-sm ${"bg-white/30 text-black"}`}
         >
           <div className="flex items-center gap-3 mb-2">
             <Avatar author={rv.author} url={rv.profilePhotoUrl} />

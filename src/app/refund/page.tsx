@@ -346,7 +346,7 @@ export default function RefundPage() {
         dir={dir}
       >
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold break-words text-white text-outline">
+          <h1 className="text-2xl font-bold break-words text-black">
             {title || "Refund & Returns Policy"}
           </h1>
         </div>

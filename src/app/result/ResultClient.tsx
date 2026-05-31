@@ -48,7 +48,7 @@ export default function ResultClient({
 
   return (
     <div className="bg-white shadow-md rounded-2xl p-6 space-y-4 border border-gray-200 max-w-md mx-auto">
-      <h2 className="text-xl font-semibold text-white text-outline">お支払い結果</h2>
+      <h2 className="text-xl font-semibold text-black">お支払い結果</h2>
       <div className="space-y-2 text-gray-700 text-base">
         <p>
           ステータス:{" "}

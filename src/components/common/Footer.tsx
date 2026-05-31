@@ -87,7 +87,7 @@ export default function Footer() {
   return (
     <footer
       dir={dir}
-      className="relative z-20 mt-10 border-t bg-white/30 text-sm text-white text-outline backdrop-blur "
+      className="relative z-20 mt-10 border-t bg-white/30 text-sm text-black backdrop-blur "
     >
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="flex flex-col items-center gap-6 text-center">
@@ -104,7 +104,7 @@ export default function Footer() {
           {showVCard && (
             <VCardDownloadButton
               className={clsx(
-                "h-12 px-5 rounded-2xl shadow-2xl font-bold text-white text-outline",
+                "h-12 px-5 rounded-2xl shadow-2xl font-bold text-black",
                 gradient
                   ? ["bg-linear-to-r", gradient, "hover:brightness-110"]
                   : "bg-emerald-600 hover:bg-emerald-700"

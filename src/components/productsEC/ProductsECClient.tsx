@@ -816,7 +816,7 @@ export default function ProductsECClient() {
 
       <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-white text-outline opacity-70">
+          <label className="text-sm text-black opacity-70">
             表示カテゴリ:
           </label>
           <div className="relative inline-block">
@@ -840,7 +840,7 @@ export default function ProductsECClient() {
             </select>
             <span
               aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white text-outline"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black"
             >
               {currentSectionLabel}
             </span>

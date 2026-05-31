@@ -779,7 +779,7 @@ export default function ProjectsClient() {
 
                           {/* 情報 */}
                           <div className="p-3 space-y-1">
-                            <h2 className="text-white text-outline">
+                            <h2 className="text-black">
                               {loc.title || "（無題）"}
                             </h2>
 

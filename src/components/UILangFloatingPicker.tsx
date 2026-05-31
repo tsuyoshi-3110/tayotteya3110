@@ -207,7 +207,7 @@ export default function UILangFloatingPicker() {
           aria-label="表示言語を選択"
         >
           <span className="text-lg leading-none">{current?.emoji}</span>
-          <span className="text-sm truncate text-white text-outline">
+          <span className="text-sm truncate text-black">
             {current?.label} / {current?.key}
           </span>
           <span className="ml-auto text-white/70">▾</span>

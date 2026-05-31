@@ -622,7 +622,7 @@ export default function Header({ className = "" }: { className?: string }) {
         href="/"
         className={clsx(
           "text-lg font-bold flex items-center gap-2 py-2 hover:opacity-50",
-          "text-white text-outline"
+          "text-black"
         )}
       >
         {logoUrl && logoUrl.trim() !== "" && (
@@ -671,7 +671,7 @@ export default function Header({ className = "" }: { className?: string }) {
           >
             {/* 視覚タイトル */}
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className="text-center text-xl text-white! text-outline">
+              <SheetTitle className="text-center text-xl text-black!">
                 {(T[uiLang] ?? T.ja).menuTitle}
               </SheetTitle>
             </SheetHeader>
@@ -689,7 +689,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     key={key}
                     href={href}
                     onClick={() => setOpen(false)}
-                    className="text-lg text-white text-outline"
+                    className="text-lg text-black"
                   >
                     {labelOf(key as Keys)}
                   </Link>
@@ -712,21 +712,21 @@ export default function Header({ className = "" }: { className?: string }) {
                     <Link
                       href="/postList"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-white text-outline"
+                      className="text-center text-lg text-black"
                     >
                       {labelOf("timeline")}
                     </Link>
                     <Link
                       href="/community"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-white text-outline"
+                      className="text-center text-lg text-black"
                     >
                       {labelOf("community")}
                     </Link>
                     <Link
                       href="/analytics"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-white text-outline"
+                      className="text-center text-lg text-black"
                     >
                       {labelOf("analytics")}
                     </Link>
@@ -734,7 +734,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     <Link
                       href="/business-card"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-white text-outline"
+                      className="text-center text-lg text-black"
                     >
                       {labelOf("business-card")}
                     </Link>
@@ -745,7 +745,7 @@ export default function Header({ className = "" }: { className?: string }) {
                   <Link
                     href="/login"
                     onClick={() => setOpen(false)}
-                    className="text-center text-lg text-white text-outline"
+                    className="text-center text-lg text-black"
                   >
                     {labelOf("admin")}
                   </Link>

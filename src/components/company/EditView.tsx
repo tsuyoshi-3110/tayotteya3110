@@ -98,10 +98,10 @@ export default function EditView({
         {/* 住所＋チェックボックス */}
         <div>
           <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="text-sm text-white text-outline">
+            <div className="text-sm text-black">
               所在地（任意・翻訳対象）
             </div>
-            <label className="flex items-center gap-1 text-xs text-white text-outline">
+            <label className="flex items-center gap-1 text-xs text-black">
               <input
                 type="checkbox"
                 className="h-3 w-3"
@@ -124,7 +124,7 @@ export default function EditView({
             placeholder="住所または地名"
             className="bg-white/80"
           />
-          <p className="mt-1 text-xs text-white text-outline">
+          <p className="mt-1 text-xs text-black">
             ※ チェックONのとき、この住所からGoogleマップを自動表示します。
           </p>
         </div>
@@ -152,7 +152,7 @@ export default function EditView({
       {/* 会社説明 + AI（自動伸縮） */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <div className="text-sm text-white text-outline">
+          <div className="text-sm text-black">
             会社説明（任意・翻訳対象）
           </div>
           <Button
@@ -175,7 +175,7 @@ export default function EditView({
 
       {/* 事業内容（自動伸縮 / 空行・末尾改行を保持） */}
       <div className="space-y-2">
-        <div className="text-sm text-white text-outline">
+        <div className="text-sm text-black">
           事業内容（任意・翻訳対象 / 1行につき1項目 / 空行OK）
         </div>
         <AutoResizeTextarea
@@ -188,7 +188,7 @@ export default function EditView({
           placeholder={"例：\n主要サービスA\nCMS構築\n運用サポート\n"}
           className="bg-white/80"
         />
-        <p className="text-xs text-white text-outline">
+        <p className="text-xs text-black">
           ※ Enter
           での空行や、最後の改行も保持されます（閲覧表示では空行は表示されません）。
         </p>

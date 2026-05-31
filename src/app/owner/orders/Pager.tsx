@@ -51,7 +51,7 @@ export default function Pager({ initialPage, totalCount, pageSize }: Props) {
         ← 前へ
       </button>
 
-      <span className="text-sm text-white text-outline">{rangeText}</span>
+      <span className="text-sm text-black">{rangeText}</span>
 
       <button
         type="button"

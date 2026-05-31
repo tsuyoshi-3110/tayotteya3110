@@ -508,7 +508,7 @@ export default function StaffClient() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto p-4 pt-5">
+    <main className="max-w-2xl mx-auto p-4 pt-5">
       {/* ✅ 共通 BusyOverlay（進捗＆保存中） */}
       <BusyOverlay uploadingPercent={progress} saving={saving} />
 
@@ -529,7 +529,7 @@ export default function StaffClient() {
           items={list.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-1 lg:grid-cols-1 items-stretch w-full max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 gap-6 items-stretch w-full">
             {list.map((p) => {
               const loc = displayOf(p, uiLang);
               return (
@@ -826,7 +826,7 @@ export function StaffCard({
         <h2
           className={clsx(
             "text-sm font-bold whitespace-pre-wrap",
-            "text-white text-outline"
+            "text-black"
           )}
         >
           {locTitle}
@@ -835,7 +835,7 @@ export function StaffCard({
           <p
             className={clsx(
               "text-sm whitespace-pre-wrap",
-              "text-white text-outline"
+              "text-black"
             )}
           >
             {locBody}
