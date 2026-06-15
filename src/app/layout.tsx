@@ -9,6 +9,7 @@ import ThemeBackground from "@/components/ThemeBackground";
 import WallpaperBackground from "@/components/WallpaperBackground";
 import SubscriptionOverlay from "@/components/SubscriptionOverlay";
 import AnalyticsLogger from "@/components/AnalyticsLogger";
+import TextColorLoader from "@/components/TextColorLoader";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import { CartProvider } from "@/lib/cart/CartContext";
 import { seo, site, pageUrl, PUBLIC_ADDRESS } from "@/config/site";
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="relative min-h-[100dvh] flex flex-col">
         <WallpaperBackground />
         <ThemeBackground />
+        <TextColorLoader />
         <AnalyticsLogger />
         <CartProvider>
           <SubscriptionOverlay siteKey={SITE_KEY} />

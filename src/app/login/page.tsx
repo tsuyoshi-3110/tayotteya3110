@@ -27,6 +27,7 @@ import ChangePassword from "@/components/ChangePassword";
 import ForgotEmail from "@/components/ForgotEmail";
 import PasswordInput from "@/components/PasswordInput";
 import FontSwitcher from "@/components/FontSwitcher";
+import TextColorPicker from "@/components/TextColorPicker";
 import ThemeSelector from "@/components/ThemeSelector";
 import { ThemeKey } from "@/lib/themes";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
@@ -1248,6 +1249,11 @@ export default function LoginPage() {
                   <div>
                     <SectionTitle>フォント</SectionTitle>
                     <FontSwitcher />
+                  </div>
+
+                  <div>
+                    <SectionTitle>文字の色</SectionTitle>
+                    <TextColorPicker />
                   </div>
 
                   {/* 候補チェック */}

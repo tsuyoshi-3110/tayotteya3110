@@ -60,6 +60,15 @@
 
 :root {
   --radius: 0.625rem;
+
+  /* 文字色（JSで上書き可能） */
+  --text-color-body: #1a1a1a;
+  --text-color-title: #111111;
+  --text-color-header: #000000;
+  --text-color-menu: #000000;
+
+  /* 文字枠（JSで上書き可能）— デフォルト transparent = 枠なし */
+  --text-outline-color: transparent;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -127,16 +136,30 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* 文字の周りに黒フチを作る */
+/* 文字の周りにフチを作る（色はCSS変数で制御、デフォルト transparent = 枠なし） */
 .text-outline {
-  text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000,
-    1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+  text-shadow:
+    1px 0 0 var(--text-outline-color),
+    -1px 0 0 var(--text-outline-color),
+    0 1px 0 var(--text-outline-color),
+    0 -1px 0 var(--text-outline-color),
+    1px 1px 0 var(--text-outline-color),
+    -1px 1px 0 var(--text-outline-color),
+    1px -1px 0 var(--text-outline-color),
+    -1px -1px 0 var(--text-outline-color);
 }
 
-/* 濃いめにしたいとき（太めのフチ） */
+/* 濃いめのフチ（同上） */
 .text-outline-2 {
-  text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
-    2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
+  text-shadow:
+    2px 0 0 var(--text-outline-color),
+    -2px 0 0 var(--text-outline-color),
+    0 2px 0 var(--text-outline-color),
+    0 -2px 0 var(--text-outline-color),
+    2px 2px 0 var(--text-outline-color),
+    -2px 2px 0 var(--text-outline-color),
+    2px -2px 0 var(--text-outline-color),
+    -2px -2px 0 var(--text-outline-color);
 }
 
 .font-kosugi {
@@ -160,6 +183,14 @@
     @apply bg-background text-foreground;
     font-family: var(--selected-font);
   }
+}
+
+/* @layer の外に書くことで Tailwind ユーティリティ（text-black 等）より優先される */
+body {
+  color: var(--text-color-body);
+}
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-color-title);
 }
 
 @keyframes progress {

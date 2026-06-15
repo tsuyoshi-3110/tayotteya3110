@@ -620,10 +620,8 @@ export default function Header({ className = "" }: { className?: string }) {
       {/* ロゴ */}
       <Link
         href="/"
-        className={clsx(
-          "text-lg font-bold flex items-center gap-2 py-2 hover:opacity-50",
-          "text-black"
-        )}
+        className="text-lg font-bold flex items-center gap-2 py-2 hover:opacity-50"
+        style={{ color: "var(--text-color-header)" }}
       >
         {logoUrl && logoUrl.trim() !== "" && (
           <Image
@@ -645,10 +643,11 @@ export default function Header({ className = "" }: { className?: string }) {
             <Button
               variant="ghost"
               size="icon"
-              className={clsx(
-                "w-7 h-7 border-2",
-                isDark ? "text-white border-white" : "border-black"
-              )}
+              className="w-7 h-7 border-2"
+              style={{
+                color: "var(--text-color-header)",
+                borderColor: "var(--text-color-header)",
+              }}
               aria-label={(T[uiLang] ?? T.ja).menuTitle}
             >
               <Menu size={26} />
@@ -663,15 +662,21 @@ export default function Header({ className = "" }: { className?: string }) {
               "flex h-dvh min-h-0 flex-col p-0",
               gradient && "bg-linear-to-b",
               gradient || "bg-gray-100",
-              isDark
-                ? "[&>button]:text-white [&>button>svg]:text-white! [&>button>svg]:stroke-3 [&>button>svg]:w-7 [&>button>svg]:h-6"
-                : "[&>button]:text-black [&>button>svg]:text-black! [&>button>svg]:stroke-3 [&>button>svg]:w-7 [&>button>svg]:h-6"
+              "[&>button>svg]:stroke-3 [&>button>svg]:w-7 [&>button>svg]:h-6"
             )}
+            style={
+              {
+                "--menu-text": "var(--text-color-menu)",
+              } as React.CSSProperties
+            }
             dir={rtl ? "rtl" : "ltr"}
           >
             {/* 視覚タイトル */}
             <SheetHeader className="pt-4 px-4">
-              <SheetTitle className="text-center text-xl text-black!">
+              <SheetTitle
+                className="text-center text-xl"
+                style={{ color: "var(--text-color-menu)" }}
+              >
                 {(T[uiLang] ?? T.ja).menuTitle}
               </SheetTitle>
             </SheetHeader>
@@ -689,7 +694,8 @@ export default function Header({ className = "" }: { className?: string }) {
                     key={key}
                     href={href}
                     onClick={() => setOpen(false)}
-                    className="text-lg text-black"
+                    className="text-lg"
+                    style={{ color: "var(--text-color-menu)" }}
                   >
                     {labelOf(key as Keys)}
                   </Link>
@@ -712,21 +718,21 @@ export default function Header({ className = "" }: { className?: string }) {
                     <Link
                       href="/postList"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-black"
+                      className="text-center text-lg" style={{ color: "var(--text-color-menu)" }}
                     >
                       {labelOf("timeline")}
                     </Link>
                     <Link
                       href="/community"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-black"
+                      className="text-center text-lg" style={{ color: "var(--text-color-menu)" }}
                     >
                       {labelOf("community")}
                     </Link>
                     <Link
                       href="/analytics"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-black"
+                      className="text-center text-lg" style={{ color: "var(--text-color-menu)" }}
                     >
                       {labelOf("analytics")}
                     </Link>
@@ -734,7 +740,7 @@ export default function Header({ className = "" }: { className?: string }) {
                     <Link
                       href="/business-card"
                       onClick={() => setOpen(false)}
-                      className="text-center text-lg text-black"
+                      className="text-center text-lg" style={{ color: "var(--text-color-menu)" }}
                     >
                       {labelOf("business-card")}
                     </Link>
@@ -745,7 +751,7 @@ export default function Header({ className = "" }: { className?: string }) {
                   <Link
                     href="/login"
                     onClick={() => setOpen(false)}
-                    className="text-center text-lg text-black"
+                    className="text-center text-lg" style={{ color: "var(--text-color-menu)" }}
                   >
                     {labelOf("admin")}
                   </Link>
