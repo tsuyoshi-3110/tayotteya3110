@@ -27,6 +27,10 @@ interface Props {
   loop?: boolean; // ※未使用（動画は isSingleVideo で制御）
   muted?: boolean; // 既定: true（動画用）
   alt?: string;
+  /** 一覧カードでは冒頭フレームを表示し、再生準備完了後に動画を流す */
+  videoDisplay?: "play" | "thumbnailUntilReady";
+  /** 動画読込中に即時表示するサムネイル画像 */
+  videoPoster?: string;
 }
 
 /** items があればそれを優先。なければ旧来の単枚 src/type を1枚目として使う */
@@ -69,8 +73,13 @@ export default function ProductMedia({
   autoPlay = true,
   muted = true,
   alt = "",
+  videoDisplay = "play",
+  videoPoster,
 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [readyVideoIndexes, setReadyVideoIndexes] = useState<Set<number>>(
+    () => new Set(),
+  );
   // 画面に入る少し前からプリロードを始めたいので rootMargin を広めに
   const [ref, visible] = useOnScreen<HTMLDivElement>("600px");
 
@@ -99,7 +108,12 @@ export default function ProductMedia({
       if (!video) return;
       const slide = slides[index];
 
-      if (visible && index === safeIndex && slide?.type === "video") {
+      if (
+        (videoDisplay === "play" || readyVideoIndexes.has(index)) &&
+        visible &&
+        index === safeIndex &&
+        slide?.type === "video"
+      ) {
         const p = video.play();
         if (p && typeof p.catch === "function") {
           p.catch(() => {
@@ -110,7 +124,7 @@ export default function ProductMedia({
         video.pause();
       }
     });
-  }, [visible, safeIndex, slides]);
+  }, [visible, safeIndex, slides, videoDisplay, readyVideoIndexes]);
 
   /* =======================
      自動スライド
@@ -165,6 +179,42 @@ export default function ProductMedia({
     goTo(currentIndex + 1);
   };
 
+  const showVideoThumbnail = (video: HTMLVideoElement) => {
+    if (videoDisplay !== "thumbnailUntilReady") return;
+    video.pause();
+
+    const previewTime =
+      Number.isFinite(video.duration) && video.duration > 0
+        ? Math.min(0.2, Math.max(0, video.duration / 20))
+        : 0.2;
+
+    try {
+      video.currentTime = previewTime;
+    } catch {
+      // 一部ブラウザではseek可能になるまで少し待つため、先頭フレームを使う
+    }
+  };
+
+  const markVideoReady = (index: number, video: HTMLVideoElement) => {
+    if (videoDisplay !== "thumbnailUntilReady") return;
+
+    setReadyVideoIndexes((previous) => {
+      if (previous.has(index)) return previous;
+      const next = new Set(previous);
+      next.add(index);
+      return next;
+    });
+
+    if (visible && index === safeIndex) {
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          // ブラウザの自動再生制限時は静止サムネイルのまま表示する
+        });
+      }
+    }
+  };
+
   /* =======================
      スライダー表示
      - flex で横並び
@@ -212,10 +262,17 @@ export default function ProductMedia({
                   className="absolute inset-0 w-full h-full object-cover"
                   playsInline
                   muted={muted}
+                  poster={videoPoster}
                   // 自動再生は useEffect 側で制御
                   autoPlay={false}
                   loop={isSingleVideo}
                   preload={visible ? "auto" : "metadata"}
+                  onLoadedMetadata={(event) =>
+                    showVideoThumbnail(event.currentTarget)
+                  }
+                  onCanPlayThrough={(event) =>
+                    markVideoReady(index, event.currentTarget)
+                  }
                   onEnded={handleVideoEnded}
                 />
               ) : (
