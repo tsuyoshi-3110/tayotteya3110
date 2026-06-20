@@ -6,7 +6,8 @@ import QRCode from "react-qr-code";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { site } from "@/config/site";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { SITE_KEY } from "@/lib/atoms/siteKeyAtom";
 import {
   collection,
@@ -14,7 +15,7 @@ import {
   onSnapshot,
   QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { Store, X } from "lucide-react";
+import { ExternalLink, Store, X } from "lucide-react";
 
 /* ========== 型 ========== */
 type Contact = {
@@ -178,6 +179,8 @@ export default function BusinessCardPage() {
   const pageUrl = site?.baseUrl || origin || "https://example.com";
 
   const [editable, setEditable] = useState<SiteDoc>(null);
+  const [ssoLoading, setSsoLoading] = useState(false);
+  const [ssoError, setSsoError] = useState("");
   const [base, setBase] = useState<SiteDoc>(null);
   const [stores, setStores] = useState<StoreItem[]>([]);
 
@@ -306,6 +309,64 @@ export default function BusinessCardPage() {
     `${contact.company ?? ""} ${contact.name ?? ""}`
   )}&body=${encodeURIComponent(shareText)}`;
 
+  const openXenoCard = async () => {
+    setSsoError("");
+    const user = auth.currentUser;
+    if (!user) {
+      setSsoError("PageitへログインしてからXenoCardを開いてください。");
+      return;
+    }
+
+    setSsoLoading(true);
+    try {
+      const idToken = await user.getIdToken(true);
+      const tokenSegment = idToken.split(".")[1];
+      const normalizedTokenSegment = tokenSegment
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(Math.ceil(tokenSegment.length / 4) * 4, "=");
+      const tokenPayload = JSON.parse(
+        atob(normalizedTokenSegment),
+      ) as { aud?: string };
+      const expectedProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+      if (
+        expectedProjectId &&
+        tokenPayload.aud &&
+        tokenPayload.aud !== expectedProjectId
+      ) {
+        await signOut(auth);
+        throw new Error(
+          "Firebase設定が更新されています。Pageitへ再ログインしてからお試しください。",
+        );
+      }
+
+      const response = await fetch("/api/xenocard-sso", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+      const json = (await response.json()) as {
+        redirectUrl?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !json.redirectUrl) {
+        throw new Error(json.error || "XenoCardへ接続できませんでした。");
+      }
+
+      window.location.assign(json.redirectUrl);
+    } catch (error) {
+      setSsoError(
+        error instanceof Error
+          ? error.message
+          : "XenoCardへ接続できませんでした。",
+      );
+      setSsoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b mt-10 dark:from-neutral-900 dark:to-neutral-950">
       <div className="mx-auto max-w-3xl p-6">
@@ -424,6 +485,29 @@ export default function BusinessCardPage() {
             </div>
           </CardContent>
         </Card>
+
+        <div className="mt-6 rounded-2xl border border-white/40 bg-white/35 p-6 text-center shadow-sm backdrop-blur-sm">
+          <p className="text-base font-semibold">XenoCard デジタル名刺</p>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed opacity-75">
+            スマートフォンで見せたり、QRコードやURLで送ったりできるデジタル名刺です。
+            会社情報・連絡先・ロゴ・背景を編集し、メンバーごとの名刺をまとめて管理できます。
+          </p>
+          <p className="mt-2 text-xs opacity-60">
+            Pageitと同じアカウントで、そのままXenoCardを利用できます。
+          </p>
+          <button
+            type="button"
+            onClick={() => void openXenoCard()}
+            disabled={ssoLoading}
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50 disabled:cursor-wait disabled:opacity-60"
+          >
+            {ssoLoading ? "接続中…" : "XenoCardを開く"}
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {ssoError && (
+            <p className="mt-3 text-xs font-medium text-red-700">{ssoError}</p>
+          )}
+        </div>
       </div>
 
       {/* ====== ピッカーモーダル（日本語・センター表示） ====== */}
