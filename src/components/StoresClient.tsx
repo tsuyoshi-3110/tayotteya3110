@@ -493,7 +493,7 @@ export default function StoresClient() {
       // ★ 既存にgeoが無い場合は必ず再解決
       const needResolve =
         !isEdit ||
-        !editingStore?.geo?.placeId ||
+        !editingStore?.geo ||
         prevName !== base.name ||
         prevAddr !== base.address;
 

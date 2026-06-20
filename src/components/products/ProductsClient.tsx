@@ -685,7 +685,6 @@ export default function ProductsClient() {
                         type={primary.type}
                         items={slides}
                         className="rounded-t-xl"
-                        videoDisplay="thumbnailUntilReady"
                       />
 
                       <div className="p-1 space-y-1">

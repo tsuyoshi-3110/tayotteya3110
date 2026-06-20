@@ -515,8 +515,6 @@ export default function BackgroundMedia() {
             autoPlay
             muted
             alt="背景メディア"
-            videoDisplay="thumbnailUntilReady"
-            videoPoster={heroVideoMeta?.thumbnailUrl}
           />
         </div>
       )}
